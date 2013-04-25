@@ -1,4 +1,5 @@
 #include "femInputData.h"
+#include "femUtils.h"
 
 #include <stdlib.h>
 #include <iostream>
@@ -7,8 +8,26 @@
 
 #include <boost/algorithm/string.hpp>
 
+// Contructor
 femInputData::femInputData()
 {
+  // Allocate
+  mainModelOrigin = new double[3];
+  mainModelRefSystem = new double*[3];
+  for(int loopA=0;loopA<3;loopA++){
+    mainModelRefSystem[loopA] = new double[3];
+  }
+  stenosisLength = 0.0;
+}
+
+// Destructor
+femInputData::~femInputData(){
+  // DeAllocate
+  delete [] mainModelOrigin;
+  for(int loopA=0;loopA<3;loopA++){
+    delete [] mainModelRefSystem[loopA];
+  }
+  delete [] mainModelRefSystem;
 }
 
 
@@ -17,6 +36,9 @@ void femInputData::ReadFromFile(std::string fileName){
   // Declare input File
   std::ifstream infile;
   infile.open(fileName);
+
+  // Write Message
+  femUtils::WriteMessage("Reading Input Parameter...");
 
   // Read Data From File
   int lineCount = 0;
@@ -62,54 +84,37 @@ void femInputData::ReadFromFile(std::string fileName){
           // Main Model Reference System Axis 1
           boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
           mainModelRefSystem[0][0] = atof(tokenizedString[0].c_str());
-          mainModelRefSystem[0][1] = atof(tokenizedString[1].c_str());
-          mainModelRefSystem[0][2] = atof(tokenizedString[2].c_str());
+          mainModelRefSystem[1][0] = atof(tokenizedString[1].c_str());
+          mainModelRefSystem[2][0] = atof(tokenizedString[2].c_str());
           break;
         case 8:
           // Main Model Reference System Axis 2
           boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
-          mainModelRefSystem[1][0] = atof(tokenizedString[0].c_str());
+          mainModelRefSystem[0][1] = atof(tokenizedString[0].c_str());
           mainModelRefSystem[1][1] = atof(tokenizedString[1].c_str());
-          mainModelRefSystem[1][2] = atof(tokenizedString[2].c_str());
+          mainModelRefSystem[2][1] = atof(tokenizedString[2].c_str());
           break;
         case 9:
           // Main Model Reference System Axis 3
           boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
-          mainModelRefSystem[2][0] = atof(tokenizedString[0].c_str());
-          mainModelRefSystem[2][1] = atof(tokenizedString[1].c_str());
+          mainModelRefSystem[0][2] = atof(tokenizedString[0].c_str());
+          mainModelRefSystem[1][2] = atof(tokenizedString[1].c_str());
           mainModelRefSystem[2][2] = atof(tokenizedString[2].c_str());
           break;
         case 10:
-          // Origin on Mapping Model
+          // Length of the stenosis
           boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
-          mappingModelOrigin[0] = atof(tokenizedString[0].c_str());
-          mappingModelOrigin[1] = atof(tokenizedString[1].c_str());
-          mappingModelOrigin[2] = atof(tokenizedString[2].c_str());
-          break;
-        case 11:
-          // Mapping Model Reference System Axis 1
-          boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
-          mappingModelRefSystem[0][0] = atof(tokenizedString[0].c_str());
-          mappingModelRefSystem[0][1] = atof(tokenizedString[1].c_str());
-          mappingModelRefSystem[0][2] = atof(tokenizedString[2].c_str());
-          break;
-        case 12:
-          // Mapping Model Reference System Axis 2
-          boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
-          mappingModelRefSystem[1][0] = atof(tokenizedString[0].c_str());
-          mappingModelRefSystem[1][1] = atof(tokenizedString[1].c_str());
-          mappingModelRefSystem[1][2] = atof(tokenizedString[2].c_str());
-          break;
-        case 13:
-          // Mapping Model Reference System Axis 3
-          boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
-          mappingModelRefSystem[2][0] = atof(tokenizedString[0].c_str());
-          mappingModelRefSystem[2][1] = atof(tokenizedString[1].c_str());
-          mappingModelRefSystem[2][2] = atof(tokenizedString[2].c_str());
+          stenosisLength = atof(tokenizedString[0].c_str());
           break;
       }
     }
   }
+  // Set the name of the output file
+  mainModelCoordsOutputName = std::string("result_model.coordinates");
+  mainModelConnectionsOutputName = std::string("result_model.connections");
+
   // Close File
   infile.close();
+
+  femUtils::WriteMessage("Done.\n");
 }

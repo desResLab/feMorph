@@ -1,5 +1,6 @@
-#include "femElement.h"
 #include "femNode.h"
+#include "femElement.h"
+#include "femFace.h"
 
 #include "femException.h"
 #include "femConstants.h"
@@ -17,7 +18,7 @@ femElement::femElement(int number, int prop, int totalNodes, int* connections)
 }
 
 // Copy Constructor
-femElement::femElement(femElement* other){
+femElement::femElement(const femElement* other){
     // Numbers
     elementNumber = other->elementNumber;
     propertyNumber = other->propertyNumber;
@@ -31,8 +32,46 @@ femElement::femElement(femElement* other){
     }
 }
 
+// ==========
+// Destructor
+// ==========
 femElement::~femElement()
 {
+}
+
+// =====================
+// Eval Element Centroid
+// =====================
+void femElement::evalElementCentroid(std::vector<femNode*> &nodeList, double* centroid){
+  // Initialize Centroid
+  centroid[0] = 0.0;
+  centroid[1] = 0.0;
+  centroid[2] = 0.0;
+  int currNode = 0;
+  int totNodes = elementConnections.size();
+  for(int loopA=0;loopA<totNodes;loopA++){
+    currNode = elementConnections[loopA];
+    centroid[0] = centroid[0] + nodeList[currNode]->coords[0];
+    centroid[1] = centroid[1] + nodeList[currNode]->coords[1];
+    centroid[2] = centroid[2] + nodeList[currNode]->coords[2];
+  }
+  centroid[0] = centroid[0]/double(totNodes);
+  centroid[1] = centroid[1]/double(totNodes);
+  centroid[2] = centroid[2]/double(totNodes);
+}
+
+// ====================================================
+// Eval Distance between the centroid and a given point
+// ====================================================
+double femElement::evalPointToElementDistance(double* pointCoords, std::vector<femNode*> &nodeList){
+  double centroid[3] = {0.0};
+  evalElementCentroid(nodeList,centroid);
+  double dist = 0.0;
+  for(int loopA=0;loopA<3;loopA++){
+    dist += (centroid[loopA]-pointCoords[loopA])*(centroid[loopA]-pointCoords[loopA]);
+  }
+  // Return
+  return sqrt(dist);
 }
 
 // ===============================
@@ -126,7 +165,7 @@ void EvalExternalTetVolumes(double* pointCoords, double** coordMat, double* extT
   }
   // Eval Volume Coords
   for(int loopA=0;loopA<kTetra4Nodes;loopA++){
-    for(int loopB=0;loopB<kTetra4Nodes;loopA++){
+    for(int loopB=0;loopB<kTetra4Nodes;loopB++){
       if (loopB != loopA){
         for(int loopC=0;loopC<3;loopC++){
           // Assemble Modified Coord Matrix With adHoc Coords
@@ -148,8 +187,6 @@ void EvalExternalTetVolumes(double* pointCoords, double** coordMat, double* extT
   }
   delete [] currCoordMat;
 }
-
-
 
 // ========================================
 // Eval Volume Coordinates of Point in Tet4
@@ -177,6 +214,9 @@ void femTetra4::EvalVolumeCoordinates(double* pointCoords, std::vector<femNode*>
   {
     sum += currVolumes[loopA];
   }
+  //if (fabs(sum-1.0)>kMathZero){
+  //  throw new femException("Internal: Tet4 Volume Coordinates do not sum up to one.");
+  //}
 
   // Compute Final Volume Coordinates
   for(int loopA=0;loopA<kTetra4Nodes;loopA++){
@@ -194,7 +234,7 @@ void femTetra4::EvalVolumeCoordinates(double* pointCoords, std::vector<femNode*>
 // Check if Node is Inside
 bool femTetra4::isNodeInsideElement(double* pointCoords,std::vector<femNode*> &nodeList){
   // Init Result
-  bool isInside = false;
+  bool isInside = true;
 
   // Eval Volume Coordinates
   double volCoords[kTetra4Nodes] = {0.0};
@@ -210,9 +250,10 @@ bool femTetra4::isNodeInsideElement(double* pointCoords,std::vector<femNode*> &n
   for(int loopA=0;loopA<kTetra4Nodes;loopA++){
     sum += volCoords[loopA];
   }
-  if (fabs(sum-1.0)>kMathZero){
-    throw new femException("Error: Internal. Tet4 Shape Function don't sum up to one");
-  }
+  // NO: I use it to evaluate if a node is inside
+  //if (fabs(sum-1.0)>kMathZero){
+  //  throw new femException("Error: Internal. Tet4 Shape Function don't sum up to one");
+  //}
   // Return
   return isInside;
 }
@@ -246,268 +287,113 @@ void femElement::InterpolateElementDisplacements(double* nodeCoords, std::vector
   }
 }
 
-
-/*// Transform Model
-Function TransformNode(MappingModelID: Integer4;
-                       XYZ: Array3Doubles;
-                       ParamValue: Double;
-                       Var NewXYZ: Array3Doubles): Integer4;
-Const
-  CurrentResultCase = 1;
-Var
-  LoopA,LoopB: Integer4;
-  Error: Integer4;
-  Count: Integer4;
-  Found: Boolean;
-  CoordMat: Double2DArray;
-  FoundElement: Integer4;
-  Connection: ConnectionArray;
-  MorphedDisp: Array3Doubles;
-  NodeRes: NodeResultArray;
-  TotalMappingElements: Integer4;
-  VolCoords: Array10Doubles;
-  Sum: Double;
-  VCoords: Array4Doubles;
-Begin
+// =============================================
+// CAREFUL: VALID ONLY FOR STRAIGHT SIDE TETRA10
+// =============================================
+bool femTetra10::isNodeInsideElement(double* pointCoords,std::vector<femNode*> &nodeList){
   // Init Result
-  Result:=0;
+  bool isInside = true;
 
-  // Get The total Number Of Mapping elements
-  Error:=St7GetTotal(MappingModelID,tyBRICK,TotalMappingElements);
-  If (Error<>ERR7_NoError) Then FatalError(Error);
+  // Copy the first four connctions
+  int* connections= new int[4];
+  for(int loopA=0;loopA<kTetra4Nodes;loopA++){
+    connections[loopA] = this->elementConnections[loopA];
+  }
 
-  // Find the Corresponding Element: Full Search: TEMPORARY
-  Found:=FALSE;
-  Count:=0;
-  While (Not(Found))And(Count<TotalMappingElements) Do
-  Begin
-    // Update Counter
-    Inc(Count);
-    // Check If foundEvalExternalTetVolumes
-    Found:=IsPointInsideLinearTet(MappingModelID,XYZ,Count);
-    If Found Then
-  End;
+  // Create a temporay Tet4 Element with the First 4 nodes
+  femTetra4* tet4 = new femTetra4(1,1,kTetra4Nodes,connections);
+  // Compute Final Volume Coordinates
+  double tet4VolCoords[kTetra4Nodes] = {0.0};
+  tet4->EvalVolumeCoordinates(pointCoords,nodeList,tet4VolCoords);
 
-  // Check If found
-  If (Found) Then
-  Begin
-    // Store the Element where the node belongs to
-    FoundElement:=Count;
+  // Compute Result
+  for(int loopA=0;loopA<kTetra4Nodes;loopA++){
+    isInside = (isInside)&&(tet4VolCoords[loopA] > -1.0e-2);
+  }
 
-    // Eval Volume Coordinates for Quandratic Tetra
-    VolCoords:=EvalTet10VolCoordinates(MappingModelID,XYZ,FoundElement);
+  // Check if the volume coordinates sum up to one
+  double sum = 0.0;
+  for(int loopA=0;loopA<kTetra4Nodes;loopA++){
+    sum += tet4VolCoords[loopA];
+  }
+  // NO: I use it to evaluate is a node is inside
+  //if (fabs(sum-1.0)>kMathZero){
+  //  throw new femException("Error: Internal. In Tet10 internal Check, Shape Function don't sum up to one");
+  //}
 
-    // Get The element Connections for the Node
-    Error:=St7GetElementConnection(MappingModelID,tyBRICK,FoundElement,Connection);
-    If (Error<>ERR7_NoError) Then FatalError(Error);
+  // Delete Temporary Tet4 element
+  delete tet4;
 
-    // Initialize Results
-    For LoopA:=0 To 2 Do MorphedDisp[LoopA]:=0.0;
+  // Return
+  return isInside;
+}
 
-    // Interpolate the displacement Field
-    For LoopA:=0 To (Connection[0]-1) Do
-    Begin
-      // Get Node Displacement For Transformed Element
-      Error:=St7GetNodeResult(MappingModelID,kNodeDisp,Connection[LoopA+1],CurrentResultCase,NodeRes);
-      If (Error<>ERR7_NoError) Then FatalError(Error);
+// ============================================
+// Check Criterion for Random Walking algorithm
+// ============================================
+void femElement::CheckRandomWalkingCriterion(int localFaceID, double* nodeCoords,
+                                             std::vector<femFace*> &faceList,std::vector<femNode*> &nodeList,
+                                             bool &isOnFace, bool &isOnOppositeSide){
+  // Intialize Face Node Coords
+  double faceNodeCoords[3][3];
+  double normal[3] = {0.0};
+  double centroid[3] = {0.0};
 
-      // Interpolate Morphed Displacements
-      For LoopB:=0 To 2 Do MorphedDisp[LoopB]:=MorphedDisp[LoopB]+VolCoords[LoopA]*NodeRes[LoopB]*ParamValue;
-    End;
+  // Eval element Centroid
+  evalElementCentroid(nodeList,centroid);
 
-    // Store the New Coordinates
-    For LoopA:=0 To 2 Do NewXYZ[LoopA]:=XYZ[LoopA]+MorphedDisp[LoopA];
-  End Else Begin
+  // Get global face number
+  int faceID = elementFaces[localFaceID];
 
-    // If Cannot Find the Element than Use the Same Coordinates and Exit
-    For LoopA:=0 To 2 Do NewXYZ[LoopA]:=XYZ[LoopA];
-  End;
-End;
+  // Get node Coordinates from face
+  int currNode = 0;
+  for(int loopA=0;loopA<3;loopA++){
+    currNode = faceList[faceID]->faceNodes[loopA];
+    faceNodeCoords[0][loopA] = nodeList[currNode]->coords[0];
+    faceNodeCoords[1][loopA] = nodeList[currNode]->coords[1];
+    faceNodeCoords[2][loopA] = nodeList[currNode]->coords[2];
+  }
 
-// Get Limits From Model
-Function GetMappingModelLimits(ModelID: Integer4): Array6Doubles;
-Var
-  LoopA: Integer4;
-  Error: Integer4;
-  TotalNodes: Integer4;
-  XYZ: Array3Doubles;
-Begin
-  {Initialize Result}
-  {MinX}
-  Result[0]:=MaxDouble;
-  {MaxX}
-  Result[1]:=-MaxDouble;
-  {MinY}
-  Result[2]:=MaxDouble;
-  {MaxY}
-  Result[3]:=-MaxDouble;
-  {MinZ}
-  Result[4]:=MaxDouble;
-  {MaxZ}
-  Result[5]:=-MaxDouble;
+  // Get Two Vectors
+  double vec1[3] = {0.0};
+  double vec2[3] = {0.0};
+  for(int loopA=0;loopA<3;loopA++){
+    vec1[loopA] = faceNodeCoords[loopA][1] - faceNodeCoords[loopA][0];
+    vec2[loopA] = faceNodeCoords[loopA][2] - faceNodeCoords[loopA][0];
+  }
 
-  // Get Total Nodes
-  Error:=St7GetTotal(ModelID,tyNODE,TotalNodes);
-  If (Error<>ERR7_NoError) Then FatalError(Error);
+  // Make external Product
+  femUtils::Do3DExternalProduct(vec1,vec2,normal);
 
-  // Get Limits Through Node Searching
-  For LoopA:=1 To TotalNodes Do
-  Begin
-    // Get Node Coords
-    Error:=St7GetNodeXYZ(ModelID,LoopA,XYZ);
-    If (Error<>ERR7_NoError) Then FatalError(Error);
+  // Check the Coordinate along the normal for the point and centroid
+  double pointDist = femUtils::Do3DInternalProduct(nodeCoords,normal);
+  double elDist = femUtils::Do3DInternalProduct(centroid,normal);
 
-    // Store Extreme Values
-    If (Result[0]>XYZ[0]) Then Result[0]:=XYZ[0];
-    If (Result[1]<XYZ[0]) Then Result[1]:=XYZ[0];
-    If (Result[2]>XYZ[1]) Then Result[2]:=XYZ[1];
-    If (Result[3]<XYZ[1]) Then Result[3]:=XYZ[1];
-    If (Result[4]>XYZ[2]) Then Result[4]:=XYZ[2];
-    If (Result[5]<XYZ[2]) Then Result[5]:=XYZ[2];
-  End;
-End;
+  // First Check
+  isOnFace = (fabs(pointDist)<kMathZero);
 
-// Check If Node is Within Limits
-Function IsNodeWithinLimits(XYZ: Array3Doubles;MappingLimits: Array6Doubles): Boolean;
-Begin
-  Result:=(XYZ[0]>MappingLimits[0])And
-          (XYZ[0]<MappingLimits[1])And
-          (XYZ[1]>MappingLimits[2])And
-          (XYZ[1]<MappingLimits[3])And
-          (XYZ[2]>MappingLimits[4])And
-          (XYZ[2]<MappingLimits[5]);
-End;
+  // Second Check
+  isOnOppositeSide = ((pointDist/elDist) < 0.0);
+}
 
-// Perform Mesh Mapping
-Function PerformMeshMapping(MainModelFileName: String;
-                            MappingModelFileName: String;
-                            MappingModelResultName: String;
-                            OutputFileName: String;
-                            ParamString: String): Integer4;
-Const
-  MainModelID = 1;
-  MappingModelID = 2;
-Var
-  LoopA,LoopB,LoopC: Integer4;
-  ErrorInt: Integer4;
-  TotalStates: Integer4;
-  MorphStates: DoubleArray;
-  ScratchPathCH: CharString;
-  MainModelFileNameCH,MappingModelFileNameCH: CharString;
-  MappingModelResultNameCH,SpectralNameCH: CharString;
-  OutputFileNameCH: CharString;
-  Error: Integer4;
-  TotalMainModelNodes: Integer4;
-  XYZ: Array3Doubles;
-  NewXYZ: Array3Doubles;
-  NodeResult: NodeResultArray;
-  NumPrimary,NumSecondary: Integer4;
-  MappingLimits: Array6Doubles;
-Begin
-  // Init Result
-  Result:=0;
-
-  // Get Parameter Value
-  ErrorInt:=ExtractMorphingParam(ParamString,TotalStates,MorphStates);
-  If (ErrorInt<>0) Then
-  Begin
-    Result:=ErrorInt;
-    Exit;
-  End;
-
-  // Open Main Model
-  StrPcopy(MainModelFileNameCH,MainModelFileName);
-  StrPcopy(ScratchPathCH,'G:\Temp');
-  Error:=St7OpenFile(MainModelID,MainModelFileNameCH,ScratchPathCH);
-  If (Error<>ERR7_NoError) Then FatalError(Error);
-
-  // Open Mapping Model
-  StrPcopy(MappingModelFileNameCH,MappingModelFileName);
-  StrPcopy(ScratchPathCH,'G:\Temp');
-  Error:=St7OpenFile(MappingModelID,MappingModelFileNameCH,ScratchPathCH);
-  If (Error<>ERR7_NoError) Then FatalError(Error);
-
-  // Open Mapping Model Result File
-  StrPcopy(MappingModelResultNameCH,MappingModelResultName);
-  StrPcopy(SpectralNameCH,'');
-  Error:=St7OpenResultFile(MappingModelID,MappingModelResultNameCH,SpectralNameCH,FALSE,NumPrimary,NumSecondary);
-  If (Error<>ERR7_NoError) Then FatalError(Error);
-
-  // Get Mapping Model Limits
-  MappingLimits:=GetMappingModelLimits(MappingModelID);
-
-  // Get Main Model Nodes
-  Error:=St7GetTotal(MainModelID,tyNODE,TotalMainModelNodes);
-  If (Error<>ERR7_NoError) Then FatalError(Error);
-
-  // Create New Custom Result File
-  StrPCopy(OutputFileNameCH,OutputFileName);
-  Error:=St7NewResFile(MainModelID,OutputFileNameCH,stLinearBucklingSolver);
-  If (Error<>ERR7_NoError) Then FatalError(Error);
-
-  // Set Custom Result File Paramteres
-  Error:=St7SetResFileNumCases(MainModelID,TotalStates);
-  If (Error<>ERR7_NoError) Then FatalError(Error);
-
-  // Set Multiplier for Every Case
-  For LoopA:=1 To TotalStates Do
-  Begin
-    Error:=St7SetResFileMode(MainModelID,LoopA,MorphStates[LoopA]);
-    If (Error<>ERR7_NoError) Then FatalError(Error);
-  End;
-
-  // Loop Through States
-  For LoopA:=1 To TotalStates Do
-  Begin
-    // Collect Current Parameter
-    For LoopB:=1 To TotalMainModelNodes Do
-    Begin
-      // Create Progress Box
-      CreateProgressBox('State ['+IntToStr(LoopA)+'/'+IntToStr(TotalStates)+']; Mapping Node ['+IntToStr(LoopB)+'/'+IntToStr(TotalMainModelNodes)+']...');
-      // Get Current Node Coordinates
-      Error:=St7GetNodeXYZ(MainModelID,LoopB,XYZ);
-      If (Error<>ERR7_NoError) Then FatalError(Error);
-
-      // Check if Nodes if Within Limits
-      If (IsNodeWithinLimits(XYZ,MappingLimits)) Then
-      Begin
-        // Transform Quantity based on Trans Model
-        Error:=TransformNode(MappingModelID,XYZ,MorphStates[LoopA],NewXYZ);
-        If (Error<>ERR7_NoError) Then FatalError(Error);
-      End Else Begin
-        // No Diplacement
-        For LoopC:=0 To 2 Do NewXYZ[LoopC]:=XYZ[LoopC];
-      End;
-
-      // Copy Node Results
-      For LoopC:=0 To 5 Do NodeResult[LoopC]:=0.0;
-      For LoopC:=0 To 2 Do NodeResult[LoopC]:=NewXYZ[LoopC]-XYZ[LoopC];
-      // Set Node Result
-      Error:=St7SetResFileNodeResult(MainModelID,LoopA,LoopB,kNodeDisp,NodeResult);
-      If (Error<>ERR7_NoError) Then FatalError(Error);
-    End;
-  End;
-
-  // Get Rid Of Progress Box
-  DestroyProgressBox;
-
-  // Close Custom Result File
-  Error:=St7CloseResFile(MainModelID);
-  If (Error<>ERR7_NoError) Then FatalError(Error);
-
-  // Close Models
-  // Main Model
-  Error:=St7CloseFile(MainModelID);
-  If (Error<>ERR7_NoError) Then FatalError(Error);
-
-  // Close Mapping Model Result File
-  Error:=St7CloseResultFile(MappingModelID);
-  If (Error<>ERR7_NoError) Then FatalError(Error);
-
-  // Trans Model
-  Error:=St7CloseFile(MappingModelID);
-  If (Error<>ERR7_NoError) Then FatalError(Error);
-End;
-
-end.*/
-
+// =================================
+// Get Adjacent Element through Face
+// =================================
+int femElement::getAdjacentElement(int localFaceID, std::vector<femFace*> &faceList){
+  int currNumber = elementNumber;
+  int faceID = elementFaces[localFaceID];
+  int numElements = faceList[faceID]->faceElements.size();
+  if(numElements == 1){
+    return -1;
+  }else{
+    int el1 = faceList[faceID]->faceElements[0];
+    int el2 = faceList[faceID]->faceElements[1];
+    if(el1 == currNumber){
+      return el2;
+    }else if(el2 == currNumber){
+      return el1;
+    }else{
+      throw new femException("Internal: Invalid Element connections in face.\n");
+    }
+  }
+}

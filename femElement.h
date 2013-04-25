@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "femNode.h"
+#include "femFace.h"
 
 // GENERIC ELEMENT
 class femElement
@@ -16,14 +17,16 @@ class femElement
     std::vector<int> elementFaces;
     // Constructor and Destructor
     femElement(int number, int prop, int totalNodes, int* connections);
-    femElement(femElement* other);
+    femElement(const femElement* other);
     virtual ~femElement();
     // Member Functions
-    void evalCentroid(double* centroid);
-    virtual bool isNodeInsideElement(double* nodeCoords){return false;}
+    void evalElementCentroid(std::vector<femNode*> &nodeList, double* centroid);
+    double evalPointToElementDistance(double* pointCoords, std::vector<femNode*> &nodeList);
+    void InterpolateElementDisplacements(double* nodeCoords, std::vector<femNode*> &nodeList, double* intDisps);
+    virtual bool isNodeInsideElement(double* pointCoords,std::vector<femNode*> &nodeList){return false;}
     virtual void EvalVolumeCoordinates(double* pointCoords, std::vector<femNode*> &nodeList, double* volCoords){}
-    virtual void InterpolateElementDisplacements(double* nodeCoords, std::vector<femNode*> &nodeList, double* intDisps);
-
+    void CheckRandomWalkingCriterion(int localFaceID, double* nodeCoords,std::vector<femFace*> &faceList,std::vector<femNode*> &nodeList,bool &isOnFace, bool &isOnOppositeSide);
+    int getAdjacentElement(int localFaceID, std::vector<femFace*> &faceList);
 };
 
 // TETRAHEDRAL ELEMENT
@@ -31,9 +34,10 @@ class femTetra4: public femElement
 {
   public:
     femTetra4(int number, int prop, int totalNodes, int* connections):femElement(number,prop,totalNodes,connections){}
+    femTetra4(const femElement* other):femElement(other){}
     virtual ~femTetra4(){}
     // Member Functions
-    virtual bool isNodeInsideElement(double* pointCoords,std::vector<femNode*> &nodeList);
+    bool isNodeInsideElement(double* pointCoords,std::vector<femNode*> &nodeList);
     virtual void EvalVolumeCoordinates(double* pointCoords, std::vector<femNode*> &nodeList, double* volCoords);
     void AssembleTetCoordsMat(std::vector<femNode*> &nodeList, double** coordMat);
 
@@ -43,11 +47,12 @@ class femTetra4: public femElement
 class femTetra10: public femElement
 {
   public:
-    femTetra10();
-    virtual ~femTetra10(){};
+    femTetra10(int number, int prop, int totalNodes, int* connections):femElement(number,prop,totalNodes,connections){}
+    femTetra10(const femElement* other):femElement(other){}
+    virtual ~femTetra10(){}
     // Member Functions
-    virtual bool isNodeInsideElement(double* nodeCoords);
     virtual void EvalVolumeCoordinates(double* pointCoords, std::vector<femNode*> &nodeList, double* volCoords);
+    virtual bool isNodeInsideElement(double* pointCoords,std::vector<femNode*> &nodeList);
 };
 
 // TETRAHEDRAL ELEMENT
@@ -55,7 +60,7 @@ class femHexa8: public femElement
 {
   public:
     femHexa8();
-    virtual ~femHexa8(){};
+    virtual ~femHexa8(){}
     // Member Functions
     virtual bool isNodeInsideElement(double* nodeCoords);
 };

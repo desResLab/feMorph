@@ -5,6 +5,7 @@
 #include <boost/algorithm/string.hpp>
 
 #include "femModel.h"
+#include "femGrid.h"
 #include "femInputData.h"
 #include "femException.h"
 #include "femConstants.h"
@@ -15,8 +16,7 @@ using namespace std;
 // Constructor
 femModel::femModel()
 {
-  // Initialize Model Box
-  double* modelBox = new double[6];
+  // Set modelBox
   // Min X
   modelBox[0] = std::numeric_limits<double>::max();
   // Max X
@@ -29,28 +29,26 @@ femModel::femModel()
   modelBox[4] = std::numeric_limits<double>::max();
   // Max Z
   modelBox[5] = -std::numeric_limits<double>::max();
+
+  // Initialize Model Centre
+  for(int loopA=0;loopA<3;loopA++){
+    modelCentre[loopA] = 0.0;
+  }
 }
 
 // Distructor
 femModel::~femModel()
 {
-  delete [] modelBox;
 }
 
-// ====================================================
-// Eval Distance between the centroid and a given point
-// ====================================================
-double femModel::evalPointToElementDistance(int elementID, double* pointCoords){
-  double centroid[3] = {0.0};
-  evalElementCentroid(elementID,centroid);
-  double dist = 0.0;
-  for(int loopA=0;loopA<3;loopA++){
-    dist += (centroid[loopA]-pointCoords[loopA])*(centroid[loopA]-pointCoords[loopA]);
-  }
-  // Return
-  return sqrt(dist);
+// =================
+// Eval Model Centre
+// =================
+void femModel::EvalModelCentre(){
+  modelCentre[0] = 0.5*(modelBox[0]+modelBox[1]);
+  modelCentre[1] = 0.5*(modelBox[2]+modelBox[3]);
+  modelCentre[2] = 0.5*(modelBox[4]+modelBox[5]);
 }
-
 
 // ======================================
 // Get Node ID in List from its numbering
@@ -111,19 +109,20 @@ void femModel::RotateModel(double angle, double* axis){
   double dispVec[3] = {0.0};
   double rotVec[3] = {0.0};
   for(unsigned int loopA=0;loopA<nodeList.size();loopA++){
+    // Rotate
     femUtils::Rotate3DVectorAroundAxis(nodeList[loopA]->coords,angle,axis);
     // Make local Copy
-    for(int loopA=0;loopA<3;loopA++){
-      dispVec[loopA] = nodeList[loopA]->displacements[loopA];
-      rotVec[loopA] = nodeList[loopA]->displacements[loopA+3];
+    for(int loopB=0;loopB<3;loopB++){
+      dispVec[loopB] = nodeList[loopA]->displacements[loopB];
+      rotVec[loopB] = nodeList[loopA]->displacements[loopB+3];
     }
     // Rotate Displacements and Rotations
     femUtils::Rotate3DVectorAroundAxis(dispVec,angle,axis);
     femUtils::Rotate3DVectorAroundAxis(rotVec,angle,axis);
     // Copy back
-    for(int loopA=0;loopA<3;loopA++){
-      nodeList[loopA]->displacements[loopA] = dispVec[loopA];
-      nodeList[loopA]->displacements[loopA+3] = rotVec[loopA];
+    for(int loopB=0;loopB<3;loopB++){
+      nodeList[loopA]->displacements[loopB] = dispVec[loopB];
+      nodeList[loopA]->displacements[loopB+3] = rotVec[loopB];
     }
   }
 }
@@ -136,14 +135,16 @@ void femModel::ReadNodeCoordsFromFile(std::string fileName){
   ifstream infile;
   infile.open(fileName);
 
+  // Write Message
+  femUtils::WriteMessage(std::string("Reading Coordinates for file ")+fileName+std::string("..."));
+
   // Read Data From File
   std::string buffer;
   std::vector<string> tokenizedString;
   // Initialize
   int currNodeNumber = 0;
-  double currNodeX = 0.0;
-  double currNodeY = 0.0;
-  double currNodeZ = 0.0;
+  double currCoords[3] = {0.0};
+  double currDisps[6] = {0.0};
   while (std::getline(infile,buffer)){
     // Trim String
     boost::trim(buffer);
@@ -151,22 +152,30 @@ void femModel::ReadNodeCoordsFromFile(std::string fileName){
     boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
 
     // Read node Number
-    currNodeNumber = atoi(tokenizedString[1].c_str());
+    currNodeNumber = atoi(tokenizedString[0].c_str());
 
     // Read Coordinates
-    currNodeX = atof(tokenizedString[2].c_str());
-    currNodeY = atof(tokenizedString[3].c_str());
-    currNodeZ = atof(tokenizedString[4].c_str());
+    currCoords[0] = atof(tokenizedString[1].c_str());
+    currCoords[1] = atof(tokenizedString[2].c_str());
+    currCoords[2] = atof(tokenizedString[3].c_str());
 
     // Create a new Node
-    femNode* newNode = new femNode(currNodeNumber,currNodeX,currNodeY,currNodeZ);
+    femNode* newNode = new femNode(currNodeNumber,currCoords,currDisps);
 
     // Add to the node List
     nodeList.push_back(newNode);
   }
 
+  // Eval Model Box
+  EvalModelBox();
+
+  // Eval Model Centre
+  EvalModelCentre();
+
   // Close File
   infile.close();
+
+  femUtils::WriteMessage("Done.\n");
 }
 
 // =====================================
@@ -177,9 +186,13 @@ void femModel::ReadElementConnectionsFromFile(std::string fileName){
   ifstream infile;
   infile.open(fileName);
 
+  // Write Message
+  femUtils::WriteMessage(std::string("Reading Connectivity for file ")+fileName+std::string("..."));
+
   // Read Data From File
   std::string buffer;
   std::vector<string> tokenizedString;
+  int totNodes = 0;
   int currElementNumber = 0;
   while (std::getline(infile,buffer)){
     // Trim String
@@ -187,24 +200,43 @@ void femModel::ReadElementConnectionsFromFile(std::string fileName){
     // Tokenize String
     boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
 
-    // Read node Number
-    currElementNumber = atoi(tokenizedString[1].c_str());
+    // Read element Number: IMPORTANT they start from 1 in the file
+    currElementNumber = atoi(tokenizedString[0].c_str()) - 1;
 
     // Read Element Connections
-    int* nodeConnections = new int(tokenizedString.size()-1);
-    for (unsigned int loopA=0;loopA<tokenizedString.size()-1;loopA++){
-      nodeConnections[loopA] = atoi(tokenizedString[loopA+1].c_str());
+    totNodes = tokenizedString.size() - 1;
+    int* nodeConnections = new int[totNodes];
+    for (int loopA=0;loopA<totNodes;loopA++){
+      // node numbering starts from 1
+      nodeConnections[loopA] = atoi(tokenizedString[loopA+1].c_str()) - 1;
     }
 
     // Create a new Element: Fixed Property Number for the time being!!!
-    femElement* newElement = new femElement(currElementNumber,1,tokenizedString.size()-1,nodeConnections);
+    femElement* newElement;
+    if(totNodes == kTetra4Nodes){
+      newElement = new femTetra4(currElementNumber,1,totNodes,nodeConnections);
+    }else if(totNodes == kTetra10Nodes){
+      newElement = new femTetra10(currElementNumber,1,totNodes,nodeConnections);
+    }else{
+      throw new femException("Error: Invalid Element Type");
+    }
 
     // Add to the node List
     elementList.push_back(newElement);
   }
 
+  // Test Print out
+  //FILE* debugFile;
+  //debugFile = fopen("testOut.txt","w");
+  //for(int loopA=0;loopA<elementList.size();loopA++){
+  //  fprintf(debugFile,"%d %d\n",loopA,elementList[loopA]->elementNumber);
+  // }
+  //fclose(debugFile);
+
   // Close File
   infile.close();
+
+  femUtils::WriteMessage("Done.\n");
 }
 
 // =================================
@@ -214,6 +246,9 @@ void femModel::ReadNodeDisplacementsFromFile(std::string fileName, bool readRota
   // Declare input File
   ifstream infile;
   infile.open(fileName);
+
+  // Write Message
+  femUtils::WriteMessage(std::string("Reading Displacements for file ")+fileName+std::string("..."));
 
   // Read Data From File
   std::string buffer;
@@ -233,18 +268,18 @@ void femModel::ReadNodeDisplacementsFromFile(std::string fileName, bool readRota
     boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
 
     // Read node Number
-    currNodeNumber = atoi(tokenizedString[1].c_str());
+    currNodeNumber = atoi(tokenizedString[0].c_str());
 
     // Read Coordinates
-    currNodeDX = atof(tokenizedString[2].c_str());
-    currNodeDY = atof(tokenizedString[3].c_str());
-    currNodeDZ = atof(tokenizedString[4].c_str());
+    currNodeDX = atof(tokenizedString[1].c_str());
+    currNodeDY = atof(tokenizedString[2].c_str());
+    currNodeDZ = atof(tokenizedString[3].c_str());
 
     // Read rotations if required
     if (readRotations) {
-      currNodeRX = atof(tokenizedString[5].c_str());
-      currNodeRY = atof(tokenizedString[6].c_str());
-      currNodeRZ = atof(tokenizedString[7].c_str());
+      currNodeRX = atof(tokenizedString[4].c_str());
+      currNodeRY = atof(tokenizedString[5].c_str());
+      currNodeRZ = atof(tokenizedString[6].c_str());
     } else {
       currNodeRX = 0.0;
       currNodeRY = 0.0;
@@ -260,12 +295,16 @@ void femModel::ReadNodeDisplacementsFromFile(std::string fileName, bool readRota
 
   // Close File
   infile.close();
+
+  femUtils::WriteMessage("Done.\n");
 }
 
 // ====================
 // Write Coords To File
 // ====================
 void femModel::WriteNodeCoordsToFile(std::string fileName){
+  // Write Message
+  femUtils::WriteMessage(std::string("Writing Node Coords to File ")+fileName+std::string("..."));
   // Open Output File
   FILE* outFile;
   outFile = fopen(fileName.c_str(),"w");
@@ -276,12 +315,16 @@ void femModel::WriteNodeCoordsToFile(std::string fileName){
   }
   // Close Output file
   fclose(outFile);
+  // Write Message
+  femUtils::WriteMessage(std::string("Done.\n"));
 }
 
 // =================================
 // Write Element Connections To File
 // =================================
 void femModel::WriteElementConnectionsToFile(std::string fileName){
+  // Write Message
+  femUtils::WriteMessage(std::string("Writing Element Connections to File ")+fileName+std::string("..."));
   // Open Output File
   FILE* outFile;
   outFile = fopen(fileName.c_str(),"w");
@@ -295,6 +338,8 @@ void femModel::WriteElementConnectionsToFile(std::string fileName){
   }
   // Close Output file
   fclose(outFile);
+  // Write Message
+  femUtils::WriteMessage(std::string("Done.\n"));
 }
 
 // ===================================================
@@ -303,32 +348,57 @@ void femModel::WriteElementConnectionsToFile(std::string fileName){
 void femModel::MapDisplacements(femModel* MappingModel,
                                 femInputData* data,
                                 double dispScaleFactor){
+  // Write Message
+  femUtils::WriteMessage(std::string("Mapping Displacements ..."));
   // Initialize Mapping Coords
-  double NodeMappingDisplacements[3] = {0.0};
-  double nodeDisps[3] = {0.0};
+  double nodeCoords[3] = {0.0};
+  double nodeDisps[3] = {0.0};  
+  // Create New Grid
+  femGrid* grid = new femGrid(MappingModel);
+
+  // Check If Correct
+  grid->ExportToVTKLegacy(std::string("grid.vtk"));
+
   // Loop through the nodes in the main model
   int elementID = 0;
-  for(unsigned int loopA=0;loopA<MappingModel->nodeList.size();loopA++){
+  int currIdx = 0;
+  for(unsigned int loopA=0;loopA<nodeList.size();loopA++){
+    // Store nodes
+    nodeCoords[0] = nodeList[loopA]->coords[0];
+    nodeCoords[1] = nodeList[loopA]->coords[1];
+    nodeCoords[2] = nodeList[loopA]->coords[2];
+    //MappingModel->elementList[1000]->evalElementCentroid(MappingModel->nodeList,nodeCoords);
+    // Get Index
+    currIdx = grid->ToIndexes(nodeCoords);
     // Find the enclosing element
-    elementID = MappingModel->FindEnclosingElement(nodeList[loopA]->coords);
-    // Interpolate the displacements
-    elementList[elementID]->InterpolateElementDisplacements(nodeList[loopA]->coords,nodeList,NodeMappingDisplacements);
-    // Save Displacements
-    nodeList[loopA]->setDisplacements(nodeDisps[0],nodeDisps[1],nodeDisps[2],0.0,0.0,0.0);
+    if(currIdx > -1){
+      elementID = MappingModel->FindEnclosingElementWithGrid(nodeCoords,grid->gridData[currIdx]->gridElementList);
+    }else{
+      elementID = -1;
+    }
+    if(elementID>-1){
+      // Interpolate the displacements
+      MappingModel->elementList[elementID]->InterpolateElementDisplacements(nodeCoords,MappingModel->nodeList,nodeDisps);
+      // Save Displacements
+      nodeList[loopA]->setDisplacements(nodeDisps[0],nodeDisps[1],nodeDisps[2],0.0,0.0,0.0);
+    }else{
+      // Save Zero Displacements
+      nodeList[loopA]->setDisplacements(0.0,0.0,0.0,0.0,0.0,0.0);
+    }
   }
+  // Write Message
+  femUtils::WriteMessage(std::string("Done.\n"));
 }
 
 // ==================================
 // Find Face Given the Attached Nodes
 // ==================================
-int FindFace(std::vector<femFace*> &faceList,std::vector<int> nodes){
-  // Sort Nodes
-  std::sort(std::begin(nodes), std::end(nodes));
+int FindFace(std::vector<femFace*> &faceList,std::vector<int> &nodes){
   unsigned int count = 0;
   bool hasSameNodes = false;
   bool found = false;
   while ((!found)&&(count<faceList.size())){
-    hasSameNodes = false;
+    hasSameNodes = true;
     for(unsigned int loopA=0;loopA<faceList[count]->faceNodes.size();loopA++){
       hasSameNodes = (hasSameNodes)&&(faceList[count]->faceNodes[loopA] == nodes[loopA]);
     }
@@ -354,25 +424,25 @@ void femModel::FormElementFaceList(){
   int faceID = -2;
   for(unsigned int loopA=0;loopA<elementList.size();loopA++){
     for(int loopB=0;loopB<kTetraFaces;loopB++){
-      nodes.push_back(elementList[loopA]->elementConnections[loopB % (kTetraFaces-1)]);
-      nodes.push_back(elementList[loopA]->elementConnections[loopB % (kTetraFaces-1)]);
-      nodes.push_back(elementList[loopA]->elementConnections[loopB % (kTetraFaces-1)]);
+      nodes.clear();
+      nodes.push_back(elementList[loopA]->elementConnections[loopB % (kTetraFaces)]);
+      nodes.push_back(elementList[loopA]->elementConnections[(loopB + 1) % (kTetraFaces)]);
+      nodes.push_back(elementList[loopA]->elementConnections[(loopB + 2) % (kTetraFaces)]);
+      // Sort Nodes
+      std::sort(std::begin(nodes), std::end(nodes));
       // Check if the face is already there
       faceID = FindFace(faceList,nodes);
       if (faceID>-1){
         elementList[loopA]->elementFaces.push_back(faceID);
         faceList[faceID]->faceElements.push_back(loopA);
-        for(unsigned int loopC=0;loopC<nodes.size();loopC++){
-          faceList[faceID]->faceNodes.push_back(nodes[loopC]);
-        }
       }else{
         totalFaces++;
-        femFace* face = new femFace(nodes);
+        femFace* face = new femFace();
         faceList.push_back(face);
-        elementList[loopA]->elementFaces.push_back(totalFaces);
-        faceList[totalFaces]->faceElements.push_back(loopA);
+        elementList[loopA]->elementFaces.push_back(totalFaces-1);
+        faceList[totalFaces-1]->faceElements.push_back(loopA);
         for(unsigned int loopC=0;loopC<nodes.size();loopC++){
-          faceList[totalFaces]->faceNodes.push_back(nodes[loopC]);
+          faceList[totalFaces-1]->faceNodes.push_back(nodes[loopC]);
         }
       }
     }
@@ -392,7 +462,7 @@ void femModel::getNextElement(int currElement, double* nodeCoords, int &nextElem
   // Get the list of connected elements
   int otherElement = 0;
   for(unsigned int loopA=0;loopA<elFaces.size();loopA++){
-    for(int loopB=0;loopB<2;loopB++){
+    for(unsigned int loopB=0;loopB<faceList[elFaces[loopA]]->faceElements.size();loopB++){
       otherElement = faceList[elFaces[loopA]]->faceElements[loopB];
       if(otherElement!=currElement){
         searchedElements.push_back(otherElement);
@@ -403,7 +473,7 @@ void femModel::getNextElement(int currElement, double* nodeCoords, int &nextElem
   nextDistance = std::numeric_limits<double>::max();
   double currDist = 0.0;
   for(unsigned int loopA=0;loopA<searchedElements.size();loopA++){
-    currDist = evalPointToElementDistance(searchedElements[loopA],nodeCoords);
+    currDist = elementList[searchedElements[loopA]]->evalPointToElementDistance(nodeCoords,nodeList);
     if(currDist<nextDistance){
       nextDistance = currDist;
       nextElement = searchedElements[loopA];
@@ -411,70 +481,145 @@ void femModel::getNextElement(int currElement, double* nodeCoords, int &nextElem
   }
 }
 
-// ==========================
-// Find the Enclosing element
-// ==========================
-int femModel::FindEnclosingElement(double* nodeCoords){
-  // Find the Enclosing element for the node
-  bool isOutside = IsOutsideLimits(nodeCoords);
-  if(isOutside){
-    return -1;
-  }else{
-    // Initialize
-    bool found = false;
-    int countMC = 0;
-    int currElement = 0;
-    double currDistance = 0.0;
-    int nextElement = 0;
-    double nextDistance = 0.0;
-    bool endSearch = false;
-    // Loop on a Monte Carlo possible choice of nodes
-    while ((!found)&&(countMC<kMaxEnclosingMC)){
-      // Start from a random Element
-      currElement = femUtils::GenerateUniformIntegers(0,elementList.size());
-      currDistance = evalPointToElementDistance(currElement,nodeCoords);
-      // Search for a local miminum in the distance function
-      endSearch = false;
-      while(!endSearch){
-        // Get Next Element
-        getNextElement(currElement,nodeCoords,nextElement,nextDistance);
-        endSearch = (nextDistance>currDistance);
-        // Update
+// =====================================
+// Find the Enclosing element: Presearch
+// =====================================
+int femModel::FindEnclosingElementPre(double* nodeCoords){
+  // Initialize
+  int countMC = 0;
+  int currElement = 0;
+  double currDistance = 0.0;
+  int nextElement = 0;
+  double nextDistance = 0.0;
+  bool endSearch = false;
+
+  // Init min distance and min element
+  double minDistance = std::numeric_limits<double>::max();
+  int minElement = 0;
+
+  // Loop on a Monte Carlo possible choice of nodes
+  while (countMC<kMaxEnclosingMC){
+    // Start from a random Element
+    currElement = femUtils::GenerateUniformIntegers(0,elementList.size()-1);
+    currDistance = elementList[currElement]->evalPointToElementDistance(nodeCoords,nodeList);
+    // Search for a local miminum in the distance function
+    endSearch = false;
+    while(!endSearch){
+      // Get Next Element
+      getNextElement(currElement,nodeCoords,nextElement,nextDistance);
+      endSearch = (nextDistance > currDistance);
+      // Update
+      if(!endSearch){
         currDistance = nextDistance;
         currElement = nextElement;
       }
-
-      // Check if the Element has been found
-      found = elementList[currElement]->isNodeInsideElement(nodeCoords);
-
-      // Update
-      countMC++;
     }
-    // Return from function
-    return currElement;
+    // Store Minimum distance element
+    if(currDistance<minDistance){
+      minDistance = currDistance;
+      minElement = currElement;
+    }
+    // Update
+    countMC++;
+  }
+  // Return from function
+  return minElement;
+}
+
+// =================================
+// Find the Enclosing element: Check
+// =================================
+int femModel::FindEnclosingElementPost(double* nodeCoords, int startingElement){
+  int currElement = startingElement;
+  int previous = currElement;
+  // Initialize is visited Property
+  bool isVisited[elementList.size()];
+  for(unsigned int loopA=0;loopA<elementList.size();loopA++){
+    isVisited[loopA] = false;
+  }
+  bool isVisited1 = false;
+  bool isVisited2 = false;
+  bool isVisited3 = false;
+  bool isVisited4 = false;
+  bool finished = false;
+  int localFaceID = 0;
+  bool isOnFace = false;
+  bool isOnOppositeSide = false;
+  int neighbor = 0;
+  while(!finished){
+    localFaceID = femUtils::GenerateUniformIntegers(0,kTetraFaces - 1);
+    // Check two conditions
+    elementList[currElement]->CheckRandomWalkingCriterion(localFaceID,nodeCoords,faceList,nodeList,isOnFace,isOnOppositeSide);
+    // Check neighbor
+    neighbor = elementList[currElement]->getAdjacentElement(localFaceID,faceList);
+    // Check If visited
+    if(neighbor > -1){
+      isVisited1 = isVisited[neighbor];
+    }
+    if((!isOnFace)&&(isOnOppositeSide)&&(neighbor > -1)&&(!isVisited1)){
+      previous = currElement;
+      currElement = neighbor;
+      isVisited[currElement] = true;
+    }else{
+      // Get next local face ID
+      localFaceID = ((localFaceID + 1) % (kTetraFaces));
+      // Check Conditions
+      elementList[currElement]->CheckRandomWalkingCriterion(localFaceID,nodeCoords,faceList,nodeList,isOnFace,isOnOppositeSide);
+      // Check neighbor
+      neighbor = elementList[currElement]->getAdjacentElement(localFaceID,faceList);
+      // Check If visited
+      if(neighbor > -1){
+        isVisited2 = isVisited[neighbor];
+      }
+      if((!isOnFace)&&(isOnOppositeSide)&&(neighbor > -1)&&(!isVisited2)){
+        previous = currElement;
+        currElement = neighbor;
+        isVisited[currElement] = true;
+      }else{
+        // Get next local face ID
+        localFaceID = ((localFaceID + 2) % (kTetraFaces));
+        // Check Conditions
+        elementList[currElement]->CheckRandomWalkingCriterion(localFaceID,nodeCoords,faceList,nodeList,isOnFace,isOnOppositeSide);
+        // Check neighbor
+        neighbor = elementList[currElement]->getAdjacentElement(localFaceID,faceList);
+        // Check If visited
+        if(neighbor > -1){
+          isVisited3 = isVisited[neighbor];
+        }
+        if((!isOnFace)&&(isOnOppositeSide)&&(neighbor > -1)&&(!isVisited3)){
+          previous = currElement;
+          currElement = neighbor;
+          isVisited[currElement] = true;
+        }else{
+          // Get next local face ID
+          localFaceID = ((localFaceID + 3) % (kTetraFaces));
+          // Check Conditions
+          elementList[currElement]->CheckRandomWalkingCriterion(localFaceID,nodeCoords,faceList,nodeList,isOnFace,isOnOppositeSide);
+          // Check neighbor
+          neighbor = elementList[currElement]->getAdjacentElement(localFaceID,faceList);
+          // Check If visited
+          if(neighbor > -1){
+            isVisited4 = isVisited[neighbor];
+          }
+          if((!isOnFace)&&(isOnOppositeSide)&&(neighbor > -1)&&(!isVisited4)){
+            previous = currElement;
+            currElement = neighbor;
+            isVisited[currElement] = true;
+          }else{
+            finished = true;
+          }
+        }
+      }
+    }
+  }
+  // If has visited all
+  if(isVisited1 && isVisited2 && isVisited3 && isVisited3){
+    return -1;
+  }else{
+    return previous;
   }
 }
 
-// =====================
-// Eval Element Centroid
-// =====================
-void femModel::evalElementCentroid(int elementID, double* centroid){
-  // Initialize Centroid
-  centroid[0] = 0.0;
-  centroid[1] = 0.0;
-  centroid[2] = 0.0;
-  int currNode = 0;
-  int totNodes = elementList[elementID]->elementConnections.size();
-  for(int loopA=0;loopA<totNodes;loopA++){
-    currNode = elementList[elementID]->elementConnections[loopA];
-    centroid[0] = centroid[0] + nodeList[currNode]->coords[0];
-    centroid[1] = centroid[1] + nodeList[currNode]->coords[1];
-    centroid[2] = centroid[2] + nodeList[currNode]->coords[2];
-  }
-  centroid[0] = centroid[0]/double(totNodes);
-  centroid[1] = centroid[1]/double(totNodes);
-  centroid[2] = centroid[2]/double(totNodes);
-}
 
 // ==============
 // Eval Model Box
@@ -511,11 +656,11 @@ void femModel::EvalModelBox(){
 // ===========================================
 // Check if a node is outside the model limits
 // ===========================================
-bool femModel::IsOutsideLimits(double* nodeCoords){
+bool femModel::IsInsideLimits(double* nodeCoords){
   bool isInside = false;
-  isInside = ((nodeCoords[0]>=modelBox[0])&&(nodeCoords[0]<=modelBox[0])&&
-             (nodeCoords[1]>=modelBox[1])&&(nodeCoords[1]<=modelBox[1])&&
-             (nodeCoords[2]>=modelBox[2])&&(nodeCoords[2]<=modelBox[2]));
+  isInside = ((nodeCoords[0]>=modelBox[0])&&(nodeCoords[0]<=modelBox[1])&&
+             (nodeCoords[1]>=modelBox[2])&&(nodeCoords[1]<=modelBox[3])&&
+             (nodeCoords[2]>=modelBox[4])&&(nodeCoords[2]<=modelBox[5]));
   // Return
   return isInside;
 }
@@ -528,8 +673,8 @@ void femModel::GetStenosisBox(femInputData* data, double* limRect){
   double newCoords[3] = {0.0};
 
   // Intialize Limits
-  limRect[0] = std::numeric_limits<double>::max();
-  limRect[1] = -std::numeric_limits<double>::max();
+  limRect[0] = -0.5 * data->stenosisLength;
+  limRect[1] =  0.5 * data->stenosisLength;
   limRect[2] = std::numeric_limits<double>::max();
   limRect[3] = -std::numeric_limits<double>::max();
   limRect[4] = std::numeric_limits<double>::max();
@@ -540,10 +685,6 @@ void femModel::GetStenosisBox(femInputData* data, double* limRect){
 
     // Transform Node Coords
     nodeList[loopA]->TransformNodeCoords(data->mainModelOrigin,data->mainModelRefSystem,newCoords);
-
-    // Set limits in the X direction
-    limRect[0] = -0.5 * data->stenosisLength;
-    limRect[1] =  0.5 * data->stenosisLength;
 
     // If the first coord is within box than store the other two
     if ((newCoords[0]<(0.5*data->stenosisLength))&&(newCoords[0]>(-0.5*data->stenosisLength))){
@@ -567,7 +708,9 @@ void femModel::GetStenosisBox(femInputData* data, double* limRect){
   }
 }
 
+// ============
 // Store Limits
+// ============
 void updateLimits(double* newCoords, double* limRect){
   // Min 1
   if (newCoords[0]<limRect[0]){
@@ -619,20 +762,19 @@ void getAxisAndRotations(double** refSystem, double &angle1, double &angle2, dou
   femUtils::Rotate3DVectorAroundAxis(mapVec2,angle1,axis1);
   femUtils::Normalize3DVector(mapVec2);
   femUtils::Normalize3DVector(secondVec);
-  angle2 = femUtils::Do3DInternalProduct(mapVec2,secondVec);
+  angle2 = acos(femUtils::Do3DInternalProduct(mapVec2,secondVec))*(180.0/kPI);
 }
 
 // =========================================
 // Transform node position and displacements
 // =========================================
-femModel* femModel::TransformModel(femInputData* data, double* stenosisBox){
+femModel* femModel::TransformModel(femInputData* data, double* stenosisBoxCenter, double* stenosisBox){
 
   // Create the new Model
   femModel* target = new femModel();
 
   // Copy everything but the nodes from the Current Model
   CopyElementsTo(target);
-  CopyFacesTo(target);
   CopyPropertyTo(target);
 
   // Intialize Limits
@@ -644,16 +786,20 @@ femModel* femModel::TransformModel(femInputData* data, double* stenosisBox){
   limRect[4] = std::numeric_limits<double>::max();
   limRect[5] = -std::numeric_limits<double>::max();
 
-  // Transform in its own system
+  // Tranlate Model with Centre in Origin
   double newCoords[3];
+  double newDisps[6];
   for(unsigned int loopA=0;loopA<nodeList.size();loopA++){
 
     // Transform Node Coords
-    nodeList[loopA]->TransformNodeCoords(data->mappingModelOrigin,data->mappingModelRefSystem,newCoords);
+    for(int loopB=0;loopB<3;loopB++){
+      newCoords[loopB] = nodeList[loopA]->coords[loopB] - modelCentre[loopB];
+    }
 
-    // Transform Displacements
-    double newDisps[3];
-    nodeList[loopA]->TransformDisplacements(data->mainModelRefSystem,newDisps);
+    // Transform Displacements: They do not need to be rotated!
+    for(int loopB=0;loopB<6;loopB++){
+      newDisps[loopB] = nodeList[loopA]->displacements[loopB];
+    }
 
     // Add to the Target Node List
     femNode* node = new femNode(loopA,newCoords,newDisps);
@@ -666,15 +812,14 @@ femModel* femModel::TransformModel(femInputData* data, double* stenosisBox){
   // Find Scale Factors
   double scaleFactor[3];
   for(int loopA=0;loopA<3;loopA++){
-    scaleFactor[loopA] = (stenosisBox[loopA*2]-stenosisBox[loopA*2+1])/double(limRect[loopA*2]-limRect[loopA*2+1]);
+    scaleFactor[loopA] = 1.2*((stenosisBox[loopA*2]-stenosisBox[loopA*2+1])/double(limRect[loopA*2]-limRect[loopA*2+1]));
   }
 
-  // Stretch Model: (0,0,0) is the new Origin!!!!
-  // Also move it to the new location
+  // Scale the model around the origin
   for(unsigned int loopA=0;loopA<target->nodeList.size();loopA++){
     for(int loopB=0;loopB<3;loopB++){
       // Scale and translate it to the new location
-      target->nodeList[loopA]->coords[loopB] = data->mainModelOrigin[loopB] + target->nodeList[loopA]->coords[loopB]*scaleFactor[loopB];
+      target->nodeList[loopA]->coords[loopB] = target->nodeList[loopA]->coords[loopB]*scaleFactor[loopB];
     }
   }
 
@@ -691,19 +836,45 @@ femModel* femModel::TransformModel(femInputData* data, double* stenosisBox){
   // Rotate Model: Second Rotation
   target->RotateModel(angle2,axis2);
 
+  // Add Origin
+  for(unsigned int loopA=0;loopA<target->nodeList.size();loopA++){
+    for(int loopB=0;loopB<3;loopB++){
+      target->nodeList[loopA]->coords[loopB] += stenosisBoxCenter[loopB];
+    }
+  }
+
+  // Get Box and Centre
+  target->EvalModelBox();
+  target->EvalModelCentre();
+
+  // Create Face List
+  target->FormElementFaceList();
+
   // Return Transformed Model
   return target;
 }
 
+// ============================
 // Copy elements to other model
+// ============================
 void femModel::CopyElementsTo(femModel* otherModel){
+  femElement* newElement;
   for(unsigned int loopA=0;loopA<elementList.size();loopA++){
-    femElement* newElement = new femElement(elementList[loopA]);
+    if(elementList[loopA]->elementConnections.size() == 4){
+      newElement = new femTetra4(elementList[loopA]);
+    }else if(elementList[loopA]->elementConnections.size() == 10){
+      newElement = new femTetra10(elementList[loopA]);
+    }else{
+      throw new femException("Internal: Element not supported.");
+    }
+    // Put in list
     otherModel->elementList.push_back(newElement);
   }
 }
 
+// =========================
 // Copy faces to other model
+// =========================
 void femModel::CopyFacesTo(femModel* otherModel){
   for(unsigned int loopA=0;loopA<faceList.size();loopA++){
     femFace* newFace = new femFace(faceList[loopA]);
@@ -711,10 +882,192 @@ void femModel::CopyFacesTo(femModel* otherModel){
   }
 }
 
+// ============================
 // Copy Property to other model
+// ============================
 void femModel::CopyPropertyTo(femModel* otherModel){
   for(unsigned int loopA=0;loopA<propList.size();loopA++){
     femProperty* newProp = new femProperty(propList[loopA]);
     otherModel->propList.push_back(newProp);
   }
 }
+
+// ==========================
+// Export Model to VTK Legacy
+// ==========================
+void femModel::ExportToVTKLegacy(std::string fileName){
+  // Write Message
+  femUtils::WriteMessage(std::string("(Debug) Exporting Model to VTK file ")+fileName+std::string("..."));
+  // Open Output File
+  FILE* outFile;
+  outFile = fopen(fileName.c_str(),"w");
+  // Wrtie Header
+  fprintf(outFile,"# vtk DataFile Version 2.0\n");
+  fprintf(outFile,"Model Exported from feMorph\n");
+  fprintf(outFile,"ASCII\n");
+  fprintf(outFile,"DATASET UNSTRUCTURED_GRID\n");
+  // Write Points
+  fprintf(outFile,"POINTS %d float\n",int(nodeList.size()));
+  for(unsigned int loopA=0;loopA<nodeList.size();loopA++){
+    fprintf(outFile,"%e %e %e\n",nodeList[loopA]->coords[0],nodeList[loopA]->coords[1],nodeList[loopA]->coords[2]);
+  }
+  // Count the size of the cell list
+  int cellListSize = 0;
+  for(unsigned int loopA=0;loopA<elementList.size();loopA++){
+    cellListSize += elementList[loopA]->elementConnections.size() + 1;
+  }
+  // Write CELLS header
+  fprintf(outFile,"CELLS %d %d\n",int(elementList.size()),cellListSize);
+  for(unsigned int loopA=0;loopA<elementList.size();loopA++){
+    fprintf(outFile,"%d ",int(elementList[loopA]->elementConnections.size()));
+    for(unsigned int loopB=0;loopB<elementList[loopA]->elementConnections.size();loopB++){
+      fprintf(outFile,"%d ",int(elementList[loopA]->elementConnections[loopB]));
+    }
+    fprintf(outFile,"\n");
+  }
+  // Write Cells Type Header
+  fprintf(outFile,"CELL_TYPES %d\n",int(elementList.size()));
+  for(unsigned int loopA=0;loopA<elementList.size();loopA++){
+    if(elementList[loopA]->elementConnections.size() == 4){
+      fprintf(outFile,"%d\n",10);
+    }else if(elementList[loopA]->elementConnections.size() == 10){
+      fprintf(outFile,"%d\n",24);
+    }else{
+      fclose(outFile);
+      throw new femException("Error: Invalid element to Export.");
+    }
+  }
+  // Point Data Header
+  fprintf(outFile,"POINT_DATA %d\n",int(nodeList.size()));
+  // Save Displacements DX,DY,DZ as vectors
+  fprintf(outFile,"VECTORS DXYZ float\n");
+  for(unsigned int loopA=0;loopA<nodeList.size();loopA++){
+    fprintf(outFile,"%e %e %e\n",nodeList[loopA]->displacements[0],nodeList[loopA]->displacements[1],nodeList[loopA]->displacements[2]);
+  }
+  // Close Output file
+  fclose(outFile);
+  // Write Message
+  femUtils::WriteMessage(std::string("Done.\n"));
+}
+
+
+// =============================
+// Create Node List for Stenosis
+// =============================
+void femModel::createStenosisNodeList(double* stenosisBox, femInputData* data, std::vector<femNode*> &steNodeList){
+  double currDisps[3] = {0.0};
+  double coord[3] = {0.0};
+  double boxCoords[3] = {0.0};
+  // Axes
+  double axis1[3] = {0.0};
+  double axis2[3] = {0.0};
+  double axis3[3] = {0.0};
+  // Axis 1
+  axis1[0] = data->mainModelRefSystem[0][0];
+  axis1[1] = data->mainModelRefSystem[1][0];
+  axis1[2] = data->mainModelRefSystem[2][0];
+  femUtils::Normalize3DVector(axis1);
+  // Axis 2
+  axis2[0] = data->mainModelRefSystem[0][1];
+  axis2[1] = data->mainModelRefSystem[1][1];
+  axis2[2] = data->mainModelRefSystem[2][1];
+  femUtils::Normalize3DVector(axis2);
+  // Axis 3
+  axis3[0] = data->mainModelRefSystem[0][2];
+  axis3[1] = data->mainModelRefSystem[1][2];
+  axis3[2] = data->mainModelRefSystem[2][2];
+  femUtils::Normalize3DVector(axis3);
+  // Normalize Axis
+  // Write Coords for every point
+  for(int loopA=0;loopA<8;loopA++){
+    switch(loopA){
+      case 0:
+        coord[0] = stenosisBox[0];
+        coord[1] = stenosisBox[2];
+        coord[2] = stenosisBox[4];
+        break;
+      case 1:
+        coord[0] = stenosisBox[1];
+        coord[1] = stenosisBox[2];
+        coord[2] = stenosisBox[4];
+        break;
+      case 2:
+        coord[0] = stenosisBox[0];
+        coord[1] = stenosisBox[3];
+        coord[2] = stenosisBox[4];
+        break;
+      case 3:
+        coord[0] = stenosisBox[1];
+        coord[1] = stenosisBox[3];
+        coord[2] = stenosisBox[4];
+        break;
+      case 4:
+        coord[0] = stenosisBox[0];
+        coord[1] = stenosisBox[2];
+        coord[2] = stenosisBox[5];
+        break;
+      case 5:
+        coord[0] = stenosisBox[1];
+        coord[1] = stenosisBox[2];
+        coord[2] = stenosisBox[5];
+        break;
+      case 6:
+        coord[0] = stenosisBox[0];
+        coord[1] = stenosisBox[3];
+        coord[2] = stenosisBox[5];
+        break;
+      case 7:
+        coord[0] = stenosisBox[1];
+        coord[1] = stenosisBox[3];
+        coord[2] = stenosisBox[5];
+        break;
+    }
+    // Add the coord and Points
+    boxCoords[0] = data->mainModelOrigin[0] + coord[0]*axis1[0] + coord[1]*axis2[0] + coord[2]*axis3[0];
+    boxCoords[1] = data->mainModelOrigin[1] + coord[0]*axis1[1] + coord[1]*axis2[1] + coord[2]*axis3[1];
+    boxCoords[2] = data->mainModelOrigin[2] + coord[0]*axis1[2] + coord[1]*axis2[2] + coord[2]*axis3[2];
+    // Add to Node List
+    femNode* newNode = new femNode(loopA,boxCoords,currDisps);
+    steNodeList.push_back(newNode);
+  }
+}
+
+// =====================================
+// Find Enclosing Element with Adjacency
+// =====================================
+int femModel::FindEnclosingElementWithAdj(double* nodeCoords){
+  // Find the Enclosing element for the node
+  bool isInside = IsInsideLimits(nodeCoords);
+  if(!isInside){
+    return -1;
+  }else{
+    // Find Element Containing a Given Node: Presearch
+    int startingElement = FindEnclosingElementPre(nodeCoords);
+    // Find Element Containing a Given Node: Walking Algortihm
+    return FindEnclosingElementPost(nodeCoords,startingElement);
+  }
+}
+
+// ================================
+// Find Enclosing Element with Grid
+// ================================
+int femModel::FindEnclosingElementWithGrid(double* nodeCoords, std::vector<int> &gridElementList){
+  unsigned int count = 0;
+  bool found = false;
+  int currElement = 0;
+  while ((!found)&&(count<gridElementList.size())){
+    // Store element
+    currElement = gridElementList[count];
+    found = elementList[currElement]->isNodeInsideElement(nodeCoords,nodeList);
+    // Update
+    if(!found){
+      count++;
+    }
+  }
+  if(!found){
+    return -1;
+  }else{
+    return currElement;
+  }
+}
+

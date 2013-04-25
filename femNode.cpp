@@ -8,6 +8,10 @@ femNode::femNode(int number, double coordX, double coordY, double coordZ){
   coords[0] = coordX;
   coords[1] = coordY;
   coords[2] = coordZ;
+  // Initialize Displacements
+  for(int loopA=0;loopA<6;loopA++){
+    displacements[loopA] = 0.0;
+  }
 }
 
 // Other Constructor
@@ -48,10 +52,10 @@ void femNode::TransformNodeCoords(double* origin, double** rotMat, double* newCo
   for(int loopA=0;loopA<3;loopA++){
     newCoords[loopA] = 0.0;
     for(int loopB=0;loopB<3;loopB++){
-      newCoords[loopA] += rotMat[loopA][loopB] * tempCoords[loopB];
+      newCoords[loopA] += rotMat[loopB][loopA] * tempCoords[loopB];
     }
-    // Add origin
-    newCoords[loopA] += origin[loopA];
+    // Add origin: NO!
+    // newCoords[loopA] += origin[loopA];
   }
 }
 

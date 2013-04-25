@@ -17,30 +17,21 @@ class femModel
     std::vector<femElement*> elementList;
     std::vector<femFace*> faceList;
     std::vector<femProperty*> propList;
-    double* modelBox;
+    double modelBox[6];
+    double modelCentre[3];
   public:
     // Constructor and Destructor
     femModel();
     ~femModel();
     // Other Member Functions
     void EvalModelBox();
+    void EvalModelCentre();
     void FormElementFaceList();
 
     // Make Copies to other Model
     void CopyElementsTo(femModel* otherModel);
     void CopyFacesTo(femModel* otherModel);
     void CopyPropertyTo(femModel* otherModel);
-
-    // ==========
-    // NODE TOOLS
-    // ==========
-    bool IsOutsideLimits(double* nodeCoords);
-
-    // =============
-    // ELEMENT TOOLS
-    // =============
-    void evalElementCentroid(int elementID, double* centroid);
-    double evalPointToElementDistance(int elementID, double* pointCoords);
 
     // ====================
     // READ FUNCTIONALITIES
@@ -63,24 +54,41 @@ class femModel
     void WriteElementConnectionsToFile(std::string fileName);
     // Node List Manipulation
     int GetNodeIDFromNumber(int number);
+    // Export Model to VTK Legacy
+    void ExportToVTKLegacy(std::string fileName);
+
+    // ======
+    // CHECKS
+    // ======
+    bool IsInsideLimits(double* nodeCoords);
 
     // ====================
     // MODEL MANIPULATUIONS
     // ====================
-    // Find Element Containing a Given Node
-    int FindEnclosingElement(double* nodeCoords);
-    // Interpolate Element Displacement Field at a given Node
-    void InterpolateElementDisplacements(double* nodeCoords, int elementID, double* nodeDisps);
     // Perform Displacement Mapping
     void MapDisplacements(femModel* MappingModel, femInputData* data, double dispScaleFactor);
     // Get next element when finding the enclosing one
     void getNextElement(int currElement, double* nodeCoords, int &nextElement, double &nextDistance);
-    // Transform Model by translating/scaling/rotations
-    femModel* TransformModel(femInputData* data, double* stenosisBox);
     // Get Stenosis Box
     void GetStenosisBox(femInputData* data, double* limRect);
+    // Transform Model by translating/scaling/rotations
+    femModel* TransformModel(femInputData* data, double* stenosisBoxCenter, double* stenosisBox);
     // Rotate Model
-    void RotateModel(double angle1, double* axis1);
+    void RotateModel(double angle, double* axis);
+    // Write Rotate Node List from Box
+    void createStenosisNodeList(double* stenosisBox, femInputData* data, std::vector<femNode*> &steNodeList);
+
+    // ========================
+    // ENCLOSING ELEMENT SEARCH
+    // ========================
+    // Find Element Containing a Given Node: Presearch
+    int FindEnclosingElementPre(double* nodeCoords);
+    // Find Element Containing a Given Node: Walking Algortihm
+    int FindEnclosingElementPost(double* nodeCoords, int startingElement);
+    // Find Element Containing a Given Node: Use Adjacencies
+    int FindEnclosingElementWithAdj(double* nodeCoords);
+    // Find Element Containing a Given Node: Use Grid
+    int FindEnclosingElementWithGrid(double* nodeCoords, std::vector<int> &gridElementList);
 };
 
 #endif // FEMMODEL_H

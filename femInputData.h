@@ -27,9 +27,6 @@ public:
   // Orientation on mail model
   double* mainModelOrigin;
   double** mainModelRefSystem;
-  // Orientation on mapping model
-  double* mappingModelOrigin;
-  double** mappingModelRefSystem;
   // =====
   // OTHER
   // =====
