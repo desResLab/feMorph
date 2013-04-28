@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <string>
+#include <vector>
 
 class femInputData
 {
@@ -32,6 +33,7 @@ public:
   // =====
   // Reference Length
   double stenosisLength;
+  std::vector<double> stenosisLevels;
 
   // Constructor and Destructor
   femInputData();

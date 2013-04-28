@@ -27,6 +27,8 @@ class femElement
     virtual void EvalVolumeCoordinates(double* pointCoords, std::vector<femNode*> &nodeList, double* volCoords){}
     void CheckRandomWalkingCriterion(int localFaceID, double* nodeCoords,std::vector<femFace*> &faceList,std::vector<femNode*> &nodeList,bool &isOnFace, bool &isOnOppositeSide);
     int getAdjacentElement(int localFaceID, std::vector<femFace*> &faceList);
+    void CreateBoundingBoxNodeList(std::vector<femNode*> &nodeList,std::vector<femNode*> &boxNodeList);
+    void CreateMinMaxNodeList(std::vector<femNode*> &nodeList,std::vector<femNode*> &minMaxNodeList);
 };
 
 // TETRAHEDRAL ELEMENT

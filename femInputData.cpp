@@ -106,6 +106,13 @@ void femInputData::ReadFromFile(std::string fileName){
           boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
           stenosisLength = atof(tokenizedString[0].c_str());
           break;
+        case 11:
+          // Length of the stenosis
+          boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
+          for(unsigned int loopA=0;loopA<tokenizedString.size();loopA++){
+            stenosisLevels.push_back(atof(tokenizedString[loopA].c_str()));
+          }
+          break;
       }
     }
   }

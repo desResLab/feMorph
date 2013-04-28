@@ -1,11 +1,14 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <math.h>
 #include <vector>
+#include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
 
 #include "femModel.h"
 #include "femGrid.h"
+#include "femPoint.h"
 #include "femInputData.h"
 #include "femException.h"
 #include "femConstants.h"
@@ -302,7 +305,7 @@ void femModel::ReadNodeDisplacementsFromFile(std::string fileName, bool readRota
 // ====================
 // Write Coords To File
 // ====================
-void femModel::WriteNodeCoordsToFile(std::string fileName){
+void femModel::WriteNodeCoordsToFile(double dispFactor, std::string fileName){
   // Write Message
   femUtils::WriteMessage(std::string("Writing Node Coords to File ")+fileName+std::string("..."));
   // Open Output File
@@ -311,7 +314,9 @@ void femModel::WriteNodeCoordsToFile(std::string fileName){
   // Write Header
   for(unsigned int loopA=0;loopA<nodeList.size();loopA++){
       fprintf(outFile,"%d %16.8e %16.8e %16.8e\n",nodeList[loopA]->nodeNumber,
-              nodeList[loopA]->coords[0],nodeList[loopA]->coords[1],nodeList[loopA]->coords[2]);
+              nodeList[loopA]->coords[0] + nodeList[loopA]->displacements[0]*dispFactor,
+              nodeList[loopA]->coords[1] + nodeList[loopA]->displacements[1]*dispFactor,
+              nodeList[loopA]->coords[2] + nodeList[loopA]->displacements[2]*dispFactor);
   }
   // Close Output file
   fclose(outFile);
@@ -348,8 +353,6 @@ void femModel::WriteElementConnectionsToFile(std::string fileName){
 void femModel::MapDisplacements(femModel* MappingModel,
                                 femInputData* data,
                                 double dispScaleFactor){
-  // Write Message
-  femUtils::WriteMessage(std::string("Mapping Displacements ..."));
   // Initialize Mapping Coords
   double nodeCoords[3] = {0.0};
   double nodeDisps[3] = {0.0};  
@@ -359,10 +362,21 @@ void femModel::MapDisplacements(femModel* MappingModel,
   // Check If Correct
   grid->ExportToVTKLegacy(std::string("grid.vtk"));
 
+  // Write Message
+  femUtils::WriteMessage(std::string("Mapping Displacements ..."));
+
   // Loop through the nodes in the main model
   int elementID = 0;
   int currIdx = 0;
+  int progress = 0;
+  int progressCounted = 0;
   for(unsigned int loopA=0;loopA<nodeList.size();loopA++){
+    progress = (int)((loopA/double(nodeList.size()-1))*100.0);
+    if (((progress % 10) == 0)&&((progress / 10) != progressCounted)){
+      progressCounted = (progress / 10);
+      femUtils::WriteMessage(std::string(boost::lexical_cast<std::string>(progress))+".");
+    }
+    //femUtils::WriteMessage(std::string(boost::lexical_cast<std::string>(loopA))+" ");
     // Store nodes
     nodeCoords[0] = nodeList[loopA]->coords[0];
     nodeCoords[1] = nodeList[loopA]->coords[1];
@@ -373,8 +387,10 @@ void femModel::MapDisplacements(femModel* MappingModel,
     // Find the enclosing element
     if(currIdx > -1){
       elementID = MappingModel->FindEnclosingElementWithGrid(nodeCoords,grid->gridData[currIdx]->gridElementList);
+      //femUtils::WriteMessage("IN\n");
     }else{
       elementID = -1;
+      //femUtils::WriteMessage("OUTSIDE\n");
     }
     if(elementID>-1){
       // Interpolate the displacements
@@ -388,6 +404,8 @@ void femModel::MapDisplacements(femModel* MappingModel,
   }
   // Write Message
   femUtils::WriteMessage(std::string("Done.\n"));
+  // Deallocate Grid
+  delete grid;
 }
 
 // ==================================
@@ -397,10 +415,14 @@ int FindFace(std::vector<femFace*> &faceList,std::vector<int> &nodes){
   unsigned int count = 0;
   bool hasSameNodes = false;
   bool found = false;
+  int innerCount = 0;
   while ((!found)&&(count<faceList.size())){
     hasSameNodes = true;
-    for(unsigned int loopA=0;loopA<faceList[count]->faceNodes.size();loopA++){
-      hasSameNodes = (hasSameNodes)&&(faceList[count]->faceNodes[loopA] == nodes[loopA]);
+    innerCount = 0;
+    while((hasSameNodes)&&(innerCount<(int)faceList[count]->faceNodes.size())){
+      hasSameNodes = (hasSameNodes)&&(faceList[count]->faceNodes[innerCount] == nodes[innerCount]);
+      // Update
+      innerCount++;
     }
     // Assign Found
     found = hasSameNodes;
@@ -408,7 +430,7 @@ int FindFace(std::vector<femFace*> &faceList,std::vector<int> &nodes){
     count++;
   }
   if(found){
-    return (count-1);
+    return faceList[count-1]->number;
   }else{
     return -1;
   }
@@ -419,10 +441,23 @@ int FindFace(std::vector<femFace*> &faceList,std::vector<int> &nodes){
 // ======================
 // WARNING: WORKS ONLY FOR TETRA4 AND TETRA10!!!
 void femModel::FormElementFaceList(){
+  // Write Message
+  femUtils::WriteMessage(std::string("Forming Face List..."));
   int totalFaces = 0;
+  int progress = 0;
+  int progressCounted = 0;
+  std::vector<std::vector<femFace*>> firstNodefaceList;
+  firstNodefaceList.resize((int)nodeList.size());
   std::vector<int> nodes;
   int faceID = -2;
   for(unsigned int loopA=0;loopA<elementList.size();loopA++){
+    // Progress
+    progress = (int)((loopA/double(elementList.size()-1))*100.0);
+    if (((progress % 10) == 0)&&((progress / 10) != progressCounted)){
+      progressCounted = (progress / 10);
+      femUtils::WriteMessage(std::string(boost::lexical_cast<std::string>(progress))+".");
+    }
+    // Loop on the faces
     for(int loopB=0;loopB<kTetraFaces;loopB++){
       nodes.clear();
       nodes.push_back(elementList[loopA]->elementConnections[loopB % (kTetraFaces)]);
@@ -430,8 +465,9 @@ void femModel::FormElementFaceList(){
       nodes.push_back(elementList[loopA]->elementConnections[(loopB + 2) % (kTetraFaces)]);
       // Sort Nodes
       std::sort(std::begin(nodes), std::end(nodes));
+
       // Check if the face is already there
-      faceID = FindFace(faceList,nodes);
+      faceID = FindFace(firstNodefaceList[nodes[0]],nodes);
       if (faceID>-1){
         elementList[loopA]->elementFaces.push_back(faceID);
         faceList[faceID]->faceElements.push_back(loopA);
@@ -444,9 +480,18 @@ void femModel::FormElementFaceList(){
         for(unsigned int loopC=0;loopC<nodes.size();loopC++){
           faceList[totalFaces-1]->faceNodes.push_back(nodes[loopC]);
         }
+        // Add to the list associated to the first node
+        firstNodefaceList[nodes[0]].push_back(new femFace(totalFaces-1,nodes));
       }
     }
   }
+  // Write Message
+  femUtils::WriteMessage(std::string("Done.\n"));
+}
+
+// Sorting Function
+bool orderTuple (std::tuple<int,int,int> i,std::tuple<int,int,int> j){
+  return (std::get<0>(i)<std::get<0>(j))&&(std::get<1>(i)<std::get<1>(j))&&(std::get<2>(i)<std::get<2>(j));
 }
 
 // ========================================
@@ -684,7 +729,7 @@ void femModel::GetStenosisBox(femInputData* data, double* limRect){
   for(unsigned int loopA=0;loopA<nodeList.size();loopA++){
 
     // Transform Node Coords
-    nodeList[loopA]->TransformNodeCoords(data->mainModelOrigin,data->mainModelRefSystem,newCoords);
+    nodeList[loopA]->TransformNodeCoords(data->mainModelOrigin,data->mainModelRefSystem,newCoords,kDirect,kUndeformed,0.0);
 
     // If the first coord is within box than store the other two
     if ((newCoords[0]<(0.5*data->stenosisLength))&&(newCoords[0]>(-0.5*data->stenosisLength))){
@@ -1071,3 +1116,185 @@ int femModel::FindEnclosingElementWithGrid(double* nodeCoords, std::vector<int> 
   }
 }
 
+// ================================
+// Seek Stenosis levels iteratively
+// ================================
+double femModel::seekStenoticDisplacementFactor(femInputData* data, double targetStenosisLevel, bool debugMode){
+  // Print Iteration Header
+  printf("\n");
+  printf("Picard Iterations for stenosis Level: %e\n",targetStenosisLevel);
+  printf("%5s %20s %20s %20s\n","IT","DISP FACTOR","STENOSIS LEVEL","RESIDUAL");
+  fflush(stdout);
+
+  // Open the File if in debug mode
+  FILE* debugFile;
+  if (debugMode){
+    debugFile = fopen("stenosisAreas.dat","a");
+  }
+  std::vector<femModelSlice*> slices;
+  std::vector<double> sliceAreas;
+  bool converged = false;
+  int currIt = 0;
+  double firstDispFactor = 1.0;
+  double firstStenosisLevel = ExtractStenosisLevel(data,firstDispFactor,slices,sliceAreas);
+  double secondDispFactor = 2.0;
+  double secondStenosisLevel = ExtractStenosisLevel(data,secondDispFactor,slices,sliceAreas);
+  double currResidual = 0.0;
+  double trialDispFactor = 0.0;
+  double trialStenosisLevel = 0.0;
+  while((!converged)&&(currIt<kMaxPicardStenosisIt)){
+
+    // Estimate trial Diplacement Factor
+    trialDispFactor = firstDispFactor + ((targetStenosisLevel-firstStenosisLevel)/(secondStenosisLevel-firstStenosisLevel))*(secondDispFactor-firstDispFactor);
+
+    // Get trial Stenosis Level
+    trialStenosisLevel = ExtractStenosisLevel(data,trialDispFactor,slices,sliceAreas);
+
+    // Check if has converged
+    currResidual = fabs(((targetStenosisLevel-trialStenosisLevel)/trialStenosisLevel));
+    converged = (currResidual < kStenosisTolerance);
+
+    // Print Iterations on screen
+    printf("%5d %20e %20e %20e\n",currIt+1,trialDispFactor,trialStenosisLevel,currResidual);
+
+    // Update Disp Factors
+    firstDispFactor = secondDispFactor;
+    secondDispFactor = trialDispFactor;
+    // update stenosis Levels
+    firstStenosisLevel = secondStenosisLevel;
+    secondStenosisLevel = trialStenosisLevel;
+
+    // Update
+    currIt++;
+  }
+  if(!converged){
+    printf("Picard Iterations not Converged!\n");
+  }else{
+    printf("Picard Iterations Converged!\n");
+    // Print the
+    if (debugMode){
+      // Print slice geometry
+      femUtils::PlotSlicesToVTK(std::string("modelSlices")+boost::lexical_cast<std::string>(targetStenosisLevel)+std::string(".vtk"),slices);
+      // Print slice area values
+      for(unsigned int loopA=0;loopA<sliceAreas.size();loopA++){
+        fprintf(debugFile,"%e ",sliceAreas[loopA]);
+      }
+      fprintf(debugFile,"\n");
+      fclose(debugFile);
+    }
+  }
+  // Return
+  return trialDispFactor;
+}
+
+// =====================================================
+// Extract Stenosis Level for a given diplacement factor
+// =====================================================
+double femModel::ExtractStenosisLevel(femInputData* data, double currDispFactor, std::vector<femModelSlice*> &slices, std::vector<double> &sliceAreas){
+
+  // Resize Vector
+  slices.clear();
+  for(int loopA=0;loopA<kStenosisSlices;loopA++){
+    femModelSlice* slice = new femModelSlice();
+    slices.push_back(slice);
+  }
+
+  // Slice Model
+  SliceModelSkin(kStenosisSlices,currDispFactor,data,slices);
+
+  // For every slice order Intersection points and Eval Area
+  double maxArea = 0.0;
+  double minArea = std::numeric_limits<double>::max();
+  double currArea = 0.0;
+  sliceAreas.clear();
+  for(unsigned int loopA=0;loopA<slices.size();loopA++){
+    currArea = slices[loopA]->EvalSliceArea(data->mainModelRefSystem);
+    sliceAreas.push_back(currArea);
+    // Store values for area
+    if (currArea > maxArea){
+      maxArea = currArea;
+    }
+    if(currArea < minArea){
+      minArea = currArea;
+    }
+  }
+
+  // Eval Stenosis Level
+  return ((1.0-(minArea/maxArea))*100.0);
+}
+
+
+// ===============================
+// Check if point is already there
+// ===============================
+bool pointAlreadyThere(double* backCoords,std::vector<femPoint*> &slicedPoints){
+  bool found = false;
+  unsigned int count = 0;
+  double distance = 0.0;
+  while((!found)&&(count<slicedPoints.size())){
+    distance =sqrt((backCoords[0]-slicedPoints[count]->coords[0])*(backCoords[0]-slicedPoints[count]->coords[0])+
+                   (backCoords[1]-slicedPoints[count]->coords[1])*(backCoords[1]-slicedPoints[count]->coords[1])+
+                   (backCoords[2]-slicedPoints[count]->coords[2])*(backCoords[2]-slicedPoints[count]->coords[2]));
+    // Check if found
+    found = (distance < kMathZero);
+    // Update
+    count++;
+  }
+  // Return
+  return found;
+}
+
+// ================
+// Slice Model Skin
+// ================
+void femModel::SliceModelSkin(const int kStenosisSlices, double dispFactor, femInputData* data, std::vector<femModelSlice*> &slices){
+  // Var
+  double newCoords1[3] = {0.0};
+  double newCoords2[3] = {0.0};
+  double newCoords3[3] = {0.0};
+  double currSliceCoord = 0.0;
+  double ratio1 = 0.0;
+  double ratio2 = 0.0;
+  double ratio3 = 0.0;
+  double backCoords[3] = {0.0};
+  std::vector<femNode*> localNodeList;
+  // Reset Nodes and Faces
+  for(int loopC=0;loopC<kStenosisSlices;loopC++){
+    slices[loopC]->slicedFaces.clear();
+    slices[loopC]->slicedPoints.clear();
+  }
+  // Main Loop
+  for(unsigned int loopA=0;loopA<faceList.size();loopA++){
+    // Check if boundary Face
+    if(faceList[loopA]->faceElements.size() == 1){
+      // Get Face node
+      nodeList[faceList[loopA]->faceNodes[0]]->TransformNodeCoords(data->mainModelOrigin,data->mainModelRefSystem,newCoords1,kDirect,kDeformed,dispFactor);
+      nodeList[faceList[loopA]->faceNodes[1]]->TransformNodeCoords(data->mainModelOrigin,data->mainModelRefSystem,newCoords2,kDirect,kDeformed,dispFactor);
+      nodeList[faceList[loopA]->faceNodes[2]]->TransformNodeCoords(data->mainModelOrigin,data->mainModelRefSystem,newCoords3,kDirect,kDeformed,dispFactor);
+      for(int loopC=0;loopC<kStenosisSlices;loopC++){
+        currSliceCoord = -0.5*data->stenosisLength + ((data->stenosisLength)/((double)(kStenosisSlices-1)))*loopC;
+        ratio1 = (newCoords1[0]-currSliceCoord)/(newCoords2[0]-currSliceCoord);
+        ratio2 = (newCoords2[0]-currSliceCoord)/(newCoords3[0]-currSliceCoord);
+        ratio3 = (newCoords3[0]-currSliceCoord)/(newCoords1[0]-currSliceCoord);
+        if((ratio1<0.0)||(ratio2<0.0)||(ratio3<0.0)){
+          // Add Face
+          slices[loopC]->slicedFaces.push_back(loopA);
+          // Eval Intersection
+          localNodeList.clear();
+          femUtils::evalCoordinatePlaneIntersections(currSliceCoord,newCoords1,newCoords2,newCoords3,localNodeList);
+          // Add the mapped back nodes
+          for(unsigned int loopD=0;loopD<localNodeList.size();loopD++){
+            // Transform back
+            localNodeList[loopD]->TransformNodeCoords(data->mainModelOrigin,data->mainModelRefSystem,backCoords,kReverse,kUndeformed,0.0);
+            // Check if point exists
+            if(!pointAlreadyThere(backCoords,slices[loopC]->slicedPoints)){
+              // Add to the point list
+              femPoint* point = new femPoint(backCoords);
+              slices[loopC]->slicedPoints.push_back(point);
+            }
+          }
+        }
+      }
+    }
+  }
+}

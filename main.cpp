@@ -71,6 +71,8 @@ int main(int argc, char **argv)
   femModel* mainModel = new femModel();
   mainModel->ReadNodeCoordsFromFile(data->mainModelCoordsFileName);
   mainModel->ReadElementConnectionsFromFile(data->mainModelConnectionsFileName);
+  // Form Face List
+  mainModel->FormElementFaceList();
 
   // Export Main File for Debug
   if (debugMode){
@@ -81,6 +83,9 @@ int main(int argc, char **argv)
   femModel* mappingModel = new femModel();
   mappingModel->ReadNodeCoordsFromFile(data->mappingModelCoordsFileName);
   mappingModel->ReadElementConnectionsFromFile(data->mappingModeConnectionslFileName);
+  // Form Face List
+  mappingModel->FormElementFaceList();
+
   // Read Displacement Without Rotations
   mappingModel->ReadNodeDisplacementsFromFile(data->mappingModelResultsFileName, false);
 
@@ -120,13 +125,38 @@ int main(int argc, char **argv)
     mainModel->ExportToVTKLegacy(std::string("finalmodel.vtk"));
   }
 
-  // Write Output Model
-  mainModel->WriteNodeCoordsToFile(data->mainModelCoordsOutputName);
-  mainModel->WriteElementConnectionsToFile(data->mainModelConnectionsOutputName);
+  // Create models with given stenotic target
+  // and write them to separate files
+  // Get Corresponding Displacement Scaling Factor
+  FILE* areaFile;
+  if(debugMode){
+    areaFile = fopen("stenosisAreas.dat","w");
+    fclose(areaFile);
+  }
+  double currDispFactor = 1.0;
+  double currStenosisLevel = 0.0;
+  for(unsigned int loopA=0;loopA<data->stenosisLevels.size();loopA++){
+    // Get current Stenotic level
+    currStenosisLevel = data->stenosisLevels[loopA];
+
+    // Eval the stenotic displacement factor
+    currDispFactor = mainModel->seekStenoticDisplacementFactor(data,currStenosisLevel,debugMode);
+
+    // Write Output Model
+    // Change Name
+    mainModel->WriteNodeCoordsToFile(currDispFactor,data->mainModelCoordsOutputName);
+    mainModel->WriteElementConnectionsToFile(data->mainModelConnectionsOutputName);
+  }
 
   // Write Application Header
   femUtils::WriteMessage(std::string("\n"));
   femUtils::WriteMessage(std::string("Completed!\n"));
+
+  // Deallocate Pointers
+  delete data;
+  delete mainModel;
+  delete mappingModel;
+  delete newModel;
 
   // Done
   return 0;

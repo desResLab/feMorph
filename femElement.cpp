@@ -104,6 +104,7 @@ void femTetra10::EvalVolumeCoordinates(double* pointCoords, std::vector<femNode*
   volCoords[9] = 4.0*tet4VolCoords[2]*tet4VolCoords[3];
 
   // Delete Temporary Tet4 element
+  delete [] connections;
   delete tet4;
 }
 
@@ -322,6 +323,7 @@ bool femTetra10::isNodeInsideElement(double* pointCoords,std::vector<femNode*> &
   //}
 
   // Delete Temporary Tet4 element
+  delete [] connections;
   delete tet4;
 
   // Return
@@ -397,3 +399,154 @@ int femElement::getAdjacentElement(int localFaceID, std::vector<femFace*> &faceL
     }
   }
 }
+
+// ==========================
+// Get Bounding Box Node List
+// ==========================
+void femElement::CreateBoundingBoxNodeList(std::vector<femNode*> &nodeList,std::vector<femNode*> &boxNodeList){
+  double elBox[6] = {0.0};
+  double coord[3] = {0.0};
+  double currDisps[6] = {0.0};
+  int currNode = 0;
+  // Create Element Box
+  for(unsigned int loopA=0;loopA<elementConnections.size();loopA++){
+    // Get current node
+    currNode = elementConnections[loopA];
+    // Min X
+    if (nodeList[currNode]->coords[0]<elBox[0]){
+      elBox[0] = nodeList[currNode]->coords[0];
+    }
+    // Max X
+    if (nodeList[currNode]->coords[0]>elBox[1]){
+      elBox[1] = nodeList[currNode]->coords[0];
+    }
+    // Min Y
+    if (nodeList[currNode]->coords[1]<elBox[2]){
+      elBox[2] = nodeList[currNode]->coords[1];
+    }
+    // Max Y
+    if (nodeList[currNode]->coords[1]>elBox[3]){
+      elBox[3] = nodeList[currNode]->coords[1];
+    }
+    // Min Z
+    if (nodeList[currNode]->coords[2]<elBox[4]){
+      elBox[4] = nodeList[currNode]->coords[2];
+    }
+    // Max Z
+    if (nodeList[currNode]->coords[2]>elBox[5]){
+      elBox[5] = nodeList[currNode]->coords[2];
+    }
+  }
+  // Write Coords for every point
+  for(int loopA=0;loopA<8;loopA++){
+    switch(loopA){
+      case 0:
+        coord[0] = elBox[0];
+        coord[1] = elBox[2];
+        coord[2] = elBox[4];
+        break;
+      case 1:
+        coord[0] = elBox[1];
+        coord[1] = elBox[2];
+        coord[2] = elBox[4];
+        break;
+      case 2:
+        coord[0] = elBox[0];
+        coord[1] = elBox[3];
+        coord[2] = elBox[4];
+        break;
+      case 3:
+        coord[0] = elBox[1];
+        coord[1] = elBox[3];
+        coord[2] = elBox[4];
+        break;
+      case 4:
+        coord[0] = elBox[0];
+        coord[1] = elBox[2];
+        coord[2] = elBox[5];
+        break;
+      case 5:
+        coord[0] = elBox[1];
+        coord[1] = elBox[2];
+        coord[2] = elBox[5];
+        break;
+      case 6:
+        coord[0] = elBox[0];
+        coord[1] = elBox[3];
+        coord[2] = elBox[5];
+        break;
+      case 7:
+        coord[0] = elBox[1];
+        coord[1] = elBox[3];
+        coord[2] = elBox[5];
+        break;
+    }
+    // Add to Node List
+    femNode* newNode = new femNode(loopA,coord,currDisps);
+    boxNodeList.push_back(newNode);
+  }
+}
+
+// ==============================
+// Get Max-Min Bounding Box Nodes
+// ==============================
+void femElement::CreateMinMaxNodeList(std::vector<femNode*> &nodeList,std::vector<femNode*> &minMaxNodeList){
+  double elBox[6] = {0.0};
+  elBox[0] = std::numeric_limits<double>::max();
+  elBox[1] = -std::numeric_limits<double>::max();
+  elBox[2] = std::numeric_limits<double>::max();
+  elBox[3] = -std::numeric_limits<double>::max();
+  elBox[4] = std::numeric_limits<double>::max();
+  elBox[5] = -std::numeric_limits<double>::max();
+  double coord[3] = {0.0};
+  double currDisps[6] = {0.0};
+  int currNode = 0;
+  // Create Element Box
+  for(unsigned int loopA=0;loopA<elementConnections.size();loopA++){
+    // Get current node
+    currNode = elementConnections[loopA];
+    // Min X
+    if (nodeList[currNode]->coords[0]<elBox[0]){
+      elBox[0] = nodeList[currNode]->coords[0];
+    }
+    // Max X
+    if (nodeList[currNode]->coords[0]>elBox[1]){
+      elBox[1] = nodeList[currNode]->coords[0];
+    }
+    // Min Y
+    if (nodeList[currNode]->coords[1]<elBox[2]){
+      elBox[2] = nodeList[currNode]->coords[1];
+    }
+    // Max Y
+    if (nodeList[currNode]->coords[1]>elBox[3]){
+      elBox[3] = nodeList[currNode]->coords[1];
+    }
+    // Min Z
+    if (nodeList[currNode]->coords[2]<elBox[4]){
+      elBox[4] = nodeList[currNode]->coords[2];
+    }
+    // Max Z
+    if (nodeList[currNode]->coords[2]>elBox[5]){
+      elBox[5] = nodeList[currNode]->coords[2];
+    }
+  }
+  // Write Coords for every point
+  for(int loopA=0;loopA<2;loopA++){
+    switch(loopA){
+      case 0:
+        coord[0] = elBox[0];
+        coord[1] = elBox[2];
+        coord[2] = elBox[4];
+        break;
+      case 1:
+        coord[0] = elBox[1];
+        coord[1] = elBox[3];
+        coord[2] = elBox[5];
+        break;
+    }
+    // Add to Node List
+    femNode* newNode = new femNode(loopA,coord,currDisps);
+    minMaxNodeList.push_back(newNode);
+  }
+}
+

@@ -17,7 +17,7 @@ public:
     // Member Functions
     void setDisplacements(double DX, double DY, double DZ, double RX, double RY, double RZ);
     // Node Transformation
-    void TransformNodeCoords(double* origin, double** rotMat, double* newCoords);
+    void TransformNodeCoords(double* origin, double** rotMat, double* newCoords, const int transformType, const int dispType, double dispFactor);
     void TransformDisplacements(double** rotMat, double* newDisps);
 };
 

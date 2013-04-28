@@ -4,6 +4,7 @@
 #include "femConstants.h"
 #include "femNode.h"
 #include "femInputData.h"
+#include "femModelSlice.h"
 
 #include <vector>
 #include <math.h>
@@ -28,6 +29,7 @@ inline int GenerateUniformIntegers(int lowIdx, int upIdx) {
 // =============
 inline void WriteMessage(std::string m){
    printf("%s",m.c_str());
+   fflush(stdout);
 }
 
 // ========================
@@ -35,11 +37,13 @@ inline void WriteMessage(std::string m){
 // ========================
 inline void WriteAppHeader(){
   WriteMessage("\n");
-  WriteMessage("------------------------------\n");
+  WriteMessage("------------------------------------\n");
   WriteMessage("FEM Morphing Application\n");
   WriteMessage("Release 0.1 beta\n");
   WriteMessage("Daniele Schiavazzi Ph.D., 2013\n");
-  WriteMessage("------------------------------\n");
+  WriteMessage("Marsden LAB\n");
+  WriteMessage("University of California @ San Diego\n");
+  WriteMessage("------------------------------------\n");
   WriteMessage("\n");
 }
 
@@ -75,13 +79,13 @@ inline void Normalize3DVector(double* vector){
   double modulus = sqrt((vector[0]*vector[0])+(vector[1]*vector[1])+(vector[2]*vector[2]));
   // Normalize
   if (modulus>0.0){
-    vector[1] = vector[1]/modulus;
+    vector[0] = vector[0]/modulus;
   }
   if (modulus>0.0){
-    vector[2] = vector[2]/modulus;
+    vector[1] = vector[1]/modulus;
   }
   if (modulus>0.0) {
-    vector[3] = vector[3]/modulus;
+    vector[2] = vector[2]/modulus;
   }
 }
 
@@ -256,6 +260,132 @@ inline void GetAverageNodeFromList(std::vector<femNode*> &nodeList,double* steno
     stenosisBoxCenter[loopB] /= double(nodeList.size());
   }
 }
+
+// symmetric round down
+// Bias: towards zero
+template <typename FloatType>
+inline FloatType trunc(const FloatType& value)
+{
+  FloatType result = std::floor(std::fabs(value));
+  return (value < 0.0) ? -result : result;
+}
+
+// =================================
+// Do the Euclidean Norm of a Vector
+// =================================
+inline double DoEucNorm(double* vec){
+  return sqrt(vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2]);
+}
+
+// ====================================================
+// Find intersection between coordinate plane and point
+// ====================================================
+inline void findPointsToCoordinate1PlaneIntersection(double planeCoord, double* coords1, double* coords2, std::vector<femNode*> &intNodeList){
+  double param = 0.0;
+  double intCoord[3] = {0.0};
+  femNode* node;
+  if(fabs(coords2[0] - coords1[0])>kMathZero){
+    param = (planeCoord - coords1[0])/(coords2[0] - coords1[0]);
+    if((param>=0.0)&&(param<=1.0)){
+      // Get Intersection
+      intCoord[0] = coords1[0] + param*(coords2[0] - coords1[0]);
+      intCoord[1] = coords1[1] + param*(coords2[1] - coords1[1]);
+      intCoord[2] = coords1[2] + param*(coords2[2] - coords1[2]);
+      node = new femNode(0,intCoord[0],intCoord[1],intCoord[2]);
+      intNodeList.push_back(node);
+    }
+  }else if(fabs(planeCoord-coords2[0])<kMathZero){
+    // The side is on the plane: insert both points
+    // Point 1
+    node = new femNode(0,intCoord[0],intCoord[1],intCoord[2]);
+    intNodeList.push_back(node);
+    // Point 2
+    node = new femNode(0,intCoord[0],intCoord[1],intCoord[2]);
+    intNodeList.push_back(node);
+  }
+}
+
+
+// ================
+// Eval Intersetion
+// ================
+inline void evalCoordinatePlaneIntersections(double currSliceCoord, double *coords1, double* coords2, double* coords3, std::vector<femNode*> &intNodeList){
+  // 1 - 2
+  findPointsToCoordinate1PlaneIntersection(currSliceCoord,coords1,coords2,intNodeList);
+  // 2 - 3
+  findPointsToCoordinate1PlaneIntersection(currSliceCoord,coords2,coords3,intNodeList);
+  // 3 - 1
+  findPointsToCoordinate1PlaneIntersection(currSliceCoord,coords3,coords1,intNodeList);
+}
+
+// =========================
+// Plot Slices to VTK legacy
+// =========================
+inline void PlotSlicesToVTK(std::string fileName, std::vector<femModelSlice*> &slices){
+
+  // Write Message
+  femUtils::WriteMessage(std::string("(debug) Exporting Model Slices to VTK..."));
+
+  // Open Output File
+  FILE* outFile;
+  outFile = fopen(fileName.c_str(),"w");
+
+  // Write Header
+  fprintf(outFile,"# vtk DataFile Version 2.0\n");
+  fprintf(outFile,"feMorph Slice Data\n");
+  fprintf(outFile,"ASCII\n");
+  fprintf(outFile,"DATASET UNSTRUCTURED_GRID\n");
+
+  // sum up point total
+  int pointTotal = 0;
+  for(unsigned int loopA=0;loopA<slices.size();loopA++){
+    pointTotal += slices[loopA]->slicedPoints.size();
+  }
+
+  // Write Points
+  fprintf(outFile,"POINTS %d float\n",pointTotal);
+  for(unsigned int loopA=0;loopA<slices.size();loopA++){
+    for(unsigned int loopB=0;loopB<slices[loopA]->slicedPoints.size();loopB++){
+      fprintf(outFile,"%e %e %e\n",slices[loopA]->slicedPoints[loopB]->coords[0],
+                                   slices[loopA]->slicedPoints[loopB]->coords[1],
+                                   slices[loopA]->slicedPoints[loopB]->coords[2]);
+    }
+  }
+
+  // Write CELLS header
+  int firstPointNumber = 0;
+  int currentPointNumber = 0;
+  fprintf(outFile,"CELLS %d %d\n",pointTotal,3*pointTotal);
+  for(unsigned int loopA=0;loopA<slices.size();loopA++){
+    for(unsigned int loopB=0;loopB<slices[loopA]->slicedPoints.size();loopB++){
+      if(loopB<slices[loopA]->slicedPoints.size()-1){
+        // Before the last point
+        fprintf(outFile,"2 %d %d\n",currentPointNumber,currentPointNumber+1);
+      }else{
+        // Last point
+        fprintf(outFile,"2 %d %d\n",currentPointNumber,firstPointNumber);
+
+      }
+      // Increment Current Point Number
+      currentPointNumber++;
+    }
+    // Update Counter
+    firstPointNumber += slices[loopA]->slicedPoints.size();
+  }
+
+  // Write Cells Type Header
+  fprintf(outFile,"CELL_TYPES %d\n",pointTotal);
+  for(int loopA=0;loopA<pointTotal;loopA++){
+    fprintf(outFile,"4\n");
+  }
+
+  // Write Message
+  femUtils::WriteMessage(std::string("Done.\n"));
+
+  // Close Output file
+  fclose(outFile);
+}
+
 
 }
 

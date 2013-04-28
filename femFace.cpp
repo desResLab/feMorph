@@ -11,6 +11,14 @@ femFace::femFace(std::vector<int> nodes){
   }
 }
 
+// Alternative Constructor
+femFace::femFace(int tempNumber, std::vector<int> nodes){
+  number = tempNumber;
+  for(unsigned int loopA=0;loopA<nodes.size();loopA++){
+    faceNodes.push_back(nodes[loopA]);
+  }
+}
+
 femFace::femFace(femFace* other){
   // Face Nodes
   for(unsigned int loopA=0;loopA<other->faceNodes.size();loopA++){

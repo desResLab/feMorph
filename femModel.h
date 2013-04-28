@@ -4,10 +4,12 @@
 #include <vector>
 #include <string>
 
+#include "femConstants.h"
 #include "femNode.h"
 #include "femElement.h"
 #include "femFace.h"
 #include "femProperty.h"
+#include "femModelSlice.h"
 #include "femInputData.h"
 
 class femModel
@@ -16,6 +18,7 @@ class femModel
     std::vector<femNode*> nodeList;
     std::vector<femElement*> elementList;
     std::vector<femFace*> faceList;
+    std::vector<femFace*> boundaryFaceList;
     std::vector<femProperty*> propList;
     double modelBox[6];
     double modelCentre[3];
@@ -27,6 +30,7 @@ class femModel
     void EvalModelBox();
     void EvalModelCentre();
     void FormElementFaceList();
+    void FormBoundaryFaceList();
 
     // Make Copies to other Model
     void CopyElementsTo(femModel* otherModel);
@@ -49,7 +53,7 @@ class femModel
     // WRITE FUNCTIONALITIES
     // =====================
     // Write Coords To File
-    void WriteNodeCoordsToFile(std::string fileName);
+    void WriteNodeCoordsToFile(double dispFactor, std::string fileName);
     // Write Element Connections To File
     void WriteElementConnectionsToFile(std::string fileName);
     // Node List Manipulation
@@ -89,6 +93,16 @@ class femModel
     int FindEnclosingElementWithAdj(double* nodeCoords);
     // Find Element Containing a Given Node: Use Grid
     int FindEnclosingElementWithGrid(double* nodeCoords, std::vector<int> &gridElementList);
+
+    // ========================
+    // Stenosis Parametrization
+    // ========================
+    // Seek the displacements factor giving a pre-set stonosis level
+    double seekStenoticDisplacementFactor(femInputData* data, double targetStenosisLevel, bool debugMode);
+    // Extract the stenosis for a given displacement factor
+    double ExtractStenosisLevel(femInputData* data, double currDispFactor, std::vector<femModelSlice*> &slices, std::vector<double> &sliceAreas);
+    // Slice Model Skin
+    void SliceModelSkin(const int kStenosisSlices, double dispFactor, femInputData* data, std::vector<femModelSlice*> &slices);
 };
 
 #endif // FEMMODEL_H

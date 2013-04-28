@@ -17,7 +17,12 @@ public:
   femGrid(femModel* model);
   ~femGrid();
   // Member Functions
+  // To Single Index
   int ToIndexes(double* coord);
+  // To Index Array
+  void ToIndexArray(double* coord,int* index);
+  // From inde Array to single index
+  int IndexArrayToIndex(int idx0,int idx1,int idx2);
   void ExportToVTKLegacy(std::string fileName);
 };
 
