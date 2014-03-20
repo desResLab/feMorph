@@ -8,6 +8,7 @@
 #include "femNode.h"
 #include "femElement.h"
 #include "femFace.h"
+#include "femEdge.h"
 #include "femProperty.h"
 #include "femModelSlice.h"
 #include "femInputData.h"
@@ -18,7 +19,7 @@ class femModel
     std::vector<femNode*> nodeList;
     std::vector<femElement*> elementList;
     std::vector<femFace*> faceList;
-    std::vector<femFace*> boundaryFaceList;
+    std::vector<femEdge*> edgeList;
     std::vector<femProperty*> propList;
     double modelBox[6];
     double modelCentre[3];
@@ -30,7 +31,8 @@ class femModel
     void EvalModelBox();
     void EvalModelCentre();
     void FormElementFaceList();
-    void FormBoundaryFaceList();
+    void FormElementEdgeList();
+    void OrientateBoundaryFaceNodes();
 
     // Make Copies to other Model
     void CopyElementsTo(femModel* otherModel);
@@ -48,6 +50,8 @@ class femModel
     void ReadElementConnectionsFromFile(std::string fileName);
     // Read Node Displacements From File
     void ReadNodeDisplacementsFromFile(std::string fileName, bool readRotations);
+    // Read Node Coordinates From VTK Legacy
+    void ReadModelNodesFromVTKFile(std::string fileName);
 
     // =====================
     // WRITE FUNCTIONALITIES
@@ -60,11 +64,34 @@ class femModel
     int GetNodeIDFromNumber(int number);
     // Export Model to VTK Legacy
     void ExportToVTKLegacy(std::string fileName);
+    // Export to cvPRE
+    void ExportToCvPre(double dispFactor, std::string pathName);
+    void WriteCvPreFile(std::string fileName);
+    void WriteAdjacenciesToFile(std::string fileName);
+    void ExportBoundaryElementFiles(double dispFactor, int totalFaceGroups, std::string pathName);
+    void ExportBoundaryNodeFiles(int totalFaceGroups, std::string pathName);
+    void ExportElementFaceGroupToFile(std::string pathName, int groupID);
+    void ExportNodeFaceGroupToFile(std::string pathName, int groupID);
+    // Export Skin Faces of a given group to VTK   
+    void ExportSkinFaceGroupToVTK(std::string fileName, double dispFactor, int groupNumber);
 
-    // ======
-    // CHECKS
-    // ======
+    // ==================================
+    // CHECKS AND GEOMETRICAL EVALUATIONS
+    // ==================================
     bool IsInsideLimits(double* nodeCoords);
+    bool CheckNormalCompatibility(int firstElement, int secondElement);
+
+    // =====================================
+    // ASSIGMENT OF BOUNDARY FLOW CONDITIONS
+    // =====================================
+    void CreateBoundaryConditionFile(std::string inputFile);
+
+    // ===============
+    // MODEL ENQUIRIES
+    // ===============
+    double CheckMinimumElementVolume(double dispFactor);
+    double CheckMinimumElementMixProduct(double dispFactor);
+    void EvalModelQualityDistributions(std::string fileName, double* limitBox);
 
     // ====================
     // MODEL MANIPULATUIONS
@@ -81,6 +108,19 @@ class femModel
     void RotateModel(double angle, double* axis);
     // Write Rotate Node List from Box
     void createStenosisNodeList(double* stenosisBox, femInputData* data, std::vector<femNode*> &steNodeList);
+    // Group boundary faces based on normal
+    void FormBoundaryFaceGroups(int &totalFaceGroups);
+    // Form a model using the boundary faces only
+    femModel* FormBoundaryFaceModel();
+    // Assign 2D element property using normal
+    void GroupFacesByNormal(int &currGroup);
+    // Eval element Normal
+    void evalElementNormal(int firstElement, double* normal);
+    // Normalize Model Displacements
+    void NormalizeDisplacements(double maxDisp);
+    // Check If Two model have compatible Boxes
+    bool isModelCompatible(femModel* other,double tolerance);
+
 
     // ========================
     // ENCLOSING ELEMENT SEARCH
@@ -92,7 +132,7 @@ class femModel
     // Find Element Containing a Given Node: Use Adjacencies
     int FindEnclosingElementWithAdj(double* nodeCoords);
     // Find Element Containing a Given Node: Use Grid
-    int FindEnclosingElementWithGrid(double* nodeCoords, std::vector<int> &gridElementList);
+    int FindEnclosingElementWithGrid(double dispFactor, double* nodeCoords, std::vector<int> &gridElementList);
 
     // ========================
     // Stenosis Parametrization
@@ -100,9 +140,12 @@ class femModel
     // Seek the displacements factor giving a pre-set stonosis level
     double seekStenoticDisplacementFactor(femInputData* data, double targetStenosisLevel, bool debugMode);
     // Extract the stenosis for a given displacement factor
-    double ExtractStenosisLevel(femInputData* data, double currDispFactor, std::vector<femModelSlice*> &slices, std::vector<double> &sliceAreas);
+    double ExtractStenosisLevel(femInputData* data, double currDispFactor, std::vector<femModelSlice*> &slices, std::vector<double> &sliceAreas,
+                                bool useDiameter, bool useOldDefinition, double* stenosisDef);
     // Slice Model Skin
     void SliceModelSkin(const int kStenosisSlices, double dispFactor, femInputData* data, std::vector<femModelSlice*> &slices);
+    // GET AREA AT STENOSIS ORIGIN
+    double GetReferenceArea(femInputData* data);
 };
 
 #endif // FEMMODEL_H

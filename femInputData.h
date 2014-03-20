@@ -33,7 +33,11 @@ public:
   // =====
   // Reference Length
   double stenosisLength;
+  double undeformedStenosisLevel;
   std::vector<double> stenosisLevels;
+  // Type of Stenosis
+  bool useDiameter;
+  bool useOldDefinition;
 
   // Constructor and Destructor
   femInputData();

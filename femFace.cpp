@@ -2,6 +2,8 @@
 
 femFace::femFace()
 {
+  // Initialize Group to -1
+  group = -1;
 }
 
 // Aternative Constructor With Node List

@@ -21,11 +21,20 @@ const int kGridSizeZ = 10;
 
 // Constants: ELEMENTS
 // Number of face in tetrahedra 4
+const int kTri3Nodes = 3;
+// Number of face in tetrahedra 4
 const int kTetra4Nodes = 4;
 // Number of face in tetrahedra 10
 const int kTetra10Nodes = 10;
 // Number of face in tetrahedra
 const int kTetraFaces = 4;
+
+// Constants: Model Quality
+// Volume
+const int kVolume = 0;
+// Mixed Product
+const int kMixedProduct = 1;
+
 
 // Constants: ALGORITHMS
 // Numerical Zero
@@ -40,5 +49,11 @@ const int kStenosisSlices = 20;
 const double kStenosisTolerance = 1.0e-4;
 // Max Picard Iterations for Stenosis
 const int kMaxPicardStenosisIt = 20;
+// Transverse Scaling factor
+const double kTransverseScalingFactor = 1.20;
+// Determine nodes to inclue in stenosis box
+const double kStenosisBoxFactor = 0.80;
+// Angle Limit for normal compatibility check
+const double kNormalAngleLimit = 50.0;
 
 #endif // FEMCONSTANTS_H

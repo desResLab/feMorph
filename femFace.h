@@ -9,6 +9,7 @@ class femFace
 public:
   // Data Members
   int number;
+  int group;
   std::vector<int> faceNodes;
   std::vector<int> faceElements;
   // Constructor and Destructor

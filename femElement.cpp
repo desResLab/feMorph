@@ -74,10 +74,10 @@ double femElement::evalPointToElementDistance(double* pointCoords, std::vector<f
   return sqrt(dist);
 }
 
-// ===============================
-// Eval TETRA10 Volume Coordinates
-// ===============================
-void femTetra10::EvalVolumeCoordinates(double* pointCoords, std::vector<femNode*> &nodeList, double* volCoords){
+// ============================================================
+// Eval TETRA10 Volume Coordinates: STRAIGHT SIDE APPROXIMATION
+// ============================================================
+void femTetra10::EvalVolumeCoordinates(double dispFactor, double* pointCoords, std::vector<femNode*> &nodeList, double* volCoords){
   int* connections= new int[4];
 
   // Copy the first four connctions !!! Complete...
@@ -89,7 +89,7 @@ void femTetra10::EvalVolumeCoordinates(double* pointCoords, std::vector<femNode*
   femTetra4* tet4 = new femTetra4(1,1,kTetra4Nodes,connections);
   // Compute Final Volume Coordinates
   double tet4VolCoords[kTetra4Nodes] = {0.0};
-  tet4->EvalVolumeCoordinates(pointCoords,nodeList,tet4VolCoords);
+  tet4->EvalVolumeCoordinates(dispFactor,pointCoords,nodeList,tet4VolCoords);
 
   // Compute The Area Coordinates for the Full Quadratic Tetrahedron
   volCoords[0] = tet4VolCoords[0]*(2.0*tet4VolCoords[0]-1.0);
@@ -111,7 +111,7 @@ void femTetra10::EvalVolumeCoordinates(double* pointCoords, std::vector<femNode*
 // =======================================
 // Assemble Tetra4 Coordinates in a Matrix
 // =======================================
-void femTetra4::AssembleTetCoordsMat(std::vector<femNode*> &nodeList, double** coordMat){
+void femTetra4::AssembleTetCoordsMat(double dispFactor, std::vector<femNode*> &nodeList, double** coordMat){
   // Fill Matrix
   int currNode = 0;
   for(int loopA=0;loopA<kTetra4Nodes;loopA++){
@@ -119,7 +119,7 @@ void femTetra4::AssembleTetCoordsMat(std::vector<femNode*> &nodeList, double** c
     currNode = elementConnections[loopA];
     // Store In Matrix
     for(int loopB=0;loopB<3;loopB++){
-      coordMat[loopB][loopA] = nodeList[currNode]->coords[loopB];
+      coordMat[loopB][loopA] = nodeList[currNode]->coords[loopB] + dispFactor * nodeList[currNode]->displacements[loopB];
     }
   }
 }
@@ -189,10 +189,28 @@ void EvalExternalTetVolumes(double* pointCoords, double** coordMat, double* extT
   delete [] currCoordMat;
 }
 
+// ===================
+// Eval Element Volume
+// ===================
+double femTetra4::EvalVolume(double dispFactor, std::vector<femNode*> &nodeList){
+  // Put The Coordinates in a Matrix
+    // Allocate current coordinate matrix
+  double** coordMat = new double*[3];
+  for(int loopA=0;loopA<3;loopA++){
+    coordMat[loopA] = new double[kTetra4Nodes];
+  }
+  AssembleTetCoordsMat(dispFactor,nodeList,coordMat);
+
+  // Eval Tethrahedral Volume
+  return EvalTetVolumeFromCoordMat(coordMat);
+}
+
+
+
 // ========================================
 // Eval Volume Coordinates of Point in Tet4
 // ========================================
-void femTetra4::EvalVolumeCoordinates(double* pointCoords, std::vector<femNode*> &nodeList, double* volCoords){
+void femTetra4::EvalVolumeCoordinates(double dispFactor, double* pointCoords, std::vector<femNode*> &nodeList, double* volCoords){
 
   // Put The Coordinates in a Matrix
     // Allocate current coordinate matrix
@@ -200,7 +218,7 @@ void femTetra4::EvalVolumeCoordinates(double* pointCoords, std::vector<femNode*>
   for(int loopA=0;loopA<3;loopA++){
     coordMat[loopA] = new double[kTetra4Nodes];
   }
-  AssembleTetCoordsMat(nodeList,coordMat);
+  AssembleTetCoordsMat(dispFactor,nodeList,coordMat);
 
   // Eval Tethrahedral Volume
   double TetVolume = EvalTetVolumeFromCoordMat(coordMat);
@@ -233,13 +251,13 @@ void femTetra4::EvalVolumeCoordinates(double* pointCoords, std::vector<femNode*>
 
 
 // Check if Node is Inside
-bool femTetra4::isNodeInsideElement(double* pointCoords,std::vector<femNode*> &nodeList){
+bool femTetra4::isNodeInsideElement(double dispFactor, double* pointCoords,std::vector<femNode*> &nodeList){
   // Init Result
   bool isInside = true;
 
   // Eval Volume Coordinates
   double volCoords[kTetra4Nodes] = {0.0};
-  EvalVolumeCoordinates(pointCoords,nodeList,volCoords);
+  EvalVolumeCoordinates(dispFactor,pointCoords,nodeList,volCoords);
 
   // Compute Result
   for(int loopA=0;loopA<kTetra4Nodes;loopA++){
@@ -262,11 +280,11 @@ bool femTetra4::isNodeInsideElement(double* pointCoords,std::vector<femNode*> &n
 // =================================
 // Interpolate Element Displacements
 // =================================
-void femElement::InterpolateElementDisplacements(double* nodeCoords, std::vector<femNode*> &nodeList, double* intDisps){
+void femElement::InterpolateElementDisplacements(double dispFactor, double* nodeCoords, std::vector<femNode*> &nodeList, double* intDisps){
 
   double* volCoords = new double[int(elementConnections.size())];
   // Eval Shape Function Values for Current Node
-  EvalVolumeCoordinates(nodeCoords,nodeList,volCoords);
+  EvalVolumeCoordinates(dispFactor,nodeCoords,nodeList,volCoords);
 
   // Loop through the nodes
   for(int loopA=0;loopA<kNodeDofs;loopA++){
@@ -291,7 +309,7 @@ void femElement::InterpolateElementDisplacements(double* nodeCoords, std::vector
 // =============================================
 // CAREFUL: VALID ONLY FOR STRAIGHT SIDE TETRA10
 // =============================================
-bool femTetra10::isNodeInsideElement(double* pointCoords,std::vector<femNode*> &nodeList){
+bool femTetra10::isNodeInsideElement(double dispFactor, double* pointCoords,std::vector<femNode*> &nodeList){
   // Init Result
   bool isInside = true;
 
@@ -305,7 +323,7 @@ bool femTetra10::isNodeInsideElement(double* pointCoords,std::vector<femNode*> &
   femTetra4* tet4 = new femTetra4(1,1,kTetra4Nodes,connections);
   // Compute Final Volume Coordinates
   double tet4VolCoords[kTetra4Nodes] = {0.0};
-  tet4->EvalVolumeCoordinates(pointCoords,nodeList,tet4VolCoords);
+  tet4->EvalVolumeCoordinates(dispFactor,pointCoords,nodeList,tet4VolCoords);
 
   // Compute Result
   for(int loopA=0;loopA<kTetra4Nodes;loopA++){
@@ -550,3 +568,53 @@ void femElement::CreateMinMaxNodeList(std::vector<femNode*> &nodeList,std::vecto
   }
 }
 
+// =====================================
+// Eval Mixed Product of Single Elements
+// =====================================
+double femTetra4::EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeList){
+  double minMixedProduct = std::numeric_limits<double>::max();
+  double vecA[3] = {0.0};
+  double vecB[3] = {0.0};
+  double vecC[3] = {0.0};
+  double vec1[3] = {0.0};
+  int n0,n1,n2,n3;
+  double currProd = 0.0;
+  for(unsigned int loopA=0;loopA<elementConnections.size();loopA++){
+    // Get Local Nodes
+    n0 = elementConnections[(loopA) % (elementConnections.size())];
+    n1 = elementConnections[(loopA+1) % (elementConnections.size())];
+    n2 = elementConnections[(loopA+2) % (elementConnections.size())];
+    n3 = elementConnections[(loopA+3) % (elementConnections.size())];
+    // Get three vectors
+    vecA[0] = nodeList[n1]->coords[0] - nodeList[n0]->coords[0];
+    vecA[1] = nodeList[n1]->coords[1] - nodeList[n0]->coords[1];
+    vecA[2] = nodeList[n1]->coords[2] - nodeList[n0]->coords[2];
+    vecB[0] = nodeList[n2]->coords[0] - nodeList[n0]->coords[0];
+    vecB[1] = nodeList[n2]->coords[1] - nodeList[n0]->coords[1];
+    vecB[2] = nodeList[n2]->coords[2] - nodeList[n0]->coords[2];
+    vecC[0] = nodeList[n3]->coords[0] - nodeList[n0]->coords[0];
+    vecC[1] = nodeList[n3]->coords[1] - nodeList[n0]->coords[1];
+    vecC[2] = nodeList[n3]->coords[2] - nodeList[n0]->coords[2];
+    // Get external product
+    femUtils::Do3DExternalProduct(vecA,vecB,vec1);
+    // Get Internal Product
+    currProd = femUtils::Do3DInternalProduct(vec1,vecC);
+    // Store Minimum Value
+    if(currProd < minMixedProduct){
+      minMixedProduct = currProd;
+    }
+  }
+  return minMixedProduct;
+}
+
+// TO IMPLEMENT
+double femTetra10::EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeList){
+  throw new femException("Internal: femTetra10::EvalMixProduct not Implemented");
+  return 0.0;
+}
+
+// TO IMPLEMENT
+double femTri3::EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeList){
+  throw new femException("Internal: femTria3::EvalMixProduct not Implemented");
+  return 0.0;
+}

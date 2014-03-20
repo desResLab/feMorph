@@ -1,17 +1,22 @@
 #ifndef FEMUTILS_H
 #define FEMUTILS_H
 
+#include <iostream>
+#include <fstream>
+#include <algorithm>
+#include <math.h>
+#include <vector>
+
 #include "femConstants.h"
 #include "femNode.h"
 #include "femInputData.h"
 #include "femModelSlice.h"
-
-#include <vector>
-#include <math.h>
+#include "femException.h"
 
 // Random Number Generator
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
+#include <boost/algorithm/string.hpp>
 
 namespace femUtils{
 
@@ -386,6 +391,161 @@ inline void PlotSlicesToVTK(std::string fileName, std::vector<femModelSlice*> &s
   fclose(outFile);
 }
 
+// ====================================================================
+// Make list compact by eliminating double entries: NOTE: order changed
+// ====================================================================
+inline void MakeCompactList(std::vector<int> inputList, std::vector<int> &compactList){
+  // Sort list
+  std::sort(inputList.begin(),inputList.end());
+
+  // Create compact copy
+  int count = 0;
+  int currentNode = 0;
+  int nextNode = 0;
+  while(count<(int)inputList.size()-1){
+    // Get Nodes
+    currentNode = inputList[count];
+    nextNode = inputList[count+1];
+    // If different then print
+    if(currentNode != nextNode){
+      // Print to file
+      compactList.push_back(currentNode);
+    }
+    // Increment Counter
+    count++;
+  }
+  // Print Last
+  compactList.push_back(inputList[count]);
+}
+
+// ==============================================
+// Find inverse mapping defined by integer vector
+// ==============================================
+inline int findVectorInverseMapping(int value, std::vector<int> list){
+  int count = 0;
+  bool found = false;
+  while((!found)&&(count<(int)list.size())){
+    found = (value == list[count]);
+    // Update Count
+    if(!found){
+      count++;
+    }
+  }
+  if(!found){
+    throw new femException("Internal: could not find mapping in findVectorInverseMapping.\n");
+  }
+  // Return
+  return count;
+}
+
+// ==========================================
+// Create Inverse Node Numbering Relationship
+// ==========================================
+inline void MakeInverseList(std::vector<int> list,int totalNodes,std::vector<int> &inverseList){
+  // Allocate and initialize elements of the inverse list
+  inverseList.resize(totalNodes);
+  // Init
+  for(int loopA=0;loopA<totalNodes;loopA++){
+    inverseList[loopA] = -1;
+  }
+  // Assign Inverse Relationshop
+  int currentidx = 0;
+  for(unsigned int loopA=0;loopA<list.size();loopA++){
+    currentidx = list[loopA];
+    inverseList[currentidx] = loopA;
+  }
+}
+
+// ==========================
+// Write Vector Graph To File
+// ==========================
+inline void WriteGraphToFile(std::string fileName, int vecSize, std::vector<double> &vecX, std::vector<double> &vecY){
+  // Open Output File
+    FILE* outFile;
+    outFile = fopen(fileName.c_str(),"w");
+    // Write Header
+  for(int loopA=0;loopA<vecSize;loopA++){
+    fprintf(outFile,"%d %e %e\n",loopA,vecX[loopA],vecY[loopA]);
+  }
+    // Close Output file
+    fclose(outFile);
+}
+
+// =====================================
+// CHECK IF A POINT IS INSIDE THE LIMITS
+// =====================================
+inline bool isInsideLimits(double* centroid,double* limitBox){
+  bool isInsideX = (centroid[0]>=limitBox[0])&&(centroid[0]<=limitBox[1]);
+  bool isInsideY = (centroid[1]>=limitBox[2])&&(centroid[1]<=limitBox[3]);
+  bool isInsideZ = (centroid[2]>=limitBox[4])&&(centroid[2]<=limitBox[5]);
+  if((isInsideX)&&(isInsideY)&&(isInsideZ)){
+    return true;
+  }else{
+    return false;
+  }
+}
+
+// =================================
+// CHECK IF TWO BOXES ARE COMPATIBLE
+// =================================
+inline bool AreCompatibleBoxes(double* firstBox, double* secondBox,double tolerance){
+  // Eval the Two diagonals
+  double firstDiagonal = sqrt((firstBox[1]-firstBox[0])*(firstBox[1]-firstBox[0]) + (firstBox[3]-firstBox[2])*(firstBox[3]-firstBox[2]) + (firstBox[5]-firstBox[4])*(firstBox[5]-firstBox[4]));
+  double secondDiagonal = sqrt((secondBox[1]-secondBox[0])*(secondBox[1]-secondBox[0]) + (secondBox[3]-secondBox[2])*(secondBox[3]-secondBox[2]) + (secondBox[5]-secondBox[4])*(secondBox[5]-secondBox[4]));
+  // If diagonal are zero return
+  if((fabs(firstDiagonal)<kMathZero)||(fabs(secondDiagonal)<kMathZero)){
+    return false;
+  }
+  // If the diagonal is different than return
+  if((fabs(firstDiagonal-secondDiagonal)/((double)firstDiagonal))>0.2){
+    return false;
+  }
+  // Eval the 2-norm in the difference on box locations
+  double boxDistance = sqrt((firstBox[0]-secondBox[0])*(firstBox[0]-secondBox[0]) +
+                            (firstBox[1]-secondBox[1])*(firstBox[1]-secondBox[1]) +
+                            (firstBox[2]-secondBox[2])*(firstBox[2]-secondBox[2]) +
+                            (firstBox[3]-secondBox[3])*(firstBox[3]-secondBox[3]) +
+                            (firstBox[4]-secondBox[4])*(firstBox[4]-secondBox[4]) +
+                            (firstBox[5]-secondBox[5])*(firstBox[5]-secondBox[5]));
+  // Make a choice based on distance and diagonal
+  if(boxDistance<firstDiagonal*tolerance){
+    return true;
+  }else{
+    return false;
+  }
+}
+
+inline void ReadListFromFile(std::string fileName, std::vector<std::string> &fileList1){
+  // Declare input File
+  std::ifstream infile;
+  infile.open(fileName);
+
+  // Clear File List
+  fileList1.clear();
+
+  // Read Data From File
+  std::string buffer;
+  while (std::getline(infile,buffer)){
+    // Trim String
+    boost::trim(buffer);
+    // Add to list
+    fileList1.push_back(buffer);
+  }
+
+  // Close File
+  infile.close();
+}
+
+// Extract File Name From String
+inline std::string extractFileName(std::string fullPath){
+  std::vector<std::string> tokenizedString;
+  // Trim String
+  boost::trim(fullPath);
+  // Tokenize String
+  boost::split(tokenizedString,fullPath, boost::is_any_of("/"), boost::token_compress_on);
+  // Return Last
+  return tokenizedString[tokenizedString.size()-1];
+}
 
 }
 

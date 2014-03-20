@@ -56,9 +56,12 @@ void femModelSlice::getPointCentoid(double* centerPoint){
 }
 
 // ===============
-// Eval Slice Area
+// EVAL SLICE AREA
 // ===============
 double femModelSlice::EvalSliceArea(double** refSystem){
+  if(slicedPoints.size() == 0){
+    return 0.0;
+  }
   double axisSign[3];
   double refModelAxis[3];
   double currentSign = 0.0;
@@ -82,13 +85,23 @@ double femModelSlice::EvalSliceArea(double** refSystem){
   angles.push_back(0.0);
   // Eval the angle with reference Vector
   double currAngle = 0.0;
+  double currProd = 0.0;
   for(unsigned int loopA=1;loopA<slicedPoints.size();loopA++){
     otherVec[0] = centerPoint[0] - slicedPoints[loopA]->coords[0];
     otherVec[1] = centerPoint[1] - slicedPoints[loopA]->coords[1];
     otherVec[2] = centerPoint[2] - slicedPoints[loopA]->coords[2];
     // Get Angle
     femUtils::Normalize3DVector(otherVec);
-    currAngle = acos(femUtils::Do3DInternalProduct(refVec,otherVec))*(180.0/kPI);
+    // Get Internal Product and Check Limits
+    currProd = femUtils::Do3DInternalProduct(refVec,otherVec);
+    if(currProd>1.0){
+      currProd = 1.0;
+    }
+    if(currProd<-1.0){
+      currProd = -1.0;
+    }
+    // Get Angle
+    currAngle = acos(currProd)*(180.0/kPI);
     // Get Sign
     femUtils::Do3DExternalProduct(refVec,otherVec,axisSign);
     femUtils::Normalize3DVector(axisSign);

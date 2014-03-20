@@ -113,6 +113,14 @@ void femInputData::ReadFromFile(std::string fileName){
             stenosisLevels.push_back(atof(tokenizedString[loopA].c_str()));
           }
           break;
+        case 12:
+          // Undeformed Stenosis level, use diameter and use Old definition
+          boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
+          undeformedStenosisLevel = atof(tokenizedString[0].c_str());
+          // Type of Stenosis
+          useDiameter = (atoi(tokenizedString[1].c_str()) == 1);
+          useOldDefinition = (atoi(tokenizedString[2].c_str()) == 1);
+          break;
       }
     }
   }
