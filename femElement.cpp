@@ -234,7 +234,7 @@ void femTetra4::EvalVolumeCoordinates(double dispFactor, double* pointCoords, st
     sum += currVolumes[loopA];
   }
   //if (fabs(sum-1.0)>kMathZero){
-  //  throw new femException("Internal: Tet4 Volume Coordinates do not sum up to one.");
+  //  throw femException("Internal: Tet4 Volume Coordinates do not sum up to one.");
   //}
 
   // Compute Final Volume Coordinates
@@ -271,7 +271,7 @@ bool femTetra4::isNodeInsideElement(double dispFactor, double* pointCoords,std::
   }
   // NO: I use it to evaluate if a node is inside
   //if (fabs(sum-1.0)>kMathZero){
-  //  throw new femException("Error: Internal. Tet4 Shape Function don't sum up to one");
+  //  throw femException("Error: Internal. Tet4 Shape Function don't sum up to one");
   //}
   // Return
   return isInside;
@@ -337,7 +337,7 @@ bool femTetra10::isNodeInsideElement(double dispFactor, double* pointCoords,std:
   }
   // NO: I use it to evaluate is a node is inside
   //if (fabs(sum-1.0)>kMathZero){
-  //  throw new femException("Error: Internal. In Tet10 internal Check, Shape Function don't sum up to one");
+  //  throw femException("Error: Internal. In Tet10 internal Check, Shape Function don't sum up to one");
   //}
 
   // Delete Temporary Tet4 element
@@ -413,7 +413,7 @@ int femElement::getAdjacentElement(int localFaceID, std::vector<femFace*> &faceL
     }else if(el2 == currNumber){
       return el1;
     }else{
-      throw new femException("Internal: Invalid Element connections in face.\n");
+      throw femException("Internal: Invalid Element connections in face.\n");
     }
   }
 }
@@ -609,12 +609,12 @@ double femTetra4::EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeL
 
 // TO IMPLEMENT
 double femTetra10::EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeList){
-  throw new femException("Internal: femTetra10::EvalMixProduct not Implemented");
+  throw femException("Internal: femTetra10::EvalMixProduct not Implemented");
   return 0.0;
 }
 
 // TO IMPLEMENT
 double femTri3::EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeList){
-  throw new femException("Internal: femTria3::EvalMixProduct not Implemented");
+  throw femException("Internal: femTria3::EvalMixProduct not Implemented");
   return 0.0;
 }

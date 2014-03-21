@@ -9,8 +9,8 @@ public:
   // Constructor and Destructor
   femException(const char* m):msg(m){};
   virtual ~femException() throw(){};
-    // Member Functions
-      virtual const char* what() const throw() {return msg.c_str();}
+  // Member Functions
+  virtual const char* what() const throw() {return msg.c_str();}
 protected:
   std::string msg;
 };

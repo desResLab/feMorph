@@ -242,7 +242,7 @@ void femModel::ReadElementConnectionsFromFile(std::string fileName, bool skipFir
       }else if(totNodes == kTetra10Nodes){
         newElement = new femTetra10(currElementNumber,1,totNodes,nodeConnections);
       }else{
-        throw new femException("Error: Invalid Element Type");
+        throw femException("Error: Invalid Element Type");
       }
 
       // Add to the node List
@@ -967,7 +967,7 @@ void femModel::CopyElementsTo(femModel* otherModel){
     }else if(elementList[loopA]->elementConnections.size() == 10){
       newElement = new femTetra10(elementList[loopA]);
     }else{
-      throw new femException("Internal: Element not supported.");
+      throw femException("Internal: Element not supported.");
     }
     // Put in list
     otherModel->elementList.push_back(newElement);
@@ -1038,7 +1038,7 @@ void femModel::ExportToVTKLegacy(std::string fileName){
       fprintf(outFile,"%d\n",5);
     }else{
       fclose(outFile);
-      throw new femException("Error: Invalid element to Export.");
+      throw femException("Error: Invalid element to Export.");
     }
   }
   // Point Data Header
@@ -1827,7 +1827,7 @@ void femModel::evalElementNormal(int firstElement, double* normal){
     femUtils::Do3DExternalProduct(firstVector,secondVector,normal);
     femUtils::Normalize3DVector(normal);
   }else{
-    throw new femException("Internal: Cannot Evaluate Normal of 3D element");
+    throw femException("Internal: Cannot Evaluate Normal of 3D element");
   }
 }
 
@@ -1902,7 +1902,7 @@ void femModel::GroupFacesByNormal(int &currGroup){
           }else if(edgeList[currEdge]->edgeElements[1] == currElement){
             otherElement = edgeList[currEdge]->edgeElements[0];
           }else{
-            throw new femException("Internal error: Invalid Edge definition.");
+            throw femException("Internal error: Invalid Edge definition.");
           }
           // Check normal compatibility of currElement and otherElement
           isNormalCompatible = CheckNormalCompatibility(currElement,otherElement);
@@ -2078,7 +2078,7 @@ void femModel::OrientateBoundaryFaceNodes(){
           }
         }
         if(!found){
-          throw new femException("Internal: Could not find Node!");
+          throw femException("Internal: Could not find Node!");
         }else{
           n3 = currNode;
         }
@@ -2457,7 +2457,7 @@ void femModel::ReadModelElementsFromVTKFile(std::string fileName){
           // Add to Element List
           elementList.push_back(newElement);
         }else{
-          throw new femException("Error: Invalid Element Type");
+          throw femException("Error: Invalid Element Type");
         }
       }
     }
@@ -2510,9 +2510,11 @@ void femModel::WriteSkinSMeshFile(std::string polyFileName){
 // ================
 void femModel::MeshWithTetGen(std::string polyFileName){
   femUtils::WriteMessage(std::string("Generating Mesh with TetGen...\n"));
-  std::string command(std::string("tetgen -pqQ ")+polyFileName);
+  std::string command(std::string("tetigen -pqQ ") + polyFileName);
   int rpl = system (command.c_str());
-  //femUtils::WriteMessage(std::string() + itoa(rpl));
+  if(rpl != 0){
+    throw femException("Error: Cannot find tetgen.\n");
+  }
 }
 
 // ===================

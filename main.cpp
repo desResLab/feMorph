@@ -494,13 +494,23 @@ int meshVTKSkinToCVPre(int argc, char **argv){
 // ============
 // ============
 int main(int argc, char **argv){
-  // Normal Model Running
   int val = 0;
-  //val = runNormalMode(argc,argv);
-  //val = translateFilesToCvPre(argc,argv);
-  //val = simpleMapMode(argc,argv);
-  //val = exctractMeshQualityDistributions(argc,argv);
-  //val = findFaceMatchList(argc,argv);
-  val = meshVTKSkinToCVPre(argc,argv);
+  try{
+    // Normal Model Running
+    //val = runNormalMode(argc,argv);
+    //val = translateFilesToCvPre(argc,argv);
+    //val = simpleMapMode(argc,argv);
+    //val = exctractMeshQualityDistributions(argc,argv);
+    //val = findFaceMatchList(argc,argv);
+    val = meshVTKSkinToCVPre(argc,argv);
+  } catch (std::exception& ex) {
+    femUtils::WriteMessage(std::string(ex.what()));
+    femUtils::WriteMessage(std::string("\n"));
+    femUtils::WriteMessage(std::string("Program Terminated.\n"));
+    return -1;
+  }
+  femUtils::WriteMessage(std::string("\n"));
+  femUtils::WriteMessage(std::string("Program Completed.\n"));
   return val;
+
 }
