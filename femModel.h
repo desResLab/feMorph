@@ -42,16 +42,18 @@ class femModel
     // ====================
     // READ FUNCTIONALITIES
     // ====================
-    // Read Whole Model From File
+    // Read Whole Model From LS-DYNA File
     void ReadModelFromFile(std::string fileName);
     // Read Only Coords
-    void ReadNodeCoordsFromFile(std::string fileName);
+    void ReadNodeCoordsFromFile(std::string fileName, bool skipFirstRow);
     // Read Only Element Connections
-    void ReadElementConnectionsFromFile(std::string fileName);
+    void ReadElementConnectionsFromFile(std::string fileName, bool skipFirstRow);
     // Read Node Displacements From File
     void ReadNodeDisplacementsFromFile(std::string fileName, bool readRotations);
     // Read Node Coordinates From VTK Legacy
     void ReadModelNodesFromVTKFile(std::string fileName);
+    // Read Element Connectivities From VTK Legacy
+    void ReadModelElementsFromVTKFile(std::string fileName);
 
     // =====================
     // WRITE FUNCTIONALITIES
@@ -74,6 +76,8 @@ class femModel
     void ExportNodeFaceGroupToFile(std::string pathName, int groupID);
     // Export Skin Faces of a given group to VTK   
     void ExportSkinFaceGroupToVTK(std::string fileName, double dispFactor, int groupNumber);
+    // Write PolyFile for TETGEN
+    void WriteSkinSMeshFile(std::string polyFileName);
 
     // ==================================
     // CHECKS AND GEOMETRICAL EVALUATIONS
@@ -121,6 +125,10 @@ class femModel
     // Check If Two model have compatible Boxes
     bool isModelCompatible(femModel* other,double tolerance);
 
+    // =======
+    // MESHING
+    // =======
+    void MeshWithTetGen(std::string polyFileName);
 
     // ========================
     // ENCLOSING ELEMENT SEARCH

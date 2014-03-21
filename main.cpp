@@ -90,8 +90,8 @@ int runNormalMode(int argc, char **argv){
 
   // Read Main Model
   femModel* mainModel = new femModel();
-  mainModel->ReadNodeCoordsFromFile(data->mainModelCoordsFileName);
-  mainModel->ReadElementConnectionsFromFile(data->mainModelConnectionsFileName);
+  mainModel->ReadNodeCoordsFromFile(data->mainModelCoordsFileName,false);
+  mainModel->ReadElementConnectionsFromFile(data->mainModelConnectionsFileName,false);
   // Form Face List
   mainModel->FormElementFaceList();
 
@@ -102,8 +102,8 @@ int runNormalMode(int argc, char **argv){
 
   // Read Mapping Model
   femModel* mappingModel = new femModel();
-  mappingModel->ReadNodeCoordsFromFile(data->mappingModelCoordsFileName);
-  mappingModel->ReadElementConnectionsFromFile(data->mappingModeConnectionslFileName);
+  mappingModel->ReadNodeCoordsFromFile(data->mappingModelCoordsFileName,false);
+  mappingModel->ReadElementConnectionsFromFile(data->mappingModeConnectionslFileName,false);
   // Form Face List
   mappingModel->FormElementFaceList();
 
@@ -273,15 +273,15 @@ int simpleMapMode(int argc, char **argv){
 
   // Read Main Model
   femModel* mainModel = new femModel();
-  mainModel->ReadNodeCoordsFromFile(data->mainModelCoordsFileName);
-  mainModel->ReadElementConnectionsFromFile(data->mainModelConnectionsFileName);
+  mainModel->ReadNodeCoordsFromFile(data->mainModelCoordsFileName,false);
+  mainModel->ReadElementConnectionsFromFile(data->mainModelConnectionsFileName,false);
   // Form Face List
   mainModel->FormElementFaceList();
 
   // Read Mapping Model
   femModel* mappingModel = new femModel();
-  mappingModel->ReadNodeCoordsFromFile(data->mappingModelCoordsFileName);
-  mappingModel->ReadElementConnectionsFromFile(data->mappingModeConnectionslFileName);
+  mappingModel->ReadNodeCoordsFromFile(data->mappingModelCoordsFileName,false);
+  mappingModel->ReadElementConnectionsFromFile(data->mappingModeConnectionslFileName,false);
   // Form Face List
   mappingModel->FormElementFaceList();
 
@@ -316,15 +316,15 @@ int simpleMapMode(int argc, char **argv){
 }
 
 // ========================
-// TRANSLATE FILES TO CVPRE
+// TRANSLATE MODEL TO CVPRE
 // ========================
-int translateFilesToCvPre(int argc, char **argv){
+int translateModelToCvPre(std::string nodeFileName, std::string elemFileName, bool skipFirstRow){
   // Read Main Model
   femModel* mainModel = new femModel();
 
   // Read Node Coordinates and Connections
-  mainModel->ReadNodeCoordsFromFile(std::string(argv[1]));
-  mainModel->ReadElementConnectionsFromFile(std::string(argv[2]));
+  mainModel->ReadNodeCoordsFromFile(nodeFileName,skipFirstRow);
+  mainModel->ReadElementConnectionsFromFile(elemFileName,skipFirstRow);
 
   // Form Face List
   mainModel->FormElementFaceList();
@@ -345,6 +345,9 @@ int translateFilesToCvPre(int argc, char **argv){
   // Return
   return 0;
 }
+int translateFilesToCvPre(int argc, char **argv, bool skipFirstRow){
+    return translateModelToCvPre(std::string(argv[1]),std::string(argv[2]),skipFirstRow);
+}
 
 // ===============================================================
 // READ MODEL AND EVALUATED VOLUME AND MIXED PRODUCT DISTRIBUTIONS
@@ -354,8 +357,8 @@ int exctractMeshQualityDistributions(int argc, char **argv){
   femModel* mainModel = new femModel();
 
   // Read Node Coordinates and Connections
-  mainModel->ReadNodeCoordsFromFile(std::string(argv[1]));
-  mainModel->ReadElementConnectionsFromFile(std::string(argv[2]));
+  mainModel->ReadNodeCoordsFromFile(std::string(argv[1]),false);
+  mainModel->ReadElementConnectionsFromFile(std::string(argv[2]),false);
 
   // Form Box
   double limitBox[6];
@@ -453,20 +456,51 @@ int findFaceMatchList(int argc, char **argv){
   return 0;
 }
 
+// ======================
+// MESH VTK TRIANGULATION
+// ======================
+int meshVTKSkinToCVPre(int argc, char **argv){
+
+  // Set Model File Name
+  std::string VTKFileName(argv[1]);
+
+  // Read Skin Model
+  femModel* model = new femModel();
+  femUtils::WriteMessage(std::string("Reading Nodes ...\n"));
+  model->ReadModelNodesFromVTKFile(VTKFileName);
+  femUtils::WriteMessage(std::string("Reading Elements ...\n"));
+  model->ReadModelElementsFromVTKFile(VTKFileName);
+
+  // Test: Write VTK
+  model->ExportToVTKLegacy(std::string("TestExport.vtk"));
+
+  // Convert To poly file
+  std::string polyFileName("model.smesh");
+  femUtils::WriteMessage(std::string("Writing SMesh File ...\n"));
+  model->WriteSkinSMeshFile(polyFileName);
+
+  // Mesh Poly file with tetgen
+  femUtils::WriteMessage(std::string("Meshing with Tetgen ...\n"));
+  model->MeshWithTetGen(polyFileName);
+
+  // Export CVPRE File from node Coordinated and Element Incidences
+  femUtils::WriteMessage(std::string("Exporting to CVPre ...\n"));
+  translateModelToCvPre(std::string("model.1.node"),std::string("model.1.ele"),true);
+}
 
 // ============
 // ============
 // MAIN PROGRAM
 // ============
 // ============
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv){
   // Normal Model Running
   int val = 0;
-  val = runNormalMode(argc,argv);
+  //val = runNormalMode(argc,argv);
   //val = translateFilesToCvPre(argc,argv);
   //val = simpleMapMode(argc,argv);
   //val = exctractMeshQualityDistributions(argc,argv);
   //val = findFaceMatchList(argc,argv);
+  val = meshVTKSkinToCVPre(argc,argv);
   return val;
 }

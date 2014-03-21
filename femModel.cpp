@@ -137,7 +137,7 @@ void femModel::RotateModel(double angle, double* axis){
 // ===================================
 // Read the node coordinates from file
 // ===================================
-void femModel::ReadNodeCoordsFromFile(std::string fileName){
+void femModel::ReadNodeCoordsFromFile(std::string fileName, bool skipFirstRow){
   // Declare input File
   ifstream infile;
   infile.open(fileName);
@@ -153,12 +153,16 @@ void femModel::ReadNodeCoordsFromFile(std::string fileName){
   int lineCount = 0;
   double currCoords[3] = {0.0};
   double currDisps[6] = {0.0};
+  // Skip First Row If Required
+  if(skipFirstRow){
+    std::getline(infile,buffer);
+  }
   while (std::getline(infile,buffer)){
     // Increment line count
     lineCount++;
     // Trim String
     boost::trim(buffer);
-    if(buffer != ""){
+    if((buffer != "")&&(buffer.at(0) != '#')){
       // Tokenize String
       boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
 
@@ -193,7 +197,7 @@ void femModel::ReadNodeCoordsFromFile(std::string fileName){
 // =====================================
 // Read Element Connectivities From File
 // =====================================
-void femModel::ReadElementConnectionsFromFile(std::string fileName){
+void femModel::ReadElementConnectionsFromFile(std::string fileName, bool skipFirstRow){
   // Declare input File
   ifstream infile;
   infile.open(fileName);
@@ -207,12 +211,16 @@ void femModel::ReadElementConnectionsFromFile(std::string fileName){
   int totNodes = 0;
   int lineCount = 0;
   int currElementNumber = 0;
+  // Skip First Row If Required
+  if(skipFirstRow){
+    std::getline(infile,buffer);
+  }
   while (std::getline(infile,buffer)){
     // Increment Line Count
     lineCount++;
     // Trim String
     boost::trim(buffer);
-    if(buffer != ""){
+    if((buffer != "")&&(buffer.at(0) != '#')){
       // Tokenize String
       boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
 
@@ -2310,6 +2318,9 @@ bool femModel::isModelCompatible(femModel* other,double tolerance){
 
 }
 
+// ================================
+// READ MODEL NODES FROM VTK LEGACY
+// ================================
 void femModel::ReadModelNodesFromVTKFile(std::string fileName){
 
   // Declare input File
@@ -2382,6 +2393,127 @@ void femModel::ReadModelNodesFromVTKFile(std::string fileName){
   infile.close();
 }
 
+// ===================================
+// READ MODEL ELEMENTS FROM VTK LEGACY
+// ===================================
+void femModel::ReadModelElementsFromVTKFile(std::string fileName){
+
+  // Declare input File
+  std::ifstream infile;
+  infile.open(fileName);
+
+  // Declare
+  std::vector<string> tokenizedString;
+  int polygonCount = 0;
+  int nodeCount = 0;
+  femElement* newElement;
+  int* nodeConnections;
+  int currElementNumber = -1;
+
+  // Read Data From File
+  std::string buffer;
+  while (std::getline(infile,buffer)){
+    // Trim String
+    boost::trim(buffer);
+    // Tokenize String
+    boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
+    // Look for the "POINTS" string
+    if(tokenizedString[0] == std::string("POLYGONS")){
+      // Read Number of Points
+      polygonCount = atoi(tokenizedString[1].c_str());
+      for(int loopA=0;loopA<polygonCount;loopA++){
+        // Read New Line
+        std::getline(infile,buffer);
+        // Trim String
+        boost::trim(buffer);
+        // Tokenize String
+        boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
+
+        // Get The number of nodes
+        nodeCount = atoi(tokenizedString[0].c_str());
+
+        // Read Element Connections
+        nodeConnections = new int[nodeCount];
+        for (int loopA=0;loopA<nodeCount;loopA++){
+          // node numbering starts from 1
+          // nodeConnections[loopA] = atoi(tokenizedString[loopA+1].c_str()) - 1;
+          nodeConnections[loopA] = atoi(tokenizedString[loopA+1].c_str());
+        }
+
+        // Create a new Element
+        if(nodeCount == kTri3Nodes){
+          currElementNumber++;
+          newElement = new femTri3(currElementNumber-1,1,nodeCount,nodeConnections);
+          // Add to Element List
+          elementList.push_back(newElement);
+        }else if(nodeCount == kTetra4Nodes){
+          currElementNumber++;
+          newElement = new femTetra4(currElementNumber-1,1,nodeCount,nodeConnections);
+          // Add to Element List
+          elementList.push_back(newElement);
+        }else if(nodeCount == kTetra10Nodes){
+          currElementNumber++;
+          newElement = new femTetra10(currElementNumber-1,1,nodeCount,nodeConnections);
+          // Add to Element List
+          elementList.push_back(newElement);
+        }else{
+          throw new femException("Error: Invalid Element Type");
+        }
+      }
+    }
+  }
+  // Close File
+  infile.close();
+}
+
+// =========================
+// WRITE POLYFILE FOR TETGEN
+// =========================
+void femModel::WriteSkinSMeshFile(std::string polyFileName){
+
+  // Open Output File
+  FILE* outFile;
+  outFile = fopen(polyFileName.c_str(),"w");
+
+  // Part 1
+  fprintf(outFile,"# Part 1 - node list\n");
+  fprintf(outFile,"# node count, 3 dim, no attribute, no boundary marker\n");
+  fprintf(outFile,"%d 3 0 0\n",nodeList.size());
+
+  // Write Node Coordinates
+  for(int loopA=0;loopA<nodeList.size();loopA++){
+    fprintf(outFile,"%d %e %e %e\n",loopA+1,nodeList[loopA]->coords[0],nodeList[loopA]->coords[1],nodeList[loopA]->coords[2]);
+  }
+
+  // Part 2
+  fprintf(outFile,"# Part 2 - facet list\n");
+  fprintf(outFile,"# facet count, no boundary marker\n");
+  fprintf(outFile,"%d 0\n",elementList.size());
+
+  // Write Facets
+  for(int loopA=0;loopA<elementList.size();loopA++){
+    // PRINT ONLY TRI3 ELEMENTS
+    if(elementList[loopA]->elementConnections.size() == kTri3Nodes){
+      //fprintf(outFile,"1\n");
+      fprintf(outFile,"%d %d %d %d\n",kTri3Nodes,elementList[loopA]->elementConnections[0] + 1,
+                                                 elementList[loopA]->elementConnections[1] + 1,
+                                                 elementList[loopA]->elementConnections[2] + 1);
+    }
+  }
+
+  // Close Output file
+  fclose(outFile);
+}
+
+// ================
+// MESH WITH TETGEN
+// ================
+void femModel::MeshWithTetGen(std::string polyFileName){
+  femUtils::WriteMessage(std::string("Generating Mesh with TetGen...\n"));
+  std::string command(std::string("tetgen -pqQ ")+polyFileName);
+  int rpl = system (command.c_str());
+  //femUtils::WriteMessage(std::string() + itoa(rpl));
+}
 
 // ===================
 // Read flow rate file
