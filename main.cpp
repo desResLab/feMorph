@@ -4,6 +4,7 @@
 #include "femModel.h"
 #include "femInputData.h"
 #include "femUtils.h"
+#include "femWeightedFileName.h"
 
 // ====================
 // Normal Model Running
@@ -488,6 +489,21 @@ int meshVTKSkinToCVPre(int argc, char **argv){
   translateModelToCvPre(std::string("model.1.node"),std::string("model.1.ele"),true);
 }
 
+// ==========================
+// COMPUTE MODEL EXPECTATIONS
+// ==========================
+int computeModelExpectations(std::string modelListFileName){
+
+  std::vector<femWeightedFileName*> fileList;
+  std::vector<femModel*> modelList;
+
+  // Read Model List File with Associated Weight
+  femUtils::ReadWeightedListFromFile(modelListFileName,fileList);
+
+
+
+}
+
 // ============
 // ============
 // MAIN PROGRAM
@@ -498,11 +514,13 @@ int main(int argc, char **argv){
   try{
     // Normal Model Running
     //val = runNormalMode(argc,argv);
-    //val = translateFilesToCvPre(argc,argv);
+    val = translateFilesToCvPre(argc,argv,false);
     //val = simpleMapMode(argc,argv);
     //val = exctractMeshQualityDistributions(argc,argv);
     //val = findFaceMatchList(argc,argv);
-    val = meshVTKSkinToCVPre(argc,argv);
+    //val = meshVTKSkinToCVPre(argc,argv);
+
+    val = computeModelExpectations(modelListFileName);
   } catch (std::exception& ex) {
     femUtils::WriteMessage(std::string(ex.what()));
     femUtils::WriteMessage(std::string("\n"));

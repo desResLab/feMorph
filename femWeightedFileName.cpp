@@ -1,5 +1,7 @@
 #include "femWeightedFileName.h"
 
-femWeightedFileName::femWeightedFileName()
-{
+// CONSTRUCTOR
+femWeightedFileName::femWeightedFileName(std::string currfileName, double currWeight){
+  fileName = currfileName;
+  weight = currWeight;
 }
