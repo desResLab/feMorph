@@ -1,6 +1,21 @@
 #ifndef FEMMODELSEQUENCE_H
 #define FEMMODELSEQUENCE_H
 
+#include <string>
+#include <vector>
+
+#include "femModel.h"
+#include "femTypes.h"
+
+
+// Label Counter Struct
+struct labelCounter{
+  std::string label = "";
+  int count = 0;
+  femResultType type;
+};
+
+// SEQUENCE OF FEM MODELS
 class femModelSequence{
   public:
     // CONSTRUCTOR
@@ -9,9 +24,9 @@ class femModelSequence{
     std::vector<femModel*> models;
     // MEMBER FUNCTIONS
     // IO
-    ReadFromWeightedListFile(std::string fileName);
+    void ReadFromWeightedListFile(std::string fileName);
     // COMPUTE AV AND SD
-    ComputeStatistics();
+    void ComputeResultStatistics();
 };
 
 #endif // FEMMODELSEQUENCE_H

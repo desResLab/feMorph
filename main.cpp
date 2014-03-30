@@ -497,11 +497,6 @@ int computeModelExpectations(std::string modelListFileName){
   std::vector<femWeightedFileName*> fileList;
   std::vector<femModel*> modelList;
 
-  // Read Model List File with Associated Weight
-  femUtils::ReadWeightedListFromFile(modelListFileName,fileList);
-
-
-
 }
 
 // ============
@@ -519,7 +514,7 @@ int main(int argc, char **argv){
     //val = exctractMeshQualityDistributions(argc,argv);
     //val = findFaceMatchList(argc,argv);
     //val = meshVTKSkinToCVPre(argc,argv);
-
+    std::string modelListFileName(argv[1]);
     val = computeModelExpectations(modelListFileName);
   } catch (std::exception& ex) {
     femUtils::WriteMessage(std::string(ex.what()));

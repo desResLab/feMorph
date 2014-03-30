@@ -12,6 +12,7 @@
 #include "femInputData.h"
 #include "femModelSlice.h"
 #include "femException.h"
+#include "femWeightedFileName.h"
 
 // Random Number Generator
 #include <boost/random/mersenne_twister.hpp>
@@ -535,6 +536,41 @@ inline void ReadListFromFile(std::string fileName, std::vector<std::string> &fil
   // Close File
   infile.close();
 }
+
+// ================================================
+// READ WEIGHTED FILE LIST - FILE + WEIGHT (DOUBLE)
+// ================================================
+inline void ReadWeightedFileList(std::string fileName, std::vector<femWeightedFileName*> &fileList){
+  // Declare input File
+  std::ifstream infile;
+  infile.open(fileName);
+
+  // Tokenized Strings
+  std::vector<std::string> tokenizedString;
+
+  // Clear File List
+  fileList.clear();
+
+  // Read Data From File
+  std::string buffer;
+  while (std::getline(infile,buffer)){
+    // Trim String
+    boost::trim(buffer);
+    // Tokenize String
+    boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
+    // Read File Name and Associated Weight
+    if(tokenizedString.size() == 2){
+      // Add to list
+      femWeightedFileName* wFile = new femWeightedFileName(tokenizedString[0],atof(tokenizedString[1].c_str()));
+      fileList.push_back(wFile);
+    }else{
+      throw femException("Invalid Weighted File Format.\n");
+    }
+  }
+  // Close File
+  infile.close();
+}
+
 
 // Extract File Name From String
 inline std::string extractFileName(std::string fullPath){

@@ -956,6 +956,20 @@ femModel* femModel::TransformModel(femInputData* data, double* stenosisBoxCenter
   return target;
 }
 
+// =========================
+// COPY NODES TO OTHER MODEL
+// =========================
+void femModel::CopyNodesTo(femModel* otherModel){
+  femNode* newNode;
+  for(unsigned int loopA=0;loopA<nodeList.size();loopA++){
+    // Create New Node
+    newNode = new femNode(nodeList[loopA]->number,nodeList[loopA]->coords[0],nodeList[loopA]->coords[1],nodeList[loopA]->coords[2]);
+    // Put in list
+    otherModel->nodeList.push_back(newNode);
+  }
+}
+
+
 // ============================
 // Copy elements to other model
 // ============================
@@ -2460,6 +2474,128 @@ void femModel::ReadModelElementsFromVTKFile(std::string fileName){
           throw femException("Error: Invalid Element Type");
         }
       }
+    }
+  }
+  // Close File
+  infile.close();
+}
+
+// ==================================
+// READ MODEL RESULTS FROM VTK LEGACY
+// ==================================
+void femModel::ReadModelResultsFromVTKFile(std::string fileName){
+  // Declare input File
+  std::ifstream infile;
+  infile.open(fileName);
+
+  // Declare
+  std::vector<string> tokenizedString;
+  bool isPointDataBlock = false;
+  int totResult = 0;
+  std::string currResultLabel = "";
+  bool finished = false;
+  int readSoFar = 0;
+
+
+  // Read Data From File
+  std::string buffer;
+
+  // Loop through the lines
+  while (std::getline(infile,buffer)){
+    // Trim String
+    boost::trim(buffer);
+
+    // Tokenize String
+    boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
+    // Look for Node Result
+    if(tokenizedString[0] == std::string("POINT_DATA")){
+
+      // Read Number of Nodes
+      isPointDataBlock = true;
+      totResult = atoi(tokenizedString[1].c_str());
+
+    }else if((tokenizedString[0] == std::string("SCALARS"))&&(isPointDataBlock)){
+
+      // Get Name
+      currResultLabel = tokenizedString[1];
+
+      // Create New Model Result
+      femResult* res = new femResult();
+      res->label = currResultLabel;
+      res->type = frNode;
+
+      // Loop until you get totResult values
+      finished = false;
+      readSoFar = 0;
+
+      while(!finished){
+        // Read Buffer
+        std::getline(infile,buffer);
+        // Trim
+        boost::trim(buffer);
+        // Tokenize String
+        boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
+        readSoFar += tokenizedString.size();
+
+        // Assign to values
+        for(int loopA=0;loopA<tokenizedString.size();loopA++){
+          res->values.push_back(atof(tokenizedString[loopA].c_str()));
+        }
+
+        // Check if loop is finished
+        finished = (readSoFar == totResult);
+      }
+
+      // Once you have finished add result to model
+      resultList.push_back(res);
+
+
+    }else if((tokenizedString[0] == std::string("VECTORS"))&&(isPointDataBlock)){
+      // Get Name
+      currResultLabel = tokenizedString[1];
+
+      // Create New Model Result
+      femResult* resX = new femResult();
+      femResult* resY = new femResult();
+      femResult* resZ = new femResult();
+      resX->label = currResultLabel + "X";
+      resY->label = currResultLabel + "Y";
+      resZ->label = currResultLabel + "Z";
+      resX->type = frNode;
+      resY->type = frNode;
+      resZ->type = frNode;
+
+      // Loop until you get totResult values
+      finished = false;
+      readSoFar = 0;
+
+      while(!finished){
+        // Read Buffer
+        std::getline(infile,buffer);
+        // Trim
+        boost::trim(buffer);
+        // Tokenize String
+        boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
+        readSoFar += tokenizedString.size();
+
+        // Assign to values
+        for(int loopA=0;loopA<tokenizedString.size()/3;loopA++){
+          resX->values.push_back(atof(tokenizedString[loopA*3].c_str()));
+          resY->values.push_back(atof(tokenizedString[loopA*3 + 1].c_str()));
+          resZ->values.push_back(atof(tokenizedString[loopA*3 + 2].c_str()));
+        }
+
+        // Check if loop is finished
+        finished = (readSoFar == 3*totResult);
+      }
+
+      // Once you have finished add result to model
+      resultList.push_back(resX);
+      resultList.push_back(resY);
+      resultList.push_back(resZ);
+
+    }else if((tokenizedString[0] == std::string("FIELDS"))&&(isPointDataBlock)){
+      femUtils::WriteMessage(std::string("FIELDS NEED TO BE IMPLEMENTED !!!\n"));
     }
   }
   // Close File

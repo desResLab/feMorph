@@ -3,9 +3,8 @@
 
 #include <string>
 
-class femWeightedFileName
-{
-public:
+class femWeightedFileName{
+  public:
     // CONSTRUCTOR
     femWeightedFileName(std::string currfileName, double currWeight);
     // DATA MEMBERS

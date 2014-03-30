@@ -12,6 +12,7 @@
 #include "femProperty.h"
 #include "femModelSlice.h"
 #include "femInputData.h"
+#include "femResult.h"
 
 class femModel
 {
@@ -21,8 +22,12 @@ class femModel
     std::vector<femFace*> faceList;
     std::vector<femEdge*> edgeList;
     std::vector<femProperty*> propList;
+    // Results
+    std::vector<femResult*> resultList;
+    // Enclosing Box and Model Centre
     double modelBox[6];
     double modelCentre[3];
+    double weight = 0.0;
   public:
     // Constructor and Destructor
     femModel();
@@ -35,6 +40,7 @@ class femModel
     void OrientateBoundaryFaceNodes();
 
     // Make Copies to other Model
+    void CopyNodesTo(femModel* otherModel);
     void CopyElementsTo(femModel* otherModel);
     void CopyFacesTo(femModel* otherModel);
     void CopyPropertyTo(femModel* otherModel);
@@ -54,6 +60,8 @@ class femModel
     void ReadModelNodesFromVTKFile(std::string fileName);
     // Read Element Connectivities From VTK Legacy
     void ReadModelElementsFromVTKFile(std::string fileName);
+    // Read Model Results From VTK Legacy
+    void ReadModelResultsFromVTKFile(std::string fileName);
 
     // =====================
     // WRITE FUNCTIONALITIES
