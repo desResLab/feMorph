@@ -5,11 +5,13 @@
 #include "femInputData.h"
 #include "femUtils.h"
 #include "femWeightedFileName.h"
+#include "femModelSequence.h"
+#include "femProgramOptions.h"
 
 // ====================
 // Normal Model Running
 // ====================
-int runNormalMode(int argc, char **argv){
+int runNormalMode(femProgramOptions* options){
   // Vars
   double stenosisBox[6];
 
@@ -17,72 +19,9 @@ int runNormalMode(int argc, char **argv){
   bool debugMode = true;
   bool reducedOutput = true;
 
-  // Write Application Header
-  femUtils::WriteAppHeader();
-
-  // Save Command Line Parameters and switches
-  std::string paramSwitch;
-  std::string outputSwitch;
-  std::string paramFileName;
-  if (argc == 2){
-    paramSwitch = argv[1];
-  } else if(argc == 4){
-    paramSwitch = argv[1];
-    outputSwitch = argv[2];
-    paramFileName = argv[3];
-  }else{
-    // Write Help and exit
-    femUtils::WriteAppHelp();
-    return 0;
-  }
-
-  // Handle Switch
-  if(paramSwitch == "-n"){
-    femUtils::WriteMessage(std::string("Normal Execution.\n"));
-    femUtils::WriteMessage(std::string("\n"));
-    if(argc<3){
-      femUtils::WriteMessage(std::string("Missing Input File. Please specify one.\n"));
-      femUtils::WriteMessage(std::string("\n"));
-      return 1;
-    }
-    debugMode = false;
-  }else if(paramSwitch == "-d"){
-    femUtils::WriteMessage(std::string("Debug Execution.\n"));
-    femUtils::WriteMessage(std::string("\n"));
-    if(argc<3){
-      femUtils::WriteMessage(std::string("Missing Input File. Please specify one.\n"));
-      femUtils::WriteMessage(std::string("\n"));
-      return 1;
-    }
-    debugMode = true;
-  }else if((paramSwitch == "-?")||(paramSwitch == "-h")){
-    femUtils::WriteAppHelp();
-    return 0;
-  }else{
-    femUtils::WriteMessage(std::string("Invalid switch. Please use switch ""-?"" for further assistance.\n"));
-    femUtils::WriteMessage(std::string("\n"));
-    return 1;
-  }
-
-
-  // Output Switch
-  if(outputSwitch == "-r"){
-    femUtils::WriteMessage(std::string("Using reduced output.\n"));
-    femUtils::WriteMessage(std::string("\n"));
-    reducedOutput = true;
-  }else if(outputSwitch == "-f"){
-    femUtils::WriteMessage(std::string("Using full output.\n"));
-    femUtils::WriteMessage(std::string("\n"));
-    reducedOutput = false;
-  }else{
-    femUtils::WriteMessage(std::string("Invalid output switch. Please use switch ""-?"" for further assistance.\n"));
-    femUtils::WriteMessage(std::string("\n"));
-    return 1;
-  }
-
   // Read All input parameters
   femInputData* data = new femInputData();
-  data->ReadFromFile(paramFileName);
+  data->ReadFromFile(options->inputFileName);
 
   // Export Main File for Debug
   if (debugMode){
@@ -218,59 +157,11 @@ int runNormalMode(int argc, char **argv){
 // ===============
 // SIMPLE MAP MODE
 // ===============
-int simpleMapMode(int argc, char **argv){
-
-  // Set Debug Mode
-  bool debugMode = true;
-
-  // Write Application Header
-  femUtils::WriteAppHeader();
-
-  // Save Command Line Parameters and switches
-  std::string paramSwitch;
-  std::string paramFileName;
-  if (argc == 2){
-    paramSwitch = argv[1];
-  } else if(argc >= 3){
-    paramSwitch = argv[1];
-    paramFileName = argv[2];
-  }else{
-    // Write Help and exit
-    femUtils::WriteAppHelp();
-    return 0;
-  }
-
-  // Handle Switch
-  if(paramSwitch == "-n"){
-    femUtils::WriteMessage(std::string("Normal Execution.\n"));
-    femUtils::WriteMessage(std::string("\n"));
-    if(argc<3){
-      femUtils::WriteMessage(std::string("Missing Input File. Please specify one.\n"));
-      femUtils::WriteMessage(std::string("\n"));
-      return 1;
-    }
-    debugMode = false;
-  }else if(paramSwitch == "-d"){
-    femUtils::WriteMessage(std::string("Debug Execution.\n"));
-    femUtils::WriteMessage(std::string("\n"));
-    if(argc<3){
-      femUtils::WriteMessage(std::string("Missing Input File. Please specify one.\n"));
-      femUtils::WriteMessage(std::string("\n"));
-      return 1;
-    }
-    debugMode = true;
-  }else if((paramSwitch == "-?")||(paramSwitch == "-h")){
-    femUtils::WriteAppHelp();
-    return 0;
-  }else{
-    femUtils::WriteMessage(std::string("Invalid switch. Please use switch ""-?"" for further assistance.\n"));
-    femUtils::WriteMessage(std::string("\n"));
-    return 1;
-  }
+int simpleMapMode(femProgramOptions* options){
 
   // Read All input parameters
   femInputData* data = new femInputData();
-  data->ReadFromFile(paramFileName);
+  data->ReadFromFile(options->inputFileName);
 
   // Read Main Model
   femModel* mainModel = new femModel();
@@ -290,7 +181,7 @@ int simpleMapMode(int argc, char **argv){
   mappingModel->ReadNodeDisplacementsFromFile(data->mappingModelResultsFileName, false);
 
   // Export Mapping Model for Debug
-  if (debugMode){
+  if (options->debugMode){
     mappingModel->ExportToVTKLegacy(std::string("mappingmodel.vtk"));
   }
 
@@ -299,7 +190,7 @@ int simpleMapMode(int argc, char **argv){
   mainModel->MapDisplacements(mappingModel, data, dispScaleFactor);
 
   // Export Mapping Model for Debug
-  if (debugMode){
+  if (options->debugMode){
     mainModel->ExportToVTKLegacy(std::string("finalmodel_simpleMap.vtk"));
   }
 
@@ -319,13 +210,14 @@ int simpleMapMode(int argc, char **argv){
 // ========================
 // TRANSLATE MODEL TO CVPRE
 // ========================
-int translateModelToCvPre(std::string nodeFileName, std::string elemFileName, bool skipFirstRow){
+int translateModelToCvPre(femProgramOptions* options){
   // Read Main Model
   femModel* mainModel = new femModel();
+  bool skipFirstRow = true;
 
   // Read Node Coordinates and Connections
-  mainModel->ReadNodeCoordsFromFile(nodeFileName,skipFirstRow);
-  mainModel->ReadElementConnectionsFromFile(elemFileName,skipFirstRow);
+  mainModel->ReadNodeCoordsFromFile(options->inputFileName,skipFirstRow);
+  mainModel->ReadElementConnectionsFromFile(options->outputFileName,skipFirstRow);
 
   // Form Face List
   mainModel->FormElementFaceList();
@@ -345,9 +237,6 @@ int translateModelToCvPre(std::string nodeFileName, std::string elemFileName, bo
 
   // Return
   return 0;
-}
-int translateFilesToCvPre(int argc, char **argv, bool skipFirstRow){
-    return translateModelToCvPre(std::string(argv[1]),std::string(argv[2]),skipFirstRow);
 }
 
 // ===============================================================
@@ -492,11 +381,21 @@ int meshVTKSkinToCVPre(int argc, char **argv){
 // ==========================
 // COMPUTE MODEL EXPECTATIONS
 // ==========================
-int computeModelExpectations(std::string modelListFileName){
+int computeModelExpectations(std::string modelListFileName,std::string outFile){
+  // Declare Model Sequence
+  femModelSequence* ms = new femModelSequence();
 
-  std::vector<femWeightedFileName*> fileList;
-  std::vector<femModel*> modelList;
+  // Create Model Sequence From File
+  ms->ReadFromWeightedListFile(modelListFileName);
 
+  // Compute statistics
+  ms->ComputeResultStatistics();
+
+  // Export the last Model To Vtk File
+  ms->models[ms->models.size()-1]->ExportToVTKLegacy(outFile);
+
+  // Return
+  return 0;
 }
 
 // ============
@@ -505,18 +404,46 @@ int computeModelExpectations(std::string modelListFileName){
 // ============
 // ============
 int main(int argc, char **argv){
+
+  //  Declare
   int val = 0;
+  femProgramOptions* options;
+
+  // Write Application Header
+  femUtils::WriteAppHeader();
+
+  // Get Commandline Options
+  int res = options->getCommadLineOptions(argc,argv);
+  if(res != 0){
+    return -1;
+  }
+
   try{
     // Normal Model Running
-    //val = runNormalMode(argc,argv);
-    val = translateFilesToCvPre(argc,argv,false);
-    //val = simpleMapMode(argc,argv);
-    //val = exctractMeshQualityDistributions(argc,argv);
-    //val = findFaceMatchList(argc,argv);
-    //val = meshVTKSkinToCVPre(argc,argv);
-    std::string modelListFileName(argv[1]);
-    val = computeModelExpectations(modelListFileName);
-  } catch (std::exception& ex) {
+    switch(options->runMode){
+      case rmNORMAL:
+        val = runNormalMode(options);
+        break;
+      case rmTRANSLATETOCVPRE:
+        val = translateModelToCvPre(options);
+        break;
+      case rmSIMPLEMAP:
+        val = simpleMapMode(options);
+        break;
+      case rmEXTRACTMESHQUALITY:
+        val = exctractMeshQualityDistributions(options);
+        break;
+      case rmMATCHFACELIST:
+        val = findFaceMatchList(options);
+        break;
+      case rmMESHSKINTOCVPRE:
+        val = meshVTKSkinToCVPre(options);
+        break;
+      case rmCOMPUTEMODELEXPECTATIONS:
+        val = computeModelExpectations(options);
+        break;
+    }
+  }catch (std::exception& ex){
     femUtils::WriteMessage(std::string(ex.what()));
     femUtils::WriteMessage(std::string("\n"));
     femUtils::WriteMessage(std::string("Program Terminated.\n"));

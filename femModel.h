@@ -150,6 +150,12 @@ class femModel
     // Find Element Containing a Given Node: Use Grid
     int FindEnclosingElementWithGrid(double dispFactor, double* nodeCoords, std::vector<int> &gridElementList);
 
+    // ===================
+    // RESULT MANIPULATION
+    // ===================
+    // Get Result Index From Label
+    int getResultIndexFromLabel(std::string label);
+
     // ========================
     // Stenosis Parametrization
     // ========================

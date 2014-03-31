@@ -63,6 +63,8 @@ void femModelSequence::ComputeResultStatistics(){
   int totEntities = 0;
   femModel* combModel = nullptr;
   int resIdx = 0;
+  int currResult = 0;
+  double currWeight = 0.0;
 
   for(int loopA=0;loopA<models.size();loopA++){
     for(int loopB=0;loopB<models[loopA]->resultList.size();loopB++){
@@ -114,18 +116,18 @@ void femModelSequence::ComputeResultStatistics(){
         // Loop through all results to Compute the Average Value
         double avValue = 0.0;
         for(int loopC=0;loopC<models.size();loopC++){
-          resIdx = models[loopC]->getResultIndexFromLabel(labelCount[loopA].label);
-          currResult = models[loopC]->resultList[resIdx].value[loopB];
-          currWeight = models[loopC].weight;
+          resIdx = models[loopC]->getResultIndexFromLabel(labelCount[loopA]->label);
+          currResult = models[loopC]->resultList[resIdx]->values[loopB];
+          currWeight = models[loopC]->weight;
           avValue += currResult*currWeight;
         }
         resAV->values.push_back(avValue);
         // Loop through all results to Compute the Standard Deviation
         double stdValue = 0.0;
         for(int loopC=0;loopC<models.size();loopC++){
-          resIdx = models[loopC]->getResultIndexFromLabel(labelCount[loopA].label);
-          currResult = models[loopC]->resultList[resIdx].value[loopB];
-          currWeight = models[loopC].weight;
+          resIdx = models[loopC]->getResultIndexFromLabel(labelCount[loopA]->label);
+          currResult = models[loopC]->resultList[resIdx]->values[loopB];
+          currWeight = models[loopC]->weight;
           stdValue += (currResult-avValue)*(currResult-avValue)*currWeight;
         }
         resSD->values.push_back(sqrt(stdValue));

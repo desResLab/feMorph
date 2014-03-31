@@ -963,7 +963,7 @@ void femModel::CopyNodesTo(femModel* otherModel){
   femNode* newNode;
   for(unsigned int loopA=0;loopA<nodeList.size();loopA++){
     // Create New Node
-    newNode = new femNode(nodeList[loopA]->number,nodeList[loopA]->coords[0],nodeList[loopA]->coords[1],nodeList[loopA]->coords[2]);
+    newNode = new femNode(nodeList[loopA]->nodeNumber,nodeList[loopA]->coords[0],nodeList[loopA]->coords[1],nodeList[loopA]->coords[2]);
     // Put in list
     otherModel->nodeList.push_back(newNode);
   }
@@ -2650,6 +2650,24 @@ void femModel::MeshWithTetGen(std::string polyFileName){
   int rpl = system (command.c_str());
   if(rpl != 0){
     throw femException("Error: Cannot find tetgen.\n");
+  }
+}
+
+// =========================================
+// GET RESULT INDEX GIVE AN ASSOCIATED LABEL
+// =========================================
+int femModel::getResultIndexFromLabel(std::string label){
+  bool found = false;
+  int count = 0;
+  while((!found)&&(count<resultList.size())){
+    found = (label == resultList[count]->label);
+    // Update Caout
+    count++;
+  }
+  if(found){
+    return count--;
+  }else{
+    return -1;
   }
 }
 
