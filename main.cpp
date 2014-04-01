@@ -207,48 +207,17 @@ int simpleMapMode(femProgramOptions* options){
   return 0;
 }
 
-// ========================
-// TRANSLATE MODEL TO CVPRE
-// ========================
-int translateModelToCvPre(femProgramOptions* options){
-  // Read Main Model
-  femModel* mainModel = new femModel();
-  bool skipFirstRow = true;
-
-  // Read Node Coordinates and Connections
-  mainModel->ReadNodeCoordsFromFile(options->inputFileName,skipFirstRow);
-  mainModel->ReadElementConnectionsFromFile(options->outputFileName,skipFirstRow);
-
-  // Form Face List
-  mainModel->FormElementFaceList();
-
-  // Export to VTK file
-  mainModel->ExportToVTKLegacy(std::string("mainmodel.vtk"));
-
-  // Orientate face nodes before exporting
-  mainModel->OrientateBoundaryFaceNodes();
-
-  // Export cvPre Model ready to presolve
-  double currDispFactor = 0.0;
-  mainModel->ExportToCvPre(currDispFactor,std::string("testTranslation"));
-
-  // free heap
-  delete mainModel;
-
-  // Return
-  return 0;
-}
 
 // ===============================================================
 // READ MODEL AND EVALUATED VOLUME AND MIXED PRODUCT DISTRIBUTIONS
 // ===============================================================
-int exctractMeshQualityDistributions(int argc, char **argv){
+int exctractMeshQualityDistributions(femProgramOptions* options){
   // Read Main Model
   femModel* mainModel = new femModel();
 
   // Read Node Coordinates and Connections
-  mainModel->ReadNodeCoordsFromFile(std::string(argv[1]),false);
-  mainModel->ReadElementConnectionsFromFile(std::string(argv[2]),false);
+  mainModel->ReadNodeCoordsFromFile(options->inputFileName,false);
+  mainModel->ReadElementConnectionsFromFile(options->outputFileName,false);
 
   // Form Box
   double limitBox[6];
@@ -266,13 +235,24 @@ int exctractMeshQualityDistributions(int argc, char **argv){
   limitBox[5] = -485.478;
 
   // Evaluate Volume and Mixed Products distributions and write it to file
-  mainModel->EvalModelQualityDistributions(std::string(argv[3]),limitBox);
+  mainModel->EvalModelQualityDistributions(std::string("graph"),limitBox);
 
   // Export to VTK Legacy
   mainModel->ExportToVTKLegacy(std::string("finalmodel.vtk"));
 
   // Return Value
   return 0;
+}
+
+// ============================
+// CONVERT MODEL TO CVPRE FILES
+// ============================
+int translateModelToCvPre(femProgramOptions* options){
+  femModel* model = new femModel();
+
+  model->ConvertNodeAndElementsToCvPre(options->inputFileName,options->outputFileName,false);
+
+  delete model;
 }
 
 // Match The Faces in the Model
@@ -309,18 +289,18 @@ void matchModelFaces(std::string outFileName,
 // ==================
 // FIND FACE MATCHING
 // ==================
-int findFaceMatchList(int argc, char **argv){
+int findFaceMatchList(femProgramOptions* options){
 
   // Read the two file Names
   std::vector<std::string> fileList1;
   std::vector<std::string> fileList2;
 
   // Read the File Lists
-  femUtils::ReadListFromFile(std::string(argv[1]),fileList1);
-  femUtils::ReadListFromFile(std::string(argv[2]),fileList2);
+  femUtils::ReadListFromFile(options->inputFileName,fileList1);
+  femUtils::ReadListFromFile(options->outputFileName,fileList2);
   std::vector<femModel*> modelList1;
   std::vector<femModel*> modelList2;
-  double tolerance = atof(argv[3]);
+  double tolerance = options->tolerance;
 
   // Fill lists
   femModel* model = nullptr;
@@ -349,10 +329,10 @@ int findFaceMatchList(int argc, char **argv){
 // ======================
 // MESH VTK TRIANGULATION
 // ======================
-int meshVTKSkinToCVPre(int argc, char **argv){
+int meshVTKSkinToCVPre(femProgramOptions* options){
 
   // Set Model File Name
-  std::string VTKFileName(argv[1]);
+  std::string VTKFileName(options->inputFileName);
 
   // Read Skin Model
   femModel* model = new femModel();
@@ -375,24 +355,27 @@ int meshVTKSkinToCVPre(int argc, char **argv){
 
   // Export CVPRE File from node Coordinated and Element Incidences
   femUtils::WriteMessage(std::string("Exporting to CVPre ...\n"));
-  translateModelToCvPre(std::string("model.1.node"),std::string("model.1.ele"),true);
+  model->ConvertNodeAndElementsToCvPre(std::string("model.1.node"),std::string("model.1.ele"),true);
+
+  // Delete Model
+  delete model;
 }
 
 // ==========================
 // COMPUTE MODEL EXPECTATIONS
 // ==========================
-int computeModelExpectations(std::string modelListFileName,std::string outFile){
+int computeModelExpectations(femProgramOptions* options){
   // Declare Model Sequence
   femModelSequence* ms = new femModelSequence();
 
   // Create Model Sequence From File
-  ms->ReadFromWeightedListFile(modelListFileName);
+  ms->ReadFromWeightedListFile(options->inputFileName);
 
   // Compute statistics
   ms->ComputeResultStatistics();
 
   // Export the last Model To Vtk File
-  ms->models[ms->models.size()-1]->ExportToVTKLegacy(outFile);
+  ms->models[ms->models.size()-1]->ExportToVTKLegacy(options->outputFileName);
 
   // Return
   return 0;
@@ -407,7 +390,7 @@ int main(int argc, char **argv){
 
   //  Declare
   int val = 0;
-  femProgramOptions* options;
+  femProgramOptions* options = new femProgramOptions();
 
   // Write Application Header
   femUtils::WriteAppHeader();
@@ -451,6 +434,7 @@ int main(int argc, char **argv){
   }
   femUtils::WriteMessage(std::string("\n"));
   femUtils::WriteMessage(std::string("Program Completed.\n"));
+  delete options;
   return val;
 
 }

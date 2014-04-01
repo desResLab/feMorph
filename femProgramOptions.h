@@ -17,6 +17,7 @@ class femProgramOptions{
     // DATA MEMBERS
     runModes runMode;
     bool debugMode = false;
+    double tolerance;
     std::string inputFileName = "";
     std::string outputFileName = "";
     // MEMBER FUNCTIONS

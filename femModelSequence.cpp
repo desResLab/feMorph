@@ -24,10 +24,20 @@ void femModelSequence::ReadFromWeightedListFile(std::string fileName){
     currWeight = fileList[loopA]->weight;
     femModel* model = new femModel();
     // Read Nodes
+    femUtils::WriteMessage("\n");
+    femUtils::WriteMessage(std::string("Reading File ") + currFileName + "...\n");
+
+    // Read nodes and elements only for the first file
+    if(loopA == 0){
+    femUtils::WriteMessage(std::string("Reading Nodes...\n"));
     model->ReadModelNodesFromVTKFile(currFileName);
     // Read Elements
+    femUtils::WriteMessage(std::string("Reading Elements...\n"));
     model->ReadModelElementsFromVTKFile(currFileName);
+    }
+
     // Read Results
+    femUtils::WriteMessage(std::string("Reading Results...\n"));
     model->ReadModelResultsFromVTKFile(currFileName);
     // Assign Integration Weight
     model->weight = currWeight;
@@ -46,7 +56,8 @@ int isInLabelVector(std::string currLabel,femResultType currType,std::vector<lab
     count++;
   }
   if(found){
-    return count--;
+    count--;
+    return count;
   }else{
     return -1;
   }
@@ -66,8 +77,8 @@ void femModelSequence::ComputeResultStatistics(){
   int currResult = 0;
   double currWeight = 0.0;
 
-  for(int loopA=0;loopA<models.size();loopA++){
-    for(int loopB=0;loopB<models[loopA]->resultList.size();loopB++){
+  for(size_t loopA=0;loopA<models.size();loopA++){
+    for(size_t loopB=0;loopB<models[loopA]->resultList.size();loopB++){
       currLabel = models[loopA]->resultList[loopB]->label;
       currType = models[loopA]->resultList[loopB]->type;
       currID = isInLabelVector(currLabel,currType,labelCount);
@@ -88,8 +99,8 @@ void femModelSequence::ComputeResultStatistics(){
   if(labelCount.size()>0){
     // Copy Nodes and Elements From First Model
     combModel = new femModel();
-    models[1]->CopyNodesTo(combModel);
-    models[1]->CopyElementsTo(combModel);
+    models[0]->CopyNodesTo(combModel);
+    models[0]->CopyElementsTo(combModel);
   }
 
   // Loop through all results that appear models.size() times

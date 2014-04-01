@@ -57,12 +57,20 @@ inline void WriteAppHeader(){
 // Write Application Help
 // ======================
 inline void WriteAppHelp(){
-  WriteMessage("Usage: feMorph [OPTION] [FILE]\n");
-  WriteMessage("Mandatory option arguments:\n");
-  WriteMessage("-n               Normal Execution\n");
-  WriteMessage("-d               Debug Mode, a number of model and reference entities are \n");
-  WriteMessage("                 printer using the VTK legacy file format. \n");
-  WriteMessage("-?,-h            this help\n");
+  WriteMessage("Usage: feMorph [OPTIONS] -f Input/Node File -o Output/Element File\n");
+  WriteMessage("Where [OPTIONS] can be one of the following:\n");
+  WriteMessage("-n               Normal Execution. Read an input file for morphing and creates\n");
+  WriteMessage("                 the CVPre files for the SV presolver.\n");
+  WriteMessage("-c               Translation to CVPre. Translates two files with node coordinates\n");
+  WriteMessage("                 and element connectivity to CVPre files.\n");
+  WriteMessage("-e               Mesh Quality Extraction. Creates quality statistics\n");
+  WriteMessage("                 for tetrahedral meshes.\n");
+  WriteMessage("-l               Face List Matching. Maps two list of VTK face triangulations.\n");
+  WriteMessage("-s               Convert Surface triangulation into a mesh by using the tetgen mesher.\n");
+  WriteMessage("-x               Compute model expectations from weighted model list.\n");
+  WriteMessage("-t               Defile tolerance for face list matching function.\n");
+  WriteMessage("-d               Activates debug mode.\n");
+  WriteMessage("-h               This help.\n");
 }
 
 // Extral product between vectors

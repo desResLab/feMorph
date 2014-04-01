@@ -86,6 +86,8 @@ class femModel
     void ExportSkinFaceGroupToVTK(std::string fileName, double dispFactor, int groupNumber);
     // Write PolyFile for TETGEN
     void WriteSkinSMeshFile(std::string polyFileName);
+    // Convert Node and Element File To CVPre
+    int ConvertNodeAndElementsToCvPre(std::string nodeFileName, std::string elementFileName, bool skipFirstRow);
 
     // ==================================
     // CHECKS AND GEOMETRICAL EVALUATIONS

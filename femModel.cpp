@@ -1062,6 +1062,14 @@ void femModel::ExportToVTKLegacy(std::string fileName){
   for(unsigned int loopA=0;loopA<nodeList.size();loopA++){
     fprintf(outFile,"%e %e %e\n",nodeList[loopA]->displacements[0],nodeList[loopA]->displacements[1],nodeList[loopA]->displacements[2]);
   }
+  // Save All Other Result Data
+  for(unsigned int loopA=0;loopA<resultList.size();loopA++){
+    fprintf(outFile,"SCALARS %s float\n",resultList[loopA]->label.c_str());
+    fprintf(outFile,"LOOKUP_TABLE default\n");
+    for(unsigned int loopB=0;loopB<resultList[loopA]->values.size();loopB++){
+      fprintf(outFile,"%e\n",resultList[loopA]->values[loopB]);
+    }
+  }
   // Save properties as scalars
   fprintf(outFile,"CELL_DATA %d\n",int(elementList.size()));
   fprintf(outFile,"SCALARS cell_scalars int 1\n");
@@ -2432,7 +2440,7 @@ void femModel::ReadModelElementsFromVTKFile(std::string fileName){
     // Tokenize String
     boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
     // Look for the "POINTS" string
-    if(tokenizedString[0] == std::string("POLYGONS")){
+    if((tokenizedString[0] == std::string("POLYGONS"))||(tokenizedString[0] == std::string("CELLS"))){
       // Read Number of Points
       polygonCount = atoi(tokenizedString[1].c_str());
       for(int loopA=0;loopA<polygonCount;loopA++){
@@ -2495,7 +2503,9 @@ void femModel::ReadModelResultsFromVTKFile(std::string fileName){
   std::string currResultLabel = "";
   bool finished = false;
   int readSoFar = 0;
-
+  double valX = 0.0;
+  double valY = 0.0;
+  double valZ = 0.0;
 
   // Read Data From File
   std::string buffer;
@@ -2518,11 +2528,15 @@ void femModel::ReadModelResultsFromVTKFile(std::string fileName){
 
       // Get Name
       currResultLabel = tokenizedString[1];
+      femUtils::WriteMessage(std::string("Reading Result ") + currResultLabel + "...\n");
 
       // Create New Model Result
       femResult* res = new femResult();
       res->label = currResultLabel;
       res->type = frNode;
+
+      // SKIP TABLE LOOKUP
+      std::getline(infile,buffer);
 
       // Loop until you get totResult values
       finished = false;
@@ -2553,17 +2567,21 @@ void femModel::ReadModelResultsFromVTKFile(std::string fileName){
     }else if((tokenizedString[0] == std::string("VECTORS"))&&(isPointDataBlock)){
       // Get Name
       currResultLabel = tokenizedString[1];
+      femUtils::WriteMessage(std::string("Reading Result ") + currResultLabel + "...\n");
 
       // Create New Model Result
       femResult* resX = new femResult();
       femResult* resY = new femResult();
       femResult* resZ = new femResult();
+      femResult* resMOD = new femResult();
       resX->label = currResultLabel + "X";
       resY->label = currResultLabel + "Y";
       resZ->label = currResultLabel + "Z";
+      resMOD->label = currResultLabel + "MOD";
       resX->type = frNode;
       resY->type = frNode;
       resZ->type = frNode;
+      resMOD->type = frNode;
 
       // Loop until you get totResult values
       finished = false;
@@ -2580,9 +2598,13 @@ void femModel::ReadModelResultsFromVTKFile(std::string fileName){
 
         // Assign to values
         for(int loopA=0;loopA<tokenizedString.size()/3;loopA++){
-          resX->values.push_back(atof(tokenizedString[loopA*3].c_str()));
-          resY->values.push_back(atof(tokenizedString[loopA*3 + 1].c_str()));
-          resZ->values.push_back(atof(tokenizedString[loopA*3 + 2].c_str()));
+          valX = atof(tokenizedString[loopA*3].c_str());
+          valY = atof(tokenizedString[loopA*3 + 1].c_str());
+          valZ = atof(tokenizedString[loopA*3 + 2].c_str());
+          resX->values.push_back(valX);
+          resY->values.push_back(valY);
+          resZ->values.push_back(valZ);
+          resMOD->values.push_back(sqrt(valX*valX + valY*valY + valZ*valZ));
         }
 
         // Check if loop is finished
@@ -2593,6 +2615,7 @@ void femModel::ReadModelResultsFromVTKFile(std::string fileName){
       resultList.push_back(resX);
       resultList.push_back(resY);
       resultList.push_back(resZ);
+      resultList.push_back(resMOD);
 
     }else if((tokenizedString[0] == std::string("FIELDS"))&&(isPointDataBlock)){
       femUtils::WriteMessage(std::string("FIELDS NEED TO BE IMPLEMENTED !!!\n"));
@@ -2665,11 +2688,40 @@ int femModel::getResultIndexFromLabel(std::string label){
     count++;
   }
   if(found){
-    return count--;
+    count--;
+    return count;
   }else{
     return -1;
   }
 }
+
+
+// =====================
+// EXPORT MODEL TO CVPRE
+// =====================
+int femModel::ConvertNodeAndElementsToCvPre(std::string nodeFileName, std::string elementFileName, bool skipFirstRow){
+
+  // Read Node Coordinates and Connections
+  ReadNodeCoordsFromFile(nodeFileName,skipFirstRow);
+  ReadElementConnectionsFromFile(elementFileName,skipFirstRow);
+
+  // Form Face List
+  FormElementFaceList();
+
+  // Export to VTK file
+  ExportToVTKLegacy(std::string("mainmodel.vtk"));
+
+  // Orientate face nodes before exporting
+  OrientateBoundaryFaceNodes();
+
+  // Export cvPre Model ready to presolve
+  double currDispFactor = 0.0;
+  ExportToCvPre(currDispFactor,std::string("testTranslation"));
+
+  // Return
+  return 0;
+}
+
 
 // ===================
 // Read flow rate file
