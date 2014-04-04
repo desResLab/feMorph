@@ -5,6 +5,7 @@
 
 #include "femNode.h"
 #include "femFace.h"
+#include "femTypes.h"
 
 // GENERIC ELEMENT
 class femElement
@@ -28,6 +29,12 @@ class femElement
     virtual bool is2D(){return false;}
     virtual double EvalVolume(double dispFactor, std::vector<femNode*> &nodeList){return 0.0;}
     virtual double EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeList){return 0.0;}
+
+    // Element Calculation
+    virtual void evalShapeDerivatives(double coord1, double coord2, double coord3, femDoubleVec shDerivs);
+    virtual void evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs);
+    virtual double evalJacobian(double coord1, double coord2, double coord3);
+
     // Not Virtual
     void   evalElementCentroid(std::vector<femNode*> &nodeList, double* centroid);
     double evalPointToElementDistance(double* pointCoords, std::vector<femNode*> &nodeList);
@@ -51,6 +58,11 @@ class femTetra4: public femElement
     virtual double EvalVolume(double dispFactor, std::vector<femNode*> &nodeList);
     virtual double EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeList);
     virtual bool isNodeInsideElement(double dispFactor, double* pointCoords,std::vector<femNode*> &nodeList);
+    // Element Calculation
+    virtual void evalShapeDerivatives(double coord1, double coord2, double coord3,femDoubleVec shDerivs);
+    virtual void evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs);
+    virtual double evalJacobian(double coord1, double coord2, double coord3);
+
     void AssembleTetCoordsMat(double dispFactor, std::vector<femNode*> &nodeList, double** coordMat);
 };
 
@@ -67,6 +79,11 @@ class femTetra10: public femElement
     virtual bool isNodeInsideElement(double dispFactor, double* pointCoords,std::vector<femNode*> &nodeList);
     virtual double EvalVolume(std::vector<femNode*> &nodeList){return 0.0;}
     virtual double EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeList);
+    // Element Calculation
+    virtual void evalShapeDerivatives(double coord1, double coord2, double coord3,femDoubleVec shDerivs);
+    virtual void evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs);
+    virtual double evalJacobian(double coord1, double coord2, double coord3);
+
 };
 
 // TETRAHEDRAL ELEMENT
@@ -79,6 +96,11 @@ class femHexa8: public femElement
     virtual bool is2D(){return false;}
     virtual bool isNodeInsideElement(double* nodeCoords);
     virtual double EvalVolume(std::vector<femNode*> &nodeList){return 0.0;}
+    // Element Calculation
+    virtual void evalShapeDerivatives(double coord1, double coord2, double coord3,femDoubleVec shDerivs);
+    virtual void evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs);
+    virtual double evalJacobian(double coord1, double coord2, double coord3);
+
 };
 
 // TRIANGULAR ELEMENT
@@ -91,6 +113,10 @@ class femTri3: public femElement
     virtual bool is2D(){return true;}
     virtual double EvalVolume(std::vector<femNode*> &nodeList){return 0.0;}
     virtual double EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeList);
+    // Element Calculation
+    virtual void evalShapeDerivatives(double coord1, double coord2, double coord3,femDoubleVec shDerivs);
+    virtual void evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs);
+    virtual double evalJacobian(double coord1, double coord2, double coord3);
 };
 
 

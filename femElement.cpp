@@ -74,6 +74,22 @@ double femElement::evalPointToElementDistance(double* pointCoords, std::vector<f
   return sqrt(dist);
 }
 
+// ===================
+// Element Calculation
+// ===================
+void femElement::evalShapeDerivatives(double coord1, double coord2, double coord3,femDoubleVec shDerivs){
+  shDerivs.resize(4);
+  // TO COMPLETE !!!
+
+}
+void femElement::evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs){
+
+}
+double femElement::evalJacobian(double coord1, double coord2, double coord3){
+
+}
+
+
 // ============================================================
 // Eval TETRA10 Volume Coordinates: STRAIGHT SIDE APPROXIMATION
 // ============================================================
@@ -277,6 +293,21 @@ bool femTetra4::isNodeInsideElement(double dispFactor, double* pointCoords,std::
   return isInside;
 }
 
+// ===================
+// Element Calculation
+// ===================
+void femTetra4::evalShapeDerivatives(double coord1, double coord2, double coord3,femDoubleVec shDerivs){
+  shDerivs.resize(4);
+  // TO COMPLETE !!!
+
+}
+void femTetra4::evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs){
+
+}
+double femTetra4::evalJacobian(double coord1, double coord2, double coord3){
+
+}
+
 // =================================
 // Interpolate Element Displacements
 // =================================
@@ -304,6 +335,21 @@ void femElement::InterpolateElementDisplacements(double dispFactor, double* node
       intDisps[loopB] += currNodeDisps[loopB]*volCoords[loopA];
     }
   }
+}
+
+// ===================
+// Element Calculation
+// ===================
+void femTetra10::evalShapeDerivatives(double coord1, double coord2, double coord3,femDoubleVec shDerivs){
+  shDerivs.resize(4);
+  // TO COMPLETE !!!
+
+}
+void femTetra10::evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs){
+
+}
+double femTetra10::evalJacobian(double coord1, double coord2, double coord3){
+
 }
 
 // =============================================
@@ -347,6 +393,8 @@ bool femTetra10::isNodeInsideElement(double dispFactor, double* pointCoords,std:
   // Return
   return isInside;
 }
+
+
 
 // ============================================
 // Check Criterion for Random Walking algorithm
@@ -617,4 +665,20 @@ double femTetra10::EvalMixProduct(double dispFactor, std::vector<femNode*> &node
 double femTri3::EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeList){
   throw femException("Internal: femTria3::EvalMixProduct not Implemented");
   return 0.0;
+}
+
+
+// ===================
+// Element Calculation
+// ===================
+void femTri3::evalShapeDerivatives(double coord1, double coord2, double coord3,femDoubleVec shDerivs){
+  shDerivs.resize(4);
+  // TO COMPLETE !!!
+
+}
+void femTri3::evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs){
+
+}
+double femTri3::evalJacobian(double coord1, double coord2, double coord3){
+
 }

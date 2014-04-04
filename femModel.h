@@ -88,6 +88,8 @@ class femModel
     void WriteSkinSMeshFile(std::string polyFileName);
     // Convert Node and Element File To CVPre
     int ConvertNodeAndElementsToCvPre(std::string nodeFileName, std::string elementFileName, bool skipFirstRow);
+    // Copy velocity Results to Vector
+    void copyModelVelocitiesToVector(std::vector<std::vector<double>> &velocity);
 
     // ==================================
     // CHECKS AND GEOMETRICAL EVALUATIONS
@@ -134,6 +136,10 @@ class femModel
     void NormalizeDisplacements(double maxDisp);
     // Check If Two model have compatible Boxes
     bool isModelCompatible(femModel* other,double tolerance);
+    // Calculate Wall Shear Stresses
+    void ComputeWSS();
+    // Calculate Wall Shear Stresses Gradients
+    void ComputeWSSGradients();
 
     // =======
     // MESHING

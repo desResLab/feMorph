@@ -141,7 +141,12 @@ void femModelSequence::ComputeResultStatistics(){
           currWeight = models[loopC]->weight;
           stdValue += (currResult-avValue)*(currResult-avValue)*currWeight;
         }
-        resSD->values.push_back(sqrt(stdValue));
+        if(stdValue>0.0){
+          resSD->values.push_back(sqrt(stdValue));
+        }else{
+          resSD->values.push_back(0.0);
+        }
+
       }
       // Add both Results to The Model
       combModel->resultList.push_back(resAV);

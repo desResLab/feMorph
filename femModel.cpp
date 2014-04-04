@@ -1058,25 +1058,25 @@ void femModel::ExportToVTKLegacy(std::string fileName){
   // Point Data Header
   fprintf(outFile,"POINT_DATA %d\n",(int)nodeList.size());
   // Save Displacements DX,DY,DZ as vectors
-  fprintf(outFile,"VECTORS DXYZ float\n");
+  fprintf(outFile,"VECTORS DXYZ double\n");
   for(unsigned int loopA=0;loopA<nodeList.size();loopA++){
     fprintf(outFile,"%e %e %e\n",nodeList[loopA]->displacements[0],nodeList[loopA]->displacements[1],nodeList[loopA]->displacements[2]);
   }
   // Save All Other Result Data
-  for(unsigned int loopA=0;loopA<resultList.size();loopA++){
-    fprintf(outFile,"SCALARS %s float\n",resultList[loopA]->label.c_str());
+  for(unsigned int loopA=0;loopA<resultList.size();loopA++){    
+    fprintf(outFile,"SCALARS %s double 1\n",resultList[loopA]->label.c_str());
     fprintf(outFile,"LOOKUP_TABLE default\n");
     for(unsigned int loopB=0;loopB<resultList[loopA]->values.size();loopB++){
       fprintf(outFile,"%e\n",resultList[loopA]->values[loopB]);
     }
   }
   // Save properties as scalars
-  fprintf(outFile,"CELL_DATA %d\n",int(elementList.size()));
+  /*fprintf(outFile,"CELL_DATA %d\n",int(elementList.size()));
   fprintf(outFile,"SCALARS cell_scalars int 1\n");
   fprintf(outFile,"LOOKUP_TABLE default\n");
   for(unsigned int loopA=0;loopA<elementList.size();loopA++){
     fprintf(outFile,"%d\n",(int)elementList[loopA]->propertyNumber);
-  }
+  }*/
   // Close Output file
   fclose(outFile);
   // Write Message
@@ -2695,7 +2695,6 @@ int femModel::getResultIndexFromLabel(std::string label){
   }
 }
 
-
 // =====================
 // EXPORT MODEL TO CVPRE
 // =====================
@@ -2722,6 +2721,170 @@ int femModel::ConvertNodeAndElementsToCvPre(std::string nodeFileName, std::strin
   return 0;
 }
 
+// =========================
+// COPY VELOCITIES TO VECTOR
+// =========================
+void femModel::copyModelVelocitiesToVector(std::vector<std::vector<double>> &velocity){
+  // Look for the velocity components as results
+  bool foundResult = false;
+  for(int loopA=0;loopA<resultList.size();loopA++){
+    if((boost::to_upper_copy(resultList[loopA]->label) == "VELOCITYX")||
+       (boost::to_upper_copy(resultList[loopA]->label) == "VELOCITYY")||
+       (boost::to_upper_copy(resultList[loopA]->label) == "VELOCITYZ")){
+      foundResult = true;
+    }
+  }
+  // THROW ERROR
+  if(!foundResult){
+    throw femException("Error. Could Not Find Velocity Results.\n");
+  }
+
+  // ALLOCATE SPACE
+  velocity.resize(nodeList.size());
+  for(int loopA=0;loopA<nodeList.size();loopA++){
+    velocity[loopA].resize(3);
+  }
+
+  // FILL VECTORS
+  for(int loopA=0;loopA<resultList.size();loopA++){
+    if(boost::to_upper_copy(resultList[loopA]->label) == "VELOCITYX"){
+      for(int loopB=0;loopB<resultList[loopA]->values.size();loopB++){
+        velocity[loopB][0] = resultList[loopA]->values[loopB];
+      }
+    }
+    if(boost::to_upper_copy(resultList[loopA]->label) == "VELOCITYY"){
+      for(int loopB=0;loopB<resultList[loopA]->values.size();loopB++){
+        velocity[loopB][1] = resultList[loopA]->values[loopB];
+      }
+    }
+    if(boost::to_upper_copy(resultList[loopA]->label) == "VELOCITYZ"){
+      for(int loopB=0;loopB<resultList[loopA]->values.size();loopB++){
+        velocity[loopB][2] = resultList[loopA]->values[loopB];
+      }
+    }
+  }
+}
+
+// ===========================
+// COMPUTE WALL SHEAR STRESSES
+// ===========================
+void femModel::ComputeWSS(){
+  // Declare
+  int currElement = 0;
+  femDoubleMat velocity;
+  femDoubleVec shDerivs;
+  femDoubleMat JacobianMat;
+  femDoubleVec nodeVolume(nodeList.size());
+  std::vector<bool> flagVector(nodeList.size());
+  femDoubleVec globalShearStressesModule(nodeList.size());
+  femDoubleMat globalShearStressesVector(nodeList.size(), std::vector<double>(3));
+  femDoubleMat shearForce(nodeList.size(), std::vector<double>(3));
+  double Jacobian = 0.0;
+  double velLocalGrad[kDims] = {0.0};
+  int currNode = 0;
+  double velGlobalGrad[kDims][kDims] = {0.0};
+  double shearVector[3] = {0.0};
+  double normal[3] = {0.0};
+  double shearNormalComponent = 0.0;
+  int currFaceNode = 0;
+  double module = 0.0;
+
+
+
+
+  // Check if the model has boundary faces
+  if(faceList.size() == 0){
+    throw femException("Internal. No Faces in List.\n");
+  }
+
+  // Get Velocity Vector for the complete mesh
+  copyModelVelocitiesToVector(velocity);
+
+  // Get Viscosity
+  double viscosity = 1.06;
+
+  // Loop on the Model Faces
+  for(int loopA=0;loopA<faceList.size();loopA++){
+    // Get The Element Belonging to this face
+    if(faceList[loopA]->faceElements.size()>1){
+      throw femException("This is Not a Boundary Face.\n");
+    }
+    currElement = faceList[loopA]->faceElements[0];
+    // Eval the shape function derivatives and Jacobian
+    elementList[currElement]->evalShapeDerivatives(0.25,0.25,0.25,shDerivs);
+    elementList[currElement]->evalJacobianMatrix(0.25,0.25,0.25,JacobianMat);
+    Jacobian = elementList[currElement]->evalJacobian(0.25,0.25,0.25);
+    // GET NORMAL !!!
+    //elementList[currElement]->getNormal(normal);
+    // Get the local derivatives of the velocity
+    for(int loopB=0;loopB<kDims;loopB++){
+      // Loop Through the element Nodes
+      velLocalGrad[loopB] = 0.0;
+      for (int loopC=0;loopC<elementList[currElement]->numberOfNodes;loopC++){
+        // Get Velocity at node
+        currNode = elementList[currElement]->elementConnections[loopC];
+        velLocalGrad[loopB] += shDerivs[loopC]*velocity[currNode][loopB];
+      }
+
+      // Transform This Components using the Jacobian Matrix
+      for(int loopC=0;loopC<kDims;loopC++){
+        velGlobalGrad[loopB][loopC] = 0.0;
+        for(int loopD=0;loopD<kDims;loopD++){
+          velGlobalGrad[loopB][loopC] += JacobianMat[loopC][loopD] * velLocalGrad[loopD];
+        }
+      }
+
+    }
+    // You Now have the Velocity Gradient for This Element
+    for(int loopB=0;loopB<kDims;loopB++){
+      shearVector[loopB] = 0.0;
+      for(int loopC=0;loopC<kDims;loopC++){
+        shearVector[loopB] = shearVector[loopB] + viscosity*(velGlobalGrad[loopB][loopC] + velGlobalGrad[loopC][loopB])*normal[loopC];
+      }
+    }
+    shearNormalComponent = 0.0;
+    for(int loopB=0;loopB<kDims;loopB++){
+       shearNormalComponent += shearVector[loopB]*normal[loopB];
+    }
+    for(int loopB=0;loopB<kDims;loopB++){
+      shearVector[loopB] = shearVector[loopB] - shearNormalComponent * normal[loopB];
+    }
+    // Assign Shear Node Vector
+    for (int loopB=0;loopB<elementList[currElement]->numberOfNodes;loopB++){
+      currNode =  elementList[currElement]->elementConnections[loopB];
+      nodeVolume[currNode] += Jacobian;
+      for(int loopC=0;loopC<kDims;loopC++){
+        shearForce[loopC][currNode] -= Jacobian * shearVector[loopC];
+      }
+    }
+  }
+  // Assign to the global shear stress vector
+  // INIT FLAG
+  for (int loopB=0;loopB<nodeList.size();loopB++){
+    flagVector[loopB] = false;
+    globalShearStressesModule[loopB] = 0.0;
+    for(int loopC=0;loopC<kDims;loopC++){
+      globalShearStressesVector[loopB][loopC] = 0.0;
+    }
+  }
+  for(int loopA=0;loopA<faceList.size();loopA++){
+    for(int loopB=0;loopB<faceList[loopA]->faceNodes.size();loopB++){
+      // Get Node on the Face
+      currFaceNode = faceList[loopA]->faceNodes[loopB];
+      if(!flagVector[currFaceNode]){
+        // Change Flag
+        flagVector[currFaceNode] = true;
+        module = 0.0;
+        for(int loopC=0;loopC<kDims;loopC++){
+          module += (shearForce[loopC][currFaceNode]/nodeVolume[currFaceNode])*(shearForce[loopC][currFaceNode]/nodeVolume[currFaceNode]);
+          globalShearStressesVector[loopC][currFaceNode] += shearForce[loopC][currFaceNode]/nodeVolume[currFaceNode];
+          // WSSV(i,Ac) = WSSV(i,Ac) + sF(i,Ac)/sA(Ac)
+        }
+        globalShearStressesModule[currFaceNode] += sqrt(module);
+      }
+    }
+  }
+}
 
 // ===================
 // Read flow rate file

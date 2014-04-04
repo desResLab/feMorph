@@ -4,6 +4,9 @@
 // Constants: NUMERICAL
 const double kPI = 3.141592653589793238462;
 
+// Constants: NUMBER OF DIMENSIONS
+const int kDims = 3;
+
 // Constants: NODES
 const int kNodeDofs = 6;
 

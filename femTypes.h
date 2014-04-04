@@ -4,4 +4,7 @@
 // TYPE OF RESULT
 enum femResultType{frNode,frElement};
 
+typedef std::vector<std::vector<double>> femDoubleMat;
+typedef std::vector<double> femDoubleVec;
+
 #endif // FEMTYPES_H
