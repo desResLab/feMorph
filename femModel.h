@@ -56,6 +56,8 @@ class femModel
     void ReadElementConnectionsFromFile(std::string fileName, bool skipFirstRow);
     // Read Node Displacements From File
     void ReadNodeDisplacementsFromFile(std::string fileName, bool readRotations);
+    // Read File From VTK Legacy
+    void ReadFromVTKLegacy(std::string fileName);
     // Read Node Coordinates From VTK Legacy
     void ReadModelNodesFromVTKFile(std::string fileName);
     // Read Element Connectivities From VTK Legacy
@@ -130,8 +132,10 @@ class femModel
     femModel* FormBoundaryFaceModel();
     // Assign 2D element property using normal
     void GroupFacesByNormal(int &currGroup);
-    // Eval element Normal
-    void evalElementNormal(int firstElement, double* normal);
+    // Eval element Normal: 2D Elements
+    void eval2DElementNormal(int firstElement, double* normal);
+    // Eval element Normal: 3D Elements
+    void eval3DElementNormal(int elementID, int faceID, double* normal);
     // Normalize Model Displacements
     void NormalizeDisplacements(double maxDisp);
     // Check If Two model have compatible Boxes

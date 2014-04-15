@@ -31,9 +31,9 @@ class femElement
     virtual double EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeList){return 0.0;}
 
     // Element Calculation
-    virtual void evalShapeDerivatives(double coord1, double coord2, double coord3, femDoubleVec shDerivs);
+    virtual void evalShapeDerivatives(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv);
     virtual void evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs);
-    virtual double evalJacobian(double coord1, double coord2, double coord3);
+    virtual double evalJacobian(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3) = 0;
 
     // Not Virtual
     void   evalElementCentroid(std::vector<femNode*> &nodeList, double* centroid);
@@ -59,9 +59,9 @@ class femTetra4: public femElement
     virtual double EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeList);
     virtual bool isNodeInsideElement(double dispFactor, double* pointCoords,std::vector<femNode*> &nodeList);
     // Element Calculation
-    virtual void evalShapeDerivatives(double coord1, double coord2, double coord3,femDoubleVec shDerivs);
+    virtual void evalShapeDerivatives(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv);
     virtual void evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs);
-    virtual double evalJacobian(double coord1, double coord2, double coord3);
+    virtual double evalJacobian(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3);
 
     void AssembleTetCoordsMat(double dispFactor, std::vector<femNode*> &nodeList, double** coordMat);
 };
@@ -80,9 +80,9 @@ class femTetra10: public femElement
     virtual double EvalVolume(std::vector<femNode*> &nodeList){return 0.0;}
     virtual double EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeList);
     // Element Calculation
-    virtual void evalShapeDerivatives(double coord1, double coord2, double coord3,femDoubleVec shDerivs);
+    virtual void evalShapeDerivatives(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv);
     virtual void evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs);
-    virtual double evalJacobian(double coord1, double coord2, double coord3);
+    virtual double evalJacobian(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3);
 
 };
 
@@ -97,9 +97,9 @@ class femHexa8: public femElement
     virtual bool isNodeInsideElement(double* nodeCoords);
     virtual double EvalVolume(std::vector<femNode*> &nodeList){return 0.0;}
     // Element Calculation
-    virtual void evalShapeDerivatives(double coord1, double coord2, double coord3,femDoubleVec shDerivs);
+    virtual void evalShapeDerivatives(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv);
     virtual void evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs);
-    virtual double evalJacobian(double coord1, double coord2, double coord3);
+    virtual double evalJacobian(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3);
 
 };
 
@@ -114,9 +114,9 @@ class femTri3: public femElement
     virtual double EvalVolume(std::vector<femNode*> &nodeList){return 0.0;}
     virtual double EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeList);
     // Element Calculation
-    virtual void evalShapeDerivatives(double coord1, double coord2, double coord3,femDoubleVec shDerivs);
+    virtual void evalShapeDerivatives(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv);
     virtual void evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs);
-    virtual double evalJacobian(double coord1, double coord2, double coord3);
+    virtual double evalJacobian(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3);
 };
 
 

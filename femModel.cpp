@@ -1824,9 +1824,9 @@ int pickNotVisited(int size, bool* isVisited){
 }
 
 // ========================================
-// Eval element Normal only for 2D elements
+// EVAL ELEMENT NORMAL ONLY FOR 2D ELEMENTS
 // ========================================
-void femModel::evalElementNormal(int firstElement, double* normal){
+void femModel::eval2DElementNormal(int firstElement, double* normal){
   if(elementList[firstElement]->is2D()){
     int elNodes[3] = {0};
     double firstVector[3] = {0.0};
@@ -1853,16 +1853,41 @@ void femModel::evalElementNormal(int firstElement, double* normal){
   }
 }
 
+// ===================================
+// EVAL ELEMENT NORMAL FOR 3D ELEMENTS
+// ===================================
+void femModel::eval3DElementNormal(int elementID, int faceID, double* normal){
+  double elCentroid[3] = {0.0};
+  double faCentroid[3] = {0.0};
+  double centroidVec[3] = {0.0};
+  // Eval Face Normal
+  faceList[faceID]->evalFaceNormal(nodeList,normal);
+  // Eval Face Centroid
+  faceList[faceID]->evalFaceCentroid(nodeList,faCentroid);
+  // Eval Element Centroid
+  elementList[elementID]->evalElementCentroid(nodeList,elCentroid);
+  for(int loopA=0;loopA<kDims;loopA++){
+    centroidVec[loopA] = elCentroid[loopA] - faCentroid[loopA];
+  }
+  femUtils::Normalize3DVector(centroidVec);
+  double sign = femUtils::Do3DInternalProduct(centroidVec,normal);
+  if(sign>0.0){
+    for(int loopA=0;loopA<kDims;loopA++){
+      normal[loopA] = -normal[loopA];
+    }
+  }
+}
+
 // ===============================================
-// Check normal compatibility between two elements
+// CHECK NORMAL COMPATIBILITY BETWEEN TWO ELEMENTS
 // ===============================================
 bool femModel::CheckNormalCompatibility(int firstElement, int secondElement){
   double firstNormal[3] = {0.0};
   double secondNormal[3] = {0.0};
   // eval the first normal: Normalized!
-  evalElementNormal(firstElement,firstNormal);
+  eval2DElementNormal(firstElement,firstNormal);
   // eval the second normal: Normalized!
-  evalElementNormal(secondElement,secondNormal);
+  eval2DElementNormal(secondElement,secondNormal);
 
   // Get Internal Product and Check Limits
   double currProd = femUtils::Do3DInternalProduct(firstNormal,secondNormal);
@@ -2340,6 +2365,22 @@ bool femModel::isModelCompatible(femModel* other,double tolerance){
 
 }
 
+// ==========================
+// READ MODEL FROM VTK LEGACY
+// ==========================
+void femModel::ReadFromVTKLegacy(std::string fileName){
+  // Read Nodes
+  femUtils::WriteMessage(std::string("Reading Nodes ..."));
+  ReadModelNodesFromVTKFile(fileName);
+  femUtils::WriteMessage(std::string("Done.\n"));
+  // Read Elements
+  femUtils::WriteMessage(std::string("Reading Elements ..."));
+  ReadModelElementsFromVTKFile(fileName);
+  femUtils::WriteMessage(std::string("Done.\n"));
+  // Read Results
+  ReadModelResultsFromVTKFile(fileName);
+}
+
 // ================================
 // READ MODEL NODES FROM VTK LEGACY
 // ================================
@@ -2769,28 +2810,26 @@ void femModel::copyModelVelocitiesToVector(std::vector<std::vector<double>> &vel
 // COMPUTE WALL SHEAR STRESSES
 // ===========================
 void femModel::ComputeWSS(){
+
   // Declare
   int currElement = 0;
   femDoubleMat velocity;
-  femDoubleVec shDerivs;
-  femDoubleMat JacobianMat;
+
+  // Shape Function Global Derivatives
+  femDoubleMat shDerivs(4,std::vector<double>(3));
   femDoubleVec nodeVolume(nodeList.size());
   std::vector<bool> flagVector(nodeList.size());
   femDoubleVec globalShearStressesModule(nodeList.size());
   femDoubleMat globalShearStressesVector(nodeList.size(), std::vector<double>(3));
   femDoubleMat shearForce(nodeList.size(), std::vector<double>(3));
   double Jacobian = 0.0;
-  double velLocalGrad[kDims] = {0.0};
+  femDoubleMat velGrad(3,std::vector<double>(3));
   int currNode = 0;
-  double velGlobalGrad[kDims][kDims] = {0.0};
   double shearVector[3] = {0.0};
   double normal[3] = {0.0};
   double shearNormalComponent = 0.0;
   int currFaceNode = 0;
   double module = 0.0;
-
-
-
 
   // Check if the model has boundary faces
   if(faceList.size() == 0){
@@ -2804,71 +2843,75 @@ void femModel::ComputeWSS(){
   double viscosity = 1.06;
 
   // Loop on the Model Faces
-  for(int loopA=0;loopA<faceList.size();loopA++){
-    // Get The Element Belonging to this face
-    if(faceList[loopA]->faceElements.size()>1){
-      throw femException("This is Not a Boundary Face.\n");
-    }
-    currElement = faceList[loopA]->faceElements[0];
-    // Eval the shape function derivatives and Jacobian
-    elementList[currElement]->evalShapeDerivatives(0.25,0.25,0.25,shDerivs);
-    elementList[currElement]->evalJacobianMatrix(0.25,0.25,0.25,JacobianMat);
-    Jacobian = elementList[currElement]->evalJacobian(0.25,0.25,0.25);
-    // GET NORMAL !!!
-    //elementList[currElement]->getNormal(normal);
-    // Get the local derivatives of the velocity
-    for(int loopB=0;loopB<kDims;loopB++){
-      // Loop Through the element Nodes
-      velLocalGrad[loopB] = 0.0;
-      for (int loopC=0;loopC<elementList[currElement]->numberOfNodes;loopC++){
-        // Get Velocity at node
-        currNode = elementList[currElement]->elementConnections[loopC];
-        velLocalGrad[loopB] += shDerivs[loopC]*velocity[currNode][loopB];
-      }
+  for(size_t loopA=0;loopA<faceList.size();loopA++){
 
-      // Transform This Components using the Jacobian Matrix
-      for(int loopC=0;loopC<kDims;loopC++){
-        velGlobalGrad[loopB][loopC] = 0.0;
-        for(int loopD=0;loopD<kDims;loopD++){
-          velGlobalGrad[loopB][loopC] += JacobianMat[loopC][loopD] * velLocalGrad[loopD];
+    // Get The Element Belonging to this face
+    if(faceList[loopA]->faceElements.size() == 1){
+
+      // Get Current Element
+      currElement = faceList[loopA]->faceElements[0];
+
+      // Eval the shape function derivatives and Jacobian
+      elementList[currElement]->evalShapeDerivatives(nodeList,0.25,0.25,0.25,shDerivs);
+      Jacobian = elementList[currElement]->evalJacobian(nodeList,0.25,0.25,0.25);
+
+      // Get Face Normal
+      eval3DElementNormal(currElement,loopA,normal);
+
+      // Get the velocity gradient
+      for(int loopB=0;loopB<kDims;loopB++){
+        for(int loopC=0;loopC<kDims;loopC++){
+          // Loop Through the element Nodes
+          velGrad[loopB][loopC] = 0.0;
+          for (int loopD=0;loopD<kTetra4Nodes;loopD++){
+            // Get Velocity at node
+            currNode = elementList[currElement]->elementConnections[loopD];
+            velGrad[loopB][loopC] += shDerivs[loopD][loopC]*velocity[currNode][loopB];
+          }
         }
       }
 
-    }
-    // You Now have the Velocity Gradient for This Element
-    for(int loopB=0;loopB<kDims;loopB++){
-      shearVector[loopB] = 0.0;
-      for(int loopC=0;loopC<kDims;loopC++){
-        shearVector[loopB] = shearVector[loopB] + viscosity*(velGlobalGrad[loopB][loopC] + velGlobalGrad[loopC][loopB])*normal[loopC];
+      // You Now have the Velocity Gradient for This Element
+      // Eval Shear Vector
+      for(int loopB=0;loopB<kDims;loopB++){
+        shearVector[loopB] = 0.0;
+        for(int loopC=0;loopC<kDims;loopC++){
+          shearVector[loopB] = shearVector[loopB] + viscosity*(velGrad[loopB][loopC] + velGrad[loopC][loopB])*normal[loopC];
+        }
       }
-    }
-    shearNormalComponent = 0.0;
-    for(int loopB=0;loopB<kDims;loopB++){
-       shearNormalComponent += shearVector[loopB]*normal[loopB];
-    }
-    for(int loopB=0;loopB<kDims;loopB++){
-      shearVector[loopB] = shearVector[loopB] - shearNormalComponent * normal[loopB];
-    }
-    // Assign Shear Node Vector
-    for (int loopB=0;loopB<elementList[currElement]->numberOfNodes;loopB++){
-      currNode =  elementList[currElement]->elementConnections[loopB];
-      nodeVolume[currNode] += Jacobian;
-      for(int loopC=0;loopC<kDims;loopC++){
-        shearForce[loopC][currNode] -= Jacobian * shearVector[loopC];
+
+      // Eval Shear Normal Component
+      shearNormalComponent = 0.0;
+      for(int loopB=0;loopB<kDims;loopB++){
+         shearNormalComponent += shearVector[loopB]*normal[loopB];
+      }
+      for(int loopB=0;loopB<kDims;loopB++){
+        shearVector[loopB] = shearVector[loopB] - shearNormalComponent * normal[loopB];
+      }
+
+      // Assign Shear Node Vector
+      for (int loopB=0;loopB<kTetra4Nodes;loopB++){
+        currNode =  elementList[currElement]->elementConnections[loopB];
+        nodeVolume[currNode] += Jacobian;
+        for(int loopC=0;loopC<kDims;loopC++){
+          shearForce[currNode][loopC] -= Jacobian * shearVector[loopC];
+        }
       }
     }
   }
+
   // Assign to the global shear stress vector
   // INIT FLAG
-  for (int loopB=0;loopB<nodeList.size();loopB++){
+  for (size_t loopB=0;loopB<nodeList.size();loopB++){
     flagVector[loopB] = false;
     globalShearStressesModule[loopB] = 0.0;
     for(int loopC=0;loopC<kDims;loopC++){
       globalShearStressesVector[loopB][loopC] = 0.0;
     }
   }
-  for(int loopA=0;loopA<faceList.size();loopA++){
-    for(int loopB=0;loopB<faceList[loopA]->faceNodes.size();loopB++){
+
+  for(size_t loopA=0;loopA<faceList.size();loopA++){
+    for(size_t loopB=0;loopB<faceList[loopA]->faceNodes.size();loopB++){
       // Get Node on the Face
       currFaceNode = faceList[loopA]->faceNodes[loopB];
       if(!flagVector[currFaceNode]){
@@ -2876,14 +2919,23 @@ void femModel::ComputeWSS(){
         flagVector[currFaceNode] = true;
         module = 0.0;
         for(int loopC=0;loopC<kDims;loopC++){
-          module += (shearForce[loopC][currFaceNode]/nodeVolume[currFaceNode])*(shearForce[loopC][currFaceNode]/nodeVolume[currFaceNode]);
-          globalShearStressesVector[loopC][currFaceNode] += shearForce[loopC][currFaceNode]/nodeVolume[currFaceNode];
+          module += (shearForce[currFaceNode][loopC]/nodeVolume[currFaceNode])*(shearForce[currFaceNode][loopC]/nodeVolume[currFaceNode]);
+          globalShearStressesVector[currFaceNode][loopC] += shearForce[currFaceNode][loopC]/nodeVolume[currFaceNode];
           // WSSV(i,Ac) = WSSV(i,Ac) + sF(i,Ac)/sA(Ac)
         }
         globalShearStressesModule[currFaceNode] += sqrt(module);
       }
     }
   }
+
+  // Add New Result for WSS
+  femResult* res = new femResult();
+  res->label = std::string("WSS");
+  res->type = frNode;
+  for(size_t loopA=0;loopA<nodeList.size();loopA++){
+    res->values.push_back(globalShearStressesModule[loopA]);
+  }
+  resultList.push_back(res);
 }
 
 // ===================

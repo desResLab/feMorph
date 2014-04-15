@@ -381,6 +381,26 @@ int computeModelExpectations(femProgramOptions* options){
   return 0;
 }
 
+// =================
+// COMPUTE MODEL WSS
+// =================
+int computeModelWSS(femProgramOptions* options){
+  // Declare Model Sequence
+  femModel* model = new femModel();
+
+  // Create Model Sequence From File
+  model->ReadFromVTKLegacy(options->inputFileName);
+
+  // Form Face List
+  model->FormElementFaceList();
+
+  // Compute wall shear stresses
+  model->ComputeWSS();
+
+  // Export to VTK
+  model->ExportToVTKLegacy(options->outputFileName);
+}
+
 // ============
 // ============
 // MAIN PROGRAM
@@ -424,6 +444,9 @@ int main(int argc, char **argv){
         break;
       case rmCOMPUTEMODELEXPECTATIONS:
         val = computeModelExpectations(options);
+        break;
+      case rmCOMPUTEMODELWSS:
+        val = computeModelWSS(options);
         break;
     }
   }catch (std::exception& ex){

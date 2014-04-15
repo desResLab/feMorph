@@ -16,7 +16,7 @@ int femProgramOptions::getCommadLineOptions(int argc, char **argv){
   echoFile = fopen("options.echo","w");
 
   // Loop Through the Parameters
-  while ((c = getopt (argc, argv, "f:o:ncmelsxtdh")) != -1){
+  while ((c = getopt (argc, argv, "f:o:ncmelsxbtdh")) != -1){
     switch (c){
       case 'f':
         inputFileName = std::string(optarg);
@@ -53,6 +53,10 @@ int femProgramOptions::getCommadLineOptions(int argc, char **argv){
       case 'x':
         runMode = rmCOMPUTEMODELEXPECTATIONS;
         fprintf(echoFile,"Run Mode: Computing Model Expectations\n");
+        break;
+      case 'b':
+        runMode = rmCOMPUTEMODELWSS;
+        fprintf(echoFile,"Run Mode: Computing Model WSS\n");
         break;
       case 't':
         tolerance = atof(optarg);

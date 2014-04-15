@@ -63,7 +63,9 @@ int isInLabelVector(std::string currLabel,femResultType currType,std::vector<lab
   }
 }
 
+// =================
 // COMPUTE AV AND SD
+// =================
 void femModelSequence::ComputeResultStatistics(){
 
   // Count Result Labels in Models

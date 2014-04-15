@@ -4,8 +4,9 @@
 #include <stdio.h>
 #include <vector>
 
-class femFace
-{
+#include "femNode.h"
+
+class femFace{
 public:
   // Data Members
   int number;
@@ -18,6 +19,9 @@ public:
   femFace(int tempNumber,std::vector<int> nodes);
   femFace(femFace* other);
   ~femFace();
+  // MEMBER FUNCTIONS
+  void evalFaceCentroid(std::vector<femNode*> nodeList, double* centroid);
+  void evalFaceNormal(std::vector<femNode*> nodeList, double* centroid);
 };
 
 #endif // FEMFACE_H

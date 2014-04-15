@@ -77,15 +77,15 @@ double femElement::evalPointToElementDistance(double* pointCoords, std::vector<f
 // ===================
 // Element Calculation
 // ===================
-void femElement::evalShapeDerivatives(double coord1, double coord2, double coord3,femDoubleVec shDerivs){
-  shDerivs.resize(4);
+void femElement::evalShapeDerivatives(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3,
+                                      femDoubleMat &shapeDeriv){
   // TO COMPLETE !!!
 
 }
 void femElement::evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs){
 
 }
-double femElement::evalJacobian(double coord1, double coord2, double coord3){
+double femElement::evalJacobian(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3){
 
 }
 
@@ -296,16 +296,75 @@ bool femTetra4::isNodeInsideElement(double dispFactor, double* pointCoords,std::
 // ===================
 // Element Calculation
 // ===================
-void femTetra4::evalShapeDerivatives(double coord1, double coord2, double coord3,femDoubleVec shDerivs){
-  shDerivs.resize(4);
-  // TO COMPLETE !!!
+void femTetra4::evalShapeDerivatives(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3,
+                                     femDoubleMat &shapeDeriv){
 
+  double x12 = nodeList[elementConnections[0]]->coords[0] - nodeList[elementConnections[1]]->coords[0];
+  double x13 = nodeList[elementConnections[0]]->coords[0] - nodeList[elementConnections[2]]->coords[0];
+  double x14 = nodeList[elementConnections[0]]->coords[0] - nodeList[elementConnections[3]]->coords[0];
+  double x21 = nodeList[elementConnections[1]]->coords[0] - nodeList[elementConnections[0]]->coords[0];
+  double x24 = nodeList[elementConnections[1]]->coords[0] - nodeList[elementConnections[3]]->coords[0];
+  double x31 = nodeList[elementConnections[2]]->coords[0] - nodeList[elementConnections[0]]->coords[0];
+  double x32 = nodeList[elementConnections[2]]->coords[0] - nodeList[elementConnections[1]]->coords[0];
+  double x34 = nodeList[elementConnections[2]]->coords[0] - nodeList[elementConnections[3]]->coords[0];
+  double x42 = nodeList[elementConnections[3]]->coords[0] - nodeList[elementConnections[1]]->coords[0];
+  double x43 = nodeList[elementConnections[3]]->coords[0] - nodeList[elementConnections[2]]->coords[0];
+
+  double y12 = nodeList[elementConnections[0]]->coords[1] - nodeList[elementConnections[1]]->coords[1];
+  double y13 = nodeList[elementConnections[0]]->coords[1] - nodeList[elementConnections[2]]->coords[1];
+  double y14 = nodeList[elementConnections[0]]->coords[1] - nodeList[elementConnections[3]]->coords[1];
+  double y21 = nodeList[elementConnections[1]]->coords[1] - nodeList[elementConnections[0]]->coords[1];
+  double y24 = nodeList[elementConnections[1]]->coords[1] - nodeList[elementConnections[3]]->coords[1];
+  double y31 = nodeList[elementConnections[2]]->coords[1] - nodeList[elementConnections[0]]->coords[1];
+  double y32 = nodeList[elementConnections[2]]->coords[1] - nodeList[elementConnections[1]]->coords[1];
+  double y34 = nodeList[elementConnections[2]]->coords[1] - nodeList[elementConnections[3]]->coords[1];
+  double y42 = nodeList[elementConnections[3]]->coords[1] - nodeList[elementConnections[1]]->coords[1];
+  double y43 = nodeList[elementConnections[3]]->coords[1] - nodeList[elementConnections[2]]->coords[1];
+
+  double z12 = nodeList[elementConnections[0]]->coords[2] - nodeList[elementConnections[1]]->coords[2];
+  double z13 = nodeList[elementConnections[0]]->coords[2] - nodeList[elementConnections[2]]->coords[2];
+  double z14 = nodeList[elementConnections[0]]->coords[2] - nodeList[elementConnections[3]]->coords[2];
+  double z21 = nodeList[elementConnections[1]]->coords[2] - nodeList[elementConnections[0]]->coords[2];
+  double z24 = nodeList[elementConnections[1]]->coords[2] - nodeList[elementConnections[3]]->coords[2];
+  double z31 = nodeList[elementConnections[2]]->coords[2] - nodeList[elementConnections[0]]->coords[2];
+  double z32 = nodeList[elementConnections[2]]->coords[2] - nodeList[elementConnections[1]]->coords[2];
+  double z34 = nodeList[elementConnections[2]]->coords[2] - nodeList[elementConnections[3]]->coords[2];
+  double z42 = nodeList[elementConnections[3]]->coords[2] - nodeList[elementConnections[1]]->coords[2];
+  double z43 = nodeList[elementConnections[3]]->coords[2] - nodeList[elementConnections[2]]->coords[2];
+
+  shapeDeriv[0][0] = y42*z32-y32*z42;
+  shapeDeriv[1][0] = y31*z43-y34*z13;
+  shapeDeriv[2][0] = y24*z14-y14*z24;
+  shapeDeriv[3][0] = y13*z21-y12*z31;
+
+  shapeDeriv[0][1] = x32*z42-x42*z32;
+  shapeDeriv[1][1] = x43*z31-x13*z34;
+  shapeDeriv[2][1] = x14*z24-x24*z14;
+  shapeDeriv[3][1] = x21*z13-x31*z12;
+
+  shapeDeriv[0][2] = x42*y32-x32*y42;
+  shapeDeriv[1][2] = x31*y43-x34*y13;
+  shapeDeriv[2][2] = x24*y14-x14*y24;
+  shapeDeriv[3][2] = x13*y21-x12*y31;
 }
 void femTetra4::evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs){
 
 }
-double femTetra4::evalJacobian(double coord1, double coord2, double coord3){
+double femTetra4::evalJacobian(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3){
+  // Define Quantities
+  double x21 = nodeList[elementConnections[1]]->coords[0] - nodeList[elementConnections[0]]->coords[0];
+  double x32 = nodeList[elementConnections[2]]->coords[0] - nodeList[elementConnections[1]]->coords[0];
+  double x43 = nodeList[elementConnections[3]]->coords[0] - nodeList[elementConnections[2]]->coords[0];
 
+  double y12 = nodeList[elementConnections[1]]->coords[1] - nodeList[elementConnections[0]]->coords[1];
+  double y23 = nodeList[elementConnections[1]]->coords[1] - nodeList[elementConnections[0]]->coords[1];
+  double y34 = nodeList[elementConnections[1]]->coords[1] - nodeList[elementConnections[0]]->coords[1];
+
+  double z12 = nodeList[elementConnections[0]]->coords[2] - nodeList[elementConnections[1]]->coords[2];
+  double z23 = nodeList[elementConnections[1]]->coords[2] - nodeList[elementConnections[2]]->coords[2];
+  double z34 = nodeList[elementConnections[2]]->coords[2] - nodeList[elementConnections[3]]->coords[2];
+
+  return (x21 * (y23 * z34 - y34 * z23) + x32 * (y34 * z12 - y12 * z34) + x43 * (y12 * z23 - y23 * z12));
 }
 
 // =================================
@@ -340,15 +399,14 @@ void femElement::InterpolateElementDisplacements(double dispFactor, double* node
 // ===================
 // Element Calculation
 // ===================
-void femTetra10::evalShapeDerivatives(double coord1, double coord2, double coord3,femDoubleVec shDerivs){
-  shDerivs.resize(4);
-  // TO COMPLETE !!!
+void femTetra10::evalShapeDerivatives(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3,
+                                      femDoubleMat &shapeDeriv){
 
 }
 void femTetra10::evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs){
 
 }
-double femTetra10::evalJacobian(double coord1, double coord2, double coord3){
+double femTetra10::evalJacobian(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3){
 
 }
 
@@ -671,14 +729,14 @@ double femTri3::EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeLis
 // ===================
 // Element Calculation
 // ===================
-void femTri3::evalShapeDerivatives(double coord1, double coord2, double coord3,femDoubleVec shDerivs){
-  shDerivs.resize(4);
+void femTri3::evalShapeDerivatives(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3,
+                                   femDoubleMat &shapeDeriv){
   // TO COMPLETE !!!
 
 }
 void femTri3::evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs){
 
 }
-double femTri3::evalJacobian(double coord1, double coord2, double coord3){
+double femTri3::evalJacobian(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3){
 
 }
