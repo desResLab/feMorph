@@ -18,6 +18,7 @@ class femProgramOptions{
     // DATA MEMBERS
     runModes runMode;
     bool debugMode = false;
+    bool reducedOutput = false;
     double tolerance;
     std::string inputFileName = "";
     std::string outputFileName = "";

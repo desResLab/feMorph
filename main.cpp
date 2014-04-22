@@ -16,8 +16,8 @@ int runNormalMode(femProgramOptions* options){
   double stenosisBox[6];
 
   // Set Debug Mode
-  bool debugMode = true;
-  bool reducedOutput = true;
+  bool debugMode = options->debugMode;
+  bool reducedOutput = options->reducedOutput;
 
   // Read All input parameters
   femInputData* data = new femInputData();
