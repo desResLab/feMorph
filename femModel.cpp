@@ -2852,7 +2852,7 @@ void femModel::ComputeWSS(){
       currElement = faceList[loopA]->faceElements[0];
 
       // Eval the shape function derivatives and Jacobian
-      elementList[currElement]->evalShapeDerivatives(nodeList,0.25,0.25,0.25,shDerivs);
+      elementList[currElement]->evalShapeFunctionDerivative(nodeList,0.25,0.25,0.25,shDerivs);
       Jacobian = elementList[currElement]->evalJacobian(nodeList,0.25,0.25,0.25);
 
       // Get Face Normal

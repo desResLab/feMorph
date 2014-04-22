@@ -6,6 +6,7 @@
 #include "femNode.h"
 #include "femFace.h"
 #include "femTypes.h"
+#include "femIntegrationRule.h"
 
 // GENERIC ELEMENT
 class femElement
@@ -24,16 +25,21 @@ class femElement
     virtual ~femElement();
     // Member Functions
     // Virtual
-    virtual bool isNodeInsideElement(double dispFactor, double* pointCoords,std::vector<femNode*> &nodeList){return false;}
-    virtual void EvalVolumeCoordinates(double dispFactor, double* pointCoords, std::vector<femNode*> &nodeList, double* volCoords){}
-    virtual bool is2D(){return false;}
-    virtual double EvalVolume(double dispFactor, std::vector<femNode*> &nodeList){return 0.0;}
-    virtual double EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeList){return 0.0;}
+    virtual bool isNodeInsideElement(double dispFactor, double* pointCoords,std::vector<femNode*> &nodeList);
+    virtual void EvalVolumeCoordinates(double dispFactor, double* pointCoords, std::vector<femNode*> &nodeList, double* volCoords);
+    virtual bool is2D();
+    virtual double EvalVolume(double dispFactor, std::vector<femNode*> &nodeList);
+    virtual double EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeList);
+    // FINITE ELEMENTS
+    virtual void assembleMass(femDoubleMat &nodeVelocities, std::vector<femNode*> nodeList, std::vector<double> tauSUPG, femIntegrationRule rule, double** massMat);
+    virtual void assembleStiffness(femDoubleMat &nodeVelocities, std::vector<femNode*> nodeList, std::vector<double> tauSUPG, femIntegrationRule rule, double diffusivity, femDoubleMat &stiffnessMat);
 
     // Element Calculation
-    virtual void evalShapeDerivatives(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv);
-    virtual void evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs);
-    virtual double evalJacobian(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3) = 0;
+    virtual void   evalShapeFunction(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction);
+    virtual void   evalShapeFunctionDerivative(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv);
+    virtual void   evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs);
+    virtual double evalJacobian(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3);
+    virtual femIntegrationRule* evalIntegrationRule(intRuleType type);
 
     // Not Virtual
     void   evalElementCentroid(std::vector<femNode*> &nodeList, double* centroid);
@@ -42,7 +48,7 @@ class femElement
     void   CheckRandomWalkingCriterion(int localFaceID, double* nodeCoords,std::vector<femFace*> &faceList,std::vector<femNode*> &nodeList,bool &isOnFace, bool &isOnOppositeSide);
     int    getAdjacentElement(int localFaceID, std::vector<femFace*> &faceList);
     void   CreateBoundingBoxNodeList(std::vector<femNode*> &nodeList,std::vector<femNode*> &boxNodeList);
-    void   CreateMinMaxNodeList(std::vector<femNode*> &nodeList,std::vector<femNode*> &minMaxNodeList);
+    void   CreateMinMaxNodeList(std::vector<femNode*> &nodeList,std::vector<femNode*> &minMaxNodeList);    
 };
 
 // TETRAHEDRAL ELEMENT
@@ -58,10 +64,16 @@ class femTetra4: public femElement
     virtual double EvalVolume(double dispFactor, std::vector<femNode*> &nodeList);
     virtual double EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeList);
     virtual bool isNodeInsideElement(double dispFactor, double* pointCoords,std::vector<femNode*> &nodeList);
+    // Finite Elements
+    //virtual void assembleStab(femAdvectionDiffusionOption* options, femIntegrationRule* rule,femDoubleMat &nodeVelocities, std::vector<double> &tauSUPG);
+    virtual void assembleMass(femDoubleMat &nodeVelocities, std::vector<femNode*> nodeList, std::vector<double> tauSUPG, femIntegrationRule rule, double** massMat);
+    virtual void assembleStiffness(femDoubleMat &nodeVelocities, std::vector<femNode*> nodeList, std::vector<double> tauSUPG, femIntegrationRule rule, double diffusivity, femDoubleMat &stiffnessMat);
     // Element Calculation
-    virtual void evalShapeDerivatives(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv);
-    virtual void evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs);
+    virtual void   evalShapeFunction(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction);
+    virtual void   evalShapeFunctionDerivative(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv);
+    virtual void   evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs);
     virtual double evalJacobian(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3);
+    virtual femIntegrationRule* evalIntegrationRule(intRuleType type);
 
     void AssembleTetCoordsMat(double dispFactor, std::vector<femNode*> &nodeList, double** coordMat);
 };
@@ -80,9 +92,11 @@ class femTetra10: public femElement
     virtual double EvalVolume(std::vector<femNode*> &nodeList){return 0.0;}
     virtual double EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeList);
     // Element Calculation
-    virtual void evalShapeDerivatives(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv);
+    virtual void evalShapeFunction(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction);
+    virtual void evalShapeFunctionDerivative(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv);
     virtual void evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs);
     virtual double evalJacobian(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3);
+    virtual femIntegrationRule* evalIntegrationRule(intRuleType type);
 
 };
 
@@ -93,13 +107,15 @@ class femHexa8: public femElement
     femHexa8(int number, int prop, int totalNodes, int* connections):femElement(number,prop,totalNodes,connections){numberOfNodes = 8;}
     virtual ~femHexa8(){}
     // Member Functions
-    virtual bool is2D(){return false;}
-    virtual bool isNodeInsideElement(double* nodeCoords);
-    virtual double EvalVolume(std::vector<femNode*> &nodeList){return 0.0;}
+    virtual bool is2D();
+    virtual bool isNodeInsideElement(double dispFactor, double* pointCoords,std::vector<femNode*> &nodeList);
+    virtual double EvalVolume(std::vector<femNode*> &nodeList);
     // Element Calculation
-    virtual void evalShapeDerivatives(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv);
+    virtual void evalShapeFunction(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction);
+    virtual void evalShapeFunctionDerivative(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv);
     virtual void evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs);
     virtual double evalJacobian(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3);
+    virtual femIntegrationRule* evalIntegrationRule(intRuleType type);
 
 };
 
@@ -114,9 +130,11 @@ class femTri3: public femElement
     virtual double EvalVolume(std::vector<femNode*> &nodeList){return 0.0;}
     virtual double EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeList);
     // Element Calculation
-    virtual void evalShapeDerivatives(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv);
+    virtual void evalShapeFunction(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction);
+    virtual void evalShapeFunctionDerivative(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv);
     virtual void evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs);
     virtual double evalJacobian(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3);
+    virtual femIntegrationRule* evalIntegrationRule(intRuleType type);
 };
 
 

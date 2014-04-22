@@ -35,8 +35,51 @@ femElement::femElement(const femElement* other){
 // ==========
 // Destructor
 // ==========
-femElement::~femElement()
-{
+femElement::~femElement(){
+}
+
+// ================================
+// VIRTUAL FUNCTIONS FOR MAIN CLASS
+// ================================
+bool femElement::isNodeInsideElement(double dispFactor, double* pointCoords, std::vector<femNode*> &nodeList){
+  throw femException("Not Implemented.\n");
+}
+void femElement::EvalVolumeCoordinates(double dispFactor, double* pointCoords, std::vector<femNode*> &nodeList, double* volCoords){
+  throw femException("Not Implemented.\n");
+}
+bool femElement::is2D(){
+  throw femException("Not Implemented.\n");
+}
+double femElement::EvalVolume(double dispFactor, std::vector<femNode*> &nodeList){
+  throw femException("Not Implemented.\n");
+}
+double femElement::EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeList){
+  throw femException("Not Implemented.\n");
+}
+void femElement::assembleMass(femDoubleMat &nodeVelocities, std::vector<femNode*> nodeList, std::vector<double> tauSUPG, femIntegrationRule rule, double** massMat){
+  throw femException("Not Implemented.\n");
+}
+void femElement::assembleStiffness(femDoubleMat &nodeVelocities, std::vector<femNode*> nodeList, std::vector<double> tauSUPG, femIntegrationRule rule, double diffusivity, femDoubleMat &stiffnessMat){
+  throw femException("Not Implemented.\n");
+}
+
+// =====================================
+// VIRTUAL FUNCTIONS FOR FINITE ELEMENTS
+// =====================================
+void femElement::evalShapeFunction(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction){
+  throw femException("Not Implemented.\n");
+}
+void femElement::evalShapeFunctionDerivative(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv){
+  throw femException("Not Implemented.\n");
+}
+void femElement::evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs){
+  throw femException("Not Implemented.\n");
+}
+double femElement::evalJacobian(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3){
+  throw femException("Not Implemented.\n");
+}
+femIntegrationRule* femElement::evalIntegrationRule(intRuleType type){
+  throw femException("Not Implemented.\n");
 }
 
 // =====================
@@ -73,22 +116,6 @@ double femElement::evalPointToElementDistance(double* pointCoords, std::vector<f
   // Return
   return sqrt(dist);
 }
-
-// ===================
-// Element Calculation
-// ===================
-void femElement::evalShapeDerivatives(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3,
-                                      femDoubleMat &shapeDeriv){
-  // TO COMPLETE !!!
-
-}
-void femElement::evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs){
-
-}
-double femElement::evalJacobian(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3){
-
-}
-
 
 // ============================================================
 // Eval TETRA10 Volume Coordinates: STRAIGHT SIDE APPROXIMATION
@@ -139,6 +166,30 @@ void femTetra4::AssembleTetCoordsMat(double dispFactor, std::vector<femNode*> &n
     }
   }
 }
+
+// ================================
+// ASSEMBLE STABILIZATION PARAMETER
+// ================================
+/*virtual void femTetra4::assembleStab(femOptions options, femIntegrationRule* rule,femDoubleMat &nodeVelocities, std::vector<double> &tauSUPG){
+  // Loop Through the Gauss Points
+  for(int loopGauss=0;loopGauss<rule->totalGP;loopGauss++){
+    evalShapeFunctionDerivative(nodeList,rule->coords[0],rule->coords[1],rule->coords[2],shapeDeriv);
+    // Assemble First Term
+    firstTerm[loopGauss] = 0.0;
+    for(int loopA=0;loopA<numberOfNodes;loopA++){
+      dotProduct = 0.0;
+      currNode = elementConnections[loopA];
+      for(int loopB=0;loopB<kDims;loopB++){
+        dotProduct += nodeVelocities[currNode][loopB] * shapeDeriv[loopA][loopB];
+      }
+      firstTerm[loopGauss] += fabs(dotProduct)
+    }
+    firstTerm[loopGauss] = (1.0/(firstTerm[loopGauss]));
+    // Assemble Second Term
+    secondTerm[loopGauss] = (options.deltaT/2.0);
+
+  }
+}*/
 
 // ====================================
 // Eval Tetra4 Volume from Coord Matrix
@@ -293,11 +344,20 @@ bool femTetra4::isNodeInsideElement(double dispFactor, double* pointCoords,std::
   return isInside;
 }
 
-// ===================
-// Element Calculation
-// ===================
-void femTetra4::evalShapeDerivatives(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3,
-                                     femDoubleMat &shapeDeriv){
+// ==========================================
+// FINITE ELEMENT ROUTINES FOR TETRA4 ELEMENT
+// ==========================================
+void femTetra4::evalShapeFunction(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction){
+  shapeFunction.clear();
+  shapeFunction.push_back(coord1);
+  shapeFunction.push_back(coord2);
+  shapeFunction.push_back(coord3);
+  shapeFunction.push_back(1.0-coord1-coord2-coord3);
+}
+
+
+void femTetra4::evalShapeFunctionDerivative(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3,
+                                            femDoubleMat &shapeDeriv){
 
   double x12 = nodeList[elementConnections[0]]->coords[0] - nodeList[elementConnections[1]]->coords[0];
   double x13 = nodeList[elementConnections[0]]->coords[0] - nodeList[elementConnections[2]]->coords[0];
@@ -367,6 +427,11 @@ double femTetra4::evalJacobian(std::vector<femNode*> nodeList, double coord1, do
   return (x21 * (y23 * z34 - y34 * z23) + x32 * (y34 * z12 - y12 * z34) + x43 * (y12 * z23 - y23 * z12));
 }
 
+femIntegrationRule* femTetra4::evalIntegrationRule(intRuleType type){
+  femIntegrationRule* res = new femIntegrationRule(type);
+  return res;
+}
+
 // =================================
 // Interpolate Element Displacements
 // =================================
@@ -396,18 +461,24 @@ void femElement::InterpolateElementDisplacements(double dispFactor, double* node
   }
 }
 
-// ===================
-// Element Calculation
-// ===================
-void femTetra10::evalShapeDerivatives(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3,
-                                      femDoubleMat &shapeDeriv){
-
+// =========================================
+// FINITE ELEMENT ROUTINES FOR TET10 ELEMENT
+// =========================================
+void femTetra10::evalShapeFunction(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction){
+  throw femException("Not Implemented.\n");
+}
+void femTetra10::evalShapeFunctionDerivative(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3,
+                                             femDoubleMat &shapeDeriv){
+  throw femException("Not Implemented.\n");
 }
 void femTetra10::evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs){
-
+  throw femException("Not Implemented.\n");
 }
 double femTetra10::evalJacobian(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3){
-
+  throw femException("Not Implemented.\n");
+}
+femIntegrationRule* femTetra10::evalIntegrationRule(intRuleType type){
+  throw femException("Not Implemented.\n");
 }
 
 // =============================================
@@ -451,8 +522,6 @@ bool femTetra10::isNodeInsideElement(double dispFactor, double* pointCoords,std:
   // Return
   return isInside;
 }
-
-
 
 // ============================================
 // Check Criterion for Random Walking algorithm
@@ -726,17 +795,92 @@ double femTri3::EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeLis
 }
 
 
-// ===================
-// Element Calculation
-// ===================
-void femTri3::evalShapeDerivatives(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3,
-                                   femDoubleMat &shapeDeriv){
-  // TO COMPLETE !!!
-
+// ================================
+// FINITE ELEMENT ROUTINES FOR TRI3
+// ================================
+// =====================================
+// VIRTUAL FUNCTIONS FOR FINITE ELEMENTS
+// =====================================
+void femTri3::evalShapeFunction(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction){
+  throw femException("Not Implemented.\n");
+}
+void femTri3::evalShapeFunctionDerivative(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv){
+  throw femException("Not Implemented.\n");
 }
 void femTri3::evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs){
-
+  throw femException("Not Implemented.\n");
 }
 double femTri3::evalJacobian(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3){
+  throw femException("Not Implemented.\n");
+}
+femIntegrationRule* femTri3::evalIntegrationRule(intRuleType type){
+  throw femException("Not Implemented.\n");
+}
 
+// ====================================================
+// ASSEMBLE MASS MATRIX FOR ADVECTION DIFFUSION PROBLEM
+// ====================================================
+void femTetra4::assembleMass(femDoubleMat &nodeVelocities, std::vector<femNode*> nodeList, std::vector<double> tauSUPG, femIntegrationRule rule, double** massMat){
+  femDoubleVec shapeFunction;
+  femDoubleMat shapeFunctionDerivs;
+  int globNode = 0;
+  double currProd = 0.0;
+  for(int loopA=0;loopA<rule.totalGP;loopA++){
+    // Eval Shape Functions
+    evalShapeFunction(nodeList,rule.coords[loopA][0],rule.coords[loopA][1],rule.coords[loopA][2],shapeFunction);
+    // Eval Shape Function Derivatives
+    evalShapeFunctionDerivative(nodeList,rule.coords[loopA][0],rule.coords[loopA][1],rule.coords[loopA][2],shapeFunctionDerivs);
+    // Loop Through the Nodes
+    for(int loopB=0;loopB<numberOfNodes;loopB++){
+      for(int loopC=0;loopC<numberOfNodes;loopC++){
+        // Eval Product with Velocity
+        currProd = 0.0;
+        for(int loopD=0;loopD<kDims;loopD++){
+          globNode = elementConnections[loopB];
+          currProd += nodeVelocities[globNode][loopD] * shapeFunctionDerivs[loopB][loopD];
+        }
+        massMat[loopB][loopC] += shapeFunction[loopB]*shapeFunction[loopC] + tauSUPG[loopA] * currProd * shapeFunction[loopC] * rule.weight[loopA];
+      }
+    }
+  }
+}
+
+// =========================================================
+// ASSEMBLE STIFFNESS MATRIX FOR ADVECTION DIFFUSION PROBLEM
+// =========================================================
+void femTetra4::assembleStiffness(femDoubleMat &nodeVelocities, std::vector<femNode*> nodeList, std::vector<double> tauSUPG, femIntegrationRule rule, double diffusivity, femDoubleMat &stiffnessMat){
+  femDoubleVec shapeFunction;
+  femDoubleMat shapeFunctionDerivs;
+  int globNode = 0;
+  double uNablaNB = 0.0;
+  double uNablaNA = 0.0;
+  double NablaNANablaNB = 0.0;
+  double firstTerm = 0.0;
+  double secondTerm = 0.0;
+  double tauTerm = 0.0;
+  for(int loopA=0;loopA<rule.totalGP;loopA++){
+    // Eval Shape Functions
+    evalShapeFunction(nodeList,rule.coords[loopA][0],rule.coords[loopA][1],rule.coords[loopA][2],shapeFunction);
+    // Eval Shape Function Derivatives
+    evalShapeFunctionDerivative(nodeList,rule.coords[loopA][0],rule.coords[loopA][1],rule.coords[loopA][2],shapeFunctionDerivs);
+    // Loop Through the Nodes
+    for(int loopB=0;loopB<numberOfNodes;loopB++){
+      for(int loopC=0;loopC<numberOfNodes;loopC++){
+        // Eval Product with Velocity
+        uNablaNB = 0.0;
+        uNablaNA = 0.0;
+        NablaNANablaNB = 0.0;
+        for(int loopD=0;loopD<kDims;loopD++){
+          globNode = elementConnections[loopB];
+          uNablaNA += nodeVelocities[globNode][loopD] * shapeFunctionDerivs[loopB][loopD];
+          uNablaNB += nodeVelocities[globNode][loopD] * shapeFunctionDerivs[loopC][loopD];
+          NablaNANablaNB += shapeFunctionDerivs[loopB][loopD] * shapeFunctionDerivs[loopC][loopD];
+        }
+        firstTerm = shapeFunction[loopA] * uNablaNB;
+        secondTerm = diffusivity * NablaNANablaNB;
+        tauTerm = tauSUPG[loopA] * uNablaNA * uNablaNB;
+        stiffnessMat[loopB][loopC] += firstTerm + secondTerm + tauTerm;
+      }
+    }
+  }
 }
