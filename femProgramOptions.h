@@ -19,6 +19,7 @@ class femProgramOptions{
     runModes runMode;
     bool debugMode = false;
     bool reducedOutput = false;
+    bool useVTKFile = false;
     double tolerance;
     std::string inputFileName = "";
     std::string outputFileName = "";

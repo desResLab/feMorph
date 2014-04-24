@@ -250,7 +250,7 @@ int exctractMeshQualityDistributions(femProgramOptions* options){
 int translateModelToCvPre(femProgramOptions* options){
   femModel* model = new femModel();
 
-  model->ConvertNodeAndElementsToCvPre(options->inputFileName,options->outputFileName,false);
+  model->ConvertNodeAndElementsToCvPre(options->inputFileName,options->outputFileName,options->useVTKFile,false);
 
   delete model;
 }
@@ -355,7 +355,7 @@ int meshVTKSkinToCVPre(femProgramOptions* options){
 
   // Export CVPRE File from node Coordinated and Element Incidences
   femUtils::WriteMessage(std::string("Exporting to CVPre ...\n"));
-  model->ConvertNodeAndElementsToCvPre(std::string("model.1.node"),std::string("model.1.ele"),true);
+  model->ConvertNodeAndElementsToCvPre(std::string("model.1.node"),std::string("model.1.ele"),false,true);
 
   // Delete Model
   delete model;

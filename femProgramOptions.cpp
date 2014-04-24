@@ -16,7 +16,7 @@ int femProgramOptions::getCommadLineOptions(int argc, char **argv){
   echoFile = fopen("options.echo","w");
 
   // Loop Through the Parameters
-  while ((c = getopt (argc, argv, "f:o:ncmelsxbtdhr")) != -1){
+  while ((c = getopt (argc, argv, "f:o:ncmelsxbtdhrv")) != -1){
     switch (c){
       case 'f':
         inputFileName = std::string(optarg);
@@ -72,6 +72,10 @@ int femProgramOptions::getCommadLineOptions(int argc, char **argv){
       case 'r':
         reducedOutput = true;
         fprintf(echoFile,"A reduced output will be generated\n");
+        break;
+      case 'v':
+        useVTKFile = true;
+        fprintf(echoFile,"Use VTK Legacy Files For Input\n");
         break;
       case '?':
         if (optopt == 'f'){

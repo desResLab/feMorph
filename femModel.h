@@ -89,7 +89,7 @@ class femModel
     // Write PolyFile for TETGEN
     void WriteSkinSMeshFile(std::string polyFileName);
     // Convert Node and Element File To CVPre
-    int ConvertNodeAndElementsToCvPre(std::string nodeFileName, std::string elementFileName, bool skipFirstRow);
+    int ConvertNodeAndElementsToCvPre(std::string nodeFileName, std::string elementFileName, bool vtkFile, bool skipFirstRow);
     // Copy velocity Results to Vector
     void copyModelVelocitiesToVector(std::vector<std::vector<double>> &velocity);
 

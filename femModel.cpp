@@ -1375,10 +1375,21 @@ double femModel::ExtractStenosisLevel(femInputData* data, double currDispFactor,
   // Assign Stenosis Definitions
   stenosisDef[0] = refNoStenosisDiam;
   stenosisDef[1] = refNoStenosisArea;
-  stenosisDef[2] = ((1.0-(minDiam/maxDiam))*100.0);
-  stenosisDef[3] = ((1.0-(minDiam/refNoStenosisDiam))*100.0);
-  stenosisDef[4] = ((1.0-(minArea/maxArea))*100.0);
-  stenosisDef[5] = ((1.0-(minArea/refNoStenosisArea))*100.0);
+
+  // Check If Stenosis or Aneurism
+  if(currDispFactor>0.0){
+    stenosisDef[2] = ((1.0-(minDiam/maxDiam))*100.0);
+    stenosisDef[3] = ((1.0-(minDiam/refNoStenosisDiam))*100.0);
+    stenosisDef[4] = ((1.0-(minArea/maxArea))*100.0);
+    stenosisDef[5] = ((1.0-(minArea/refNoStenosisArea))*100.0);
+  }else{
+    stenosisDef[2] = ((1.0-(maxDiam/minDiam))*100.0);
+    stenosisDef[3] = ((1.0-(maxDiam/refNoStenosisDiam))*100.0);
+    stenosisDef[4] = ((1.0-(maxArea/minArea))*100.0);
+    stenosisDef[5] = ((1.0-(maxArea/refNoStenosisArea))*100.0);
+  }
+
+
 
   // Eval Stenosis Level
   if(useDiameter){
@@ -2739,11 +2750,20 @@ int femModel::getResultIndexFromLabel(std::string label){
 // =====================
 // EXPORT MODEL TO CVPRE
 // =====================
-int femModel::ConvertNodeAndElementsToCvPre(std::string nodeFileName, std::string elementFileName, bool skipFirstRow){
+int femModel::ConvertNodeAndElementsToCvPre(std::string nodeFileName, std::string elementFileName, bool vtkFile, bool skipFirstRow){
 
   // Read Node Coordinates and Connections
-  ReadNodeCoordsFromFile(nodeFileName,skipFirstRow);
-  ReadElementConnectionsFromFile(elementFileName,skipFirstRow);
+  if(vtkFile){
+    // Read Nodes from Vtk legacy
+    ReadModelNodesFromVTKFile(nodeFileName);
+    // Read Elements from Vtk legacy
+    ReadModelElementsFromVTKFile(nodeFileName);
+  }else{
+    // Read Nodes from node.connection file
+    ReadNodeCoordsFromFile(nodeFileName,skipFirstRow);
+    // Read Elements from element.connection file
+    ReadElementConnectionsFromFile(elementFileName,skipFirstRow);
+  }
 
   // Form Face List
   FormElementFaceList();
