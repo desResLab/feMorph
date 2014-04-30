@@ -70,7 +70,7 @@ inline void FormBinLimits(femModel* model, int modelQuality, double &currInterva
       if(modelQuality == kVolume){
         currValue = model->elementList[loopA]->EvalVolume(0.0,model->nodeList);
       }else if(modelQuality == kMixedProduct){
-        currValue = model->elementList[loopA]->EvalMixProduct(0.0,model->nodeList);
+        currValue = model->elementList[loopA]->EvalMixProduct(model->nodeList);
       }
       // Assign Values
       if(currValue>maxRange){

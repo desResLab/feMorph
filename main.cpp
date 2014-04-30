@@ -391,6 +391,9 @@ int computeModelWSS(femProgramOptions* options){
   // Create Model Sequence From File
   model->ReadFromVTKLegacy(options->inputFileName);
 
+  // Fix Connectivities
+  model->FixedElementConnectivities();
+
   // Form Face List
   model->FormElementFaceList();
 

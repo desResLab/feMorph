@@ -41,6 +41,9 @@ femElement::~femElement(){
 // ================================
 // VIRTUAL FUNCTIONS FOR MAIN CLASS
 // ================================
+void femElement::swapNodes(){
+  throw femException("Not Implemented.\n");
+}
 bool femElement::isNodeInsideElement(double dispFactor, double* pointCoords, std::vector<femNode*> &nodeList){
   throw femException("Not Implemented.\n");
 }
@@ -53,7 +56,7 @@ bool femElement::is2D(){
 double femElement::EvalVolume(double dispFactor, std::vector<femNode*> &nodeList){
   throw femException("Not Implemented.\n");
 }
-double femElement::EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeList){
+double femElement::EvalMixProduct(std::vector<femNode*> &nodeList){
   throw femException("Not Implemented.\n");
 }
 void femElement::assembleMass(femDoubleMat &nodeVelocities, std::vector<femNode*> nodeList, std::vector<double> tauSUPG, femIntegrationRule rule, double** massMat){
@@ -272,7 +275,14 @@ double femTetra4::EvalVolume(double dispFactor, std::vector<femNode*> &nodeList)
   return EvalTetVolumeFromCoordMat(coordMat);
 }
 
-
+// =================================================
+// SWAP ELEMENT NODES TO RESTORE A POSITIVE JACOBIAN
+// =================================================
+void femTetra4::swapNodes(){
+  int temp = elementConnections[1];
+  elementConnections[1] = elementConnections[2];
+  elementConnections[2] = temp;
+}
 
 // ========================================
 // Eval Volume Coordinates of Point in Tet4
@@ -355,10 +365,11 @@ void femTetra4::evalShapeFunction(std::vector<femNode*> nodeList, double coord1,
   shapeFunction.push_back(1.0-coord1-coord2-coord3);
 }
 
-
+// EVAL SHAPE FUNCTION DERIVATIVES
 void femTetra4::evalShapeFunctionDerivative(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3,
                                             femDoubleMat &shapeDeriv){
 
+  // Eval Coordinate Differences
   double x12 = nodeList[elementConnections[0]]->coords[0] - nodeList[elementConnections[1]]->coords[0];
   double x13 = nodeList[elementConnections[0]]->coords[0] - nodeList[elementConnections[2]]->coords[0];
   double x14 = nodeList[elementConnections[0]]->coords[0] - nodeList[elementConnections[3]]->coords[0];
@@ -374,6 +385,7 @@ void femTetra4::evalShapeFunctionDerivative(std::vector<femNode*> nodeList, doub
   double y13 = nodeList[elementConnections[0]]->coords[1] - nodeList[elementConnections[2]]->coords[1];
   double y14 = nodeList[elementConnections[0]]->coords[1] - nodeList[elementConnections[3]]->coords[1];
   double y21 = nodeList[elementConnections[1]]->coords[1] - nodeList[elementConnections[0]]->coords[1];
+  double y23 = nodeList[elementConnections[1]]->coords[1] - nodeList[elementConnections[2]]->coords[1];
   double y24 = nodeList[elementConnections[1]]->coords[1] - nodeList[elementConnections[3]]->coords[1];
   double y31 = nodeList[elementConnections[2]]->coords[1] - nodeList[elementConnections[0]]->coords[1];
   double y32 = nodeList[elementConnections[2]]->coords[1] - nodeList[elementConnections[1]]->coords[1];
@@ -385,6 +397,7 @@ void femTetra4::evalShapeFunctionDerivative(std::vector<femNode*> nodeList, doub
   double z13 = nodeList[elementConnections[0]]->coords[2] - nodeList[elementConnections[2]]->coords[2];
   double z14 = nodeList[elementConnections[0]]->coords[2] - nodeList[elementConnections[3]]->coords[2];
   double z21 = nodeList[elementConnections[1]]->coords[2] - nodeList[elementConnections[0]]->coords[2];
+  double z23 = nodeList[elementConnections[1]]->coords[2] - nodeList[elementConnections[2]]->coords[2];
   double z24 = nodeList[elementConnections[1]]->coords[2] - nodeList[elementConnections[3]]->coords[2];
   double z31 = nodeList[elementConnections[2]]->coords[2] - nodeList[elementConnections[0]]->coords[2];
   double z32 = nodeList[elementConnections[2]]->coords[2] - nodeList[elementConnections[1]]->coords[2];
@@ -392,20 +405,60 @@ void femTetra4::evalShapeFunctionDerivative(std::vector<femNode*> nodeList, doub
   double z42 = nodeList[elementConnections[3]]->coords[2] - nodeList[elementConnections[1]]->coords[2];
   double z43 = nodeList[elementConnections[3]]->coords[2] - nodeList[elementConnections[2]]->coords[2];
 
-  shapeDeriv[0][0] = y42*z32-y32*z42;
-  shapeDeriv[1][0] = y31*z43-y34*z13;
-  shapeDeriv[2][0] = y24*z14-y14*z24;
-  shapeDeriv[3][0] = y13*z21-y12*z31;
+  // Eval Jacobian Determinant
+  double jac = (x21 * (y23 * z34 - y34 * z23) + x32 * (y34 * z12 - y12 * z34) + x43 * (y12 * z23 - y23 * z12));
 
-  shapeDeriv[0][1] = x32*z42-x42*z32;
-  shapeDeriv[1][1] = x43*z31-x13*z34;
-  shapeDeriv[2][1] = x14*z24-x24*z14;
-  shapeDeriv[3][1] = x21*z13-x31*z12;
+  // Eval Global Derivatives of Volume Coordinates
+  double globShapeDeriv[4][3];
+  globShapeDeriv[0][0] = (y42*z32-y32*z42)/jac;
+  globShapeDeriv[1][0] = (y31*z43-y34*z13)/jac;
+  globShapeDeriv[2][0] = (y24*z14-y14*z24)/jac;
+  globShapeDeriv[3][0] = (y13*z21-y12*z31)/jac;
 
-  shapeDeriv[0][2] = x42*y32-x32*y42;
-  shapeDeriv[1][2] = x31*y43-x34*y13;
-  shapeDeriv[2][2] = x24*y14-x14*y24;
-  shapeDeriv[3][2] = x13*y21-x12*y31;
+  globShapeDeriv[0][1] = (x32*z42-x42*z32)/jac;
+  globShapeDeriv[1][1] = (x43*z31-x13*z34)/jac;
+  globShapeDeriv[2][1] = (x14*z24-x24*z14)/jac;
+  globShapeDeriv[3][1] = (x21*z13-x31*z12)/jac;
+
+  globShapeDeriv[0][2] = (x42*y32-x32*y42)/jac;
+  globShapeDeriv[1][2] = (x31*y43-x34*y13)/jac;
+  globShapeDeriv[2][2] = (x24*y14-x14*y24)/jac;
+  globShapeDeriv[3][2] = (x13*y21-x12*y31)/jac;
+
+  // Eval Shape function Derivatives respect to volume coordinate
+  double locShapeDeriv[4][4];
+  locShapeDeriv[0][0] = 1.0;
+  locShapeDeriv[1][0] = 0.0;
+  locShapeDeriv[2][0] = 0.0;
+  locShapeDeriv[3][0] = -1.0;
+
+  locShapeDeriv[0][1] = 0.0;
+  locShapeDeriv[1][1] = 1.0;
+  locShapeDeriv[2][1] = 0.0;
+  locShapeDeriv[3][1] = -1.0;
+
+  locShapeDeriv[0][2] = 0.0;
+  locShapeDeriv[1][2] = 0.0;
+  locShapeDeriv[2][2] = 1.0;
+  locShapeDeriv[3][2] = -1.0;
+
+  locShapeDeriv[0][3] = 0.0;
+  locShapeDeriv[1][3] = 0.0;
+  locShapeDeriv[2][3] = 0.0;
+  locShapeDeriv[3][3] = 0.0;
+
+  // Get Final Result
+  // Loop on the Shape Function whose derivative needs to be evaluated
+  for(int loopA=0;loopA<numberOfNodes;loopA++){
+    // Loop on the global direction
+    for(int loopB=0;loopB<kDims;loopB++){
+      shapeDeriv[loopA][loopB] = 0.0;
+      for(int loopC=0;loopC<numberOfNodes;loopC++){
+        shapeDeriv[loopA][loopB] += globShapeDeriv[loopC][loopB]*locShapeDeriv[loopA][loopC];
+      }
+    }
+  }
+
 }
 void femTetra4::evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs){
 
@@ -416,15 +469,16 @@ double femTetra4::evalJacobian(std::vector<femNode*> nodeList, double coord1, do
   double x32 = nodeList[elementConnections[2]]->coords[0] - nodeList[elementConnections[1]]->coords[0];
   double x43 = nodeList[elementConnections[3]]->coords[0] - nodeList[elementConnections[2]]->coords[0];
 
-  double y12 = nodeList[elementConnections[1]]->coords[1] - nodeList[elementConnections[0]]->coords[1];
-  double y23 = nodeList[elementConnections[1]]->coords[1] - nodeList[elementConnections[0]]->coords[1];
-  double y34 = nodeList[elementConnections[1]]->coords[1] - nodeList[elementConnections[0]]->coords[1];
+  double y12 = nodeList[elementConnections[0]]->coords[1] - nodeList[elementConnections[1]]->coords[1];
+  double y23 = nodeList[elementConnections[1]]->coords[1] - nodeList[elementConnections[2]]->coords[1];
+  double y34 = nodeList[elementConnections[2]]->coords[1] - nodeList[elementConnections[3]]->coords[1];
 
   double z12 = nodeList[elementConnections[0]]->coords[2] - nodeList[elementConnections[1]]->coords[2];
   double z23 = nodeList[elementConnections[1]]->coords[2] - nodeList[elementConnections[2]]->coords[2];
   double z34 = nodeList[elementConnections[2]]->coords[2] - nodeList[elementConnections[3]]->coords[2];
 
   return (x21 * (y23 * z34 - y34 * z23) + x32 * (y34 * z12 - y12 * z34) + x43 * (y12 * z23 - y23 * z12));
+
 }
 
 femIntegrationRule* femTetra4::evalIntegrationRule(intRuleType type){
@@ -464,6 +518,9 @@ void femElement::InterpolateElementDisplacements(double dispFactor, double* node
 // =========================================
 // FINITE ELEMENT ROUTINES FOR TET10 ELEMENT
 // =========================================
+void femTetra10::swapNodes(){
+  throw femException("Not Implemented.\n");
+}
 void femTetra10::evalShapeFunction(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction){
   throw femException("Not Implemented.\n");
 }
@@ -746,54 +803,41 @@ void femElement::CreateMinMaxNodeList(std::vector<femNode*> &nodeList,std::vecto
 // =====================================
 // Eval Mixed Product of Single Elements
 // =====================================
-double femTetra4::EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeList){
-  double minMixedProduct = std::numeric_limits<double>::max();
+double femTetra4::EvalMixProduct(std::vector<femNode*> &nodeList){
+  // Init
   double vecA[3] = {0.0};
   double vecB[3] = {0.0};
   double vecC[3] = {0.0};
   double vec1[3] = {0.0};
-  int n0,n1,n2,n3;
   double currProd = 0.0;
-  for(unsigned int loopA=0;loopA<elementConnections.size();loopA++){
-    // Get Local Nodes
-    n0 = elementConnections[(loopA) % (elementConnections.size())];
-    n1 = elementConnections[(loopA+1) % (elementConnections.size())];
-    n2 = elementConnections[(loopA+2) % (elementConnections.size())];
-    n3 = elementConnections[(loopA+3) % (elementConnections.size())];
-    // Get three vectors
-    vecA[0] = nodeList[n1]->coords[0] - nodeList[n0]->coords[0];
-    vecA[1] = nodeList[n1]->coords[1] - nodeList[n0]->coords[1];
-    vecA[2] = nodeList[n1]->coords[2] - nodeList[n0]->coords[2];
-    vecB[0] = nodeList[n2]->coords[0] - nodeList[n0]->coords[0];
-    vecB[1] = nodeList[n2]->coords[1] - nodeList[n0]->coords[1];
-    vecB[2] = nodeList[n2]->coords[2] - nodeList[n0]->coords[2];
-    vecC[0] = nodeList[n3]->coords[0] - nodeList[n0]->coords[0];
-    vecC[1] = nodeList[n3]->coords[1] - nodeList[n0]->coords[1];
-    vecC[2] = nodeList[n3]->coords[2] - nodeList[n0]->coords[2];
-    // Get external product
-    femUtils::Do3DExternalProduct(vecA,vecB,vec1);
-    // Get Internal Product
-    currProd = femUtils::Do3DInternalProduct(vec1,vecC);
-    // Store Minimum Value
-    if(currProd < minMixedProduct){
-      minMixedProduct = currProd;
-    }
-  }
-  return minMixedProduct;
+  // Get three vectors
+  vecA[0] = nodeList[elementConnections[1]]->coords[0] - nodeList[elementConnections[0]]->coords[0];
+  vecA[1] = nodeList[elementConnections[1]]->coords[1] - nodeList[elementConnections[0]]->coords[1];
+  vecA[2] = nodeList[elementConnections[1]]->coords[2] - nodeList[elementConnections[0]]->coords[2];
+  vecB[0] = nodeList[elementConnections[2]]->coords[0] - nodeList[elementConnections[0]]->coords[0];
+  vecB[1] = nodeList[elementConnections[2]]->coords[1] - nodeList[elementConnections[0]]->coords[1];
+  vecB[2] = nodeList[elementConnections[2]]->coords[2] - nodeList[elementConnections[0]]->coords[2];
+  vecC[0] = nodeList[elementConnections[3]]->coords[0] - nodeList[elementConnections[0]]->coords[0];
+  vecC[1] = nodeList[elementConnections[3]]->coords[1] - nodeList[elementConnections[0]]->coords[1];
+  vecC[2] = nodeList[elementConnections[3]]->coords[2] - nodeList[elementConnections[0]]->coords[2];
+  // Get external product
+  femUtils::Do3DExternalProduct(vecA,vecB,vec1);
+  // Get Internal Product
+  currProd = femUtils::Do3DInternalProduct(vec1,vecC);
+  return currProd;
 }
 
 // TO IMPLEMENT
-double femTetra10::EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeList){
+double femTetra10::EvalMixProduct(std::vector<femNode*> &nodeList){
   throw femException("Internal: femTetra10::EvalMixProduct not Implemented");
   return 0.0;
 }
 
 // TO IMPLEMENT
-double femTri3::EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeList){
+double femTri3::EvalMixProduct(std::vector<femNode*> &nodeList){
   throw femException("Internal: femTria3::EvalMixProduct not Implemented");
   return 0.0;
 }
-
 
 // ================================
 // FINITE ELEMENT ROUTINES FOR TRI3
@@ -801,6 +845,9 @@ double femTri3::EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeLis
 // =====================================
 // VIRTUAL FUNCTIONS FOR FINITE ELEMENTS
 // =====================================
+void femTri3::swapNodes(){
+  throw femException("Not Implemented.\n");
+}
 void femTri3::evalShapeFunction(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction){
   throw femException("Not Implemented.\n");
 }

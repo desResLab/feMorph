@@ -21,8 +21,7 @@
 using namespace std;
 
 // Constructor
-femModel::femModel()
-{
+femModel::femModel(){
   // Set modelBox
   // Min X
   modelBox[0] = std::numeric_limits<double>::max();
@@ -44,8 +43,7 @@ femModel::femModel()
 }
 
 // Distructor
-femModel::~femModel()
-{
+femModel::~femModel(){
 }
 
 // =================
@@ -1009,29 +1007,44 @@ void femModel::CopyPropertyTo(femModel* otherModel){
 }
 
 // ==========================
-// Export Model to VTK Legacy
+// EXPORT MODEL TO VTK LEGACY
 // ==========================
 void femModel::ExportToVTKLegacy(std::string fileName){
+  // Allocate Normals and Initialize
+  femDoubleMat normal(elementList.size(),std::vector<double>(3));
+  for(size_t loopA=0;loopA<elementList.size();loopA++){
+    normal[loopA][0] = 0.0;
+    normal[loopA][1] = 0.0;
+    normal[loopA][2] = 0.0;
+  }
+  int currElement = 0;
+  double currNormal[3] = {0.0};
+
   // Write Message
   femUtils::WriteMessage(std::string("(Debug) Exporting Model to VTK file ")+fileName+std::string("..."));
+
   // Open Output File
   FILE* outFile;
   outFile = fopen(fileName.c_str(),"w");
+
   // Wrtie Header
   fprintf(outFile,"# vtk DataFile Version 2.0\n");
   fprintf(outFile,"Model Exported from feMorph\n");
   fprintf(outFile,"ASCII\n");
   fprintf(outFile,"DATASET UNSTRUCTURED_GRID\n");
+
   // Write Points
   fprintf(outFile,"POINTS %d float\n",int(nodeList.size()));
   for(unsigned int loopA=0;loopA<nodeList.size();loopA++){
     fprintf(outFile,"%e %e %e\n",nodeList[loopA]->coords[0],nodeList[loopA]->coords[1],nodeList[loopA]->coords[2]);
   }
+
   // Count the size of the cell list
   int cellListSize = 0;
   for(unsigned int loopA=0;loopA<elementList.size();loopA++){
     cellListSize += elementList[loopA]->elementConnections.size() + 1;
   }
+
   // Write CELLS header
   fprintf(outFile,"CELLS %d %d\n",int(elementList.size()),cellListSize);
   for(unsigned int loopA=0;loopA<elementList.size();loopA++){
@@ -1041,6 +1054,7 @@ void femModel::ExportToVTKLegacy(std::string fileName){
     }
     fprintf(outFile,"\n");
   }
+
   // Write Cells Type Header
   fprintf(outFile,"CELL_TYPES %d\n",int(elementList.size()));
   for(unsigned int loopA=0;loopA<elementList.size();loopA++){
@@ -1055,13 +1069,16 @@ void femModel::ExportToVTKLegacy(std::string fileName){
       throw femException("Error: Invalid element to Export.");
     }
   }
+
   // Point Data Header
   fprintf(outFile,"POINT_DATA %d\n",(int)nodeList.size());
+
   // Save Displacements DX,DY,DZ as vectors
   fprintf(outFile,"VECTORS DXYZ double\n");
   for(unsigned int loopA=0;loopA<nodeList.size();loopA++){
     fprintf(outFile,"%e %e %e\n",nodeList[loopA]->displacements[0],nodeList[loopA]->displacements[1],nodeList[loopA]->displacements[2]);
   }
+
   // Save All Other Result Data
   for(unsigned int loopA=0;loopA<resultList.size();loopA++){    
     fprintf(outFile,"SCALARS %s double 1\n",resultList[loopA]->label.c_str());
@@ -1071,8 +1088,29 @@ void femModel::ExportToVTKLegacy(std::string fileName){
     }
   }
   // Save properties as scalars
-  /*fprintf(outFile,"CELL_DATA %d\n",int(elementList.size()));
-  fprintf(outFile,"SCALARS cell_scalars int 1\n");
+  fprintf(outFile,"CELL_DATA %d\n",int(elementList.size()));
+
+  // Save Element Normals
+  fprintf(outFile,"VECTORS normal double\n");
+  // Create Normals
+  for(size_t loopA=0;loopA<faceList.size();loopA++){
+    // Get The Element Belonging to this face
+    if(faceList[loopA]->faceElements.size() == 1){
+      // Get Current Element
+      currElement = faceList[loopA]->faceElements[0];
+      // Get Face Normal
+      eval3DElementNormal(currElement,loopA,currNormal);
+      // Store
+      normal[currElement][0] = currNormal[0];
+      normal[currElement][1] = currNormal[1];
+      normal[currElement][2] = currNormal[2];
+    }
+  }
+  // Print Normals to VTK File
+  for(unsigned int loopA=0;loopA<elementList.size();loopA++){
+    fprintf(outFile,"%e %e %e\n",normal[loopA][0],normal[loopA][1],normal[loopA][2]);
+  }
+  /*fprintf(outFile,"SCALARS cell_scalars int 1\n");
   fprintf(outFile,"LOOKUP_TABLE default\n");
   for(unsigned int loopA=0;loopA<elementList.size();loopA++){
     fprintf(outFile,"%d\n",(int)elementList[loopA]->propertyNumber);
@@ -1582,7 +1620,7 @@ void femModel::WriteAdjacenciesToFile(std::string fileName){
   // Test Print out
   FILE* outFile;
   outFile = fopen(fileName.c_str(),"w");
-  int adjPointer[elementList.size()+1];
+  int* adjPointer = new int[elementList.size()+1];
   // Print total number of elements + 1
   fprintf(outFile,"xadj: %d\n",(int)elementList.size() + 1);
   int totAdj = 0;
@@ -1620,6 +1658,7 @@ void femModel::WriteAdjacenciesToFile(std::string fileName){
     }
   }
 
+  delete[] adjPointer;
   // Close File
   fclose(outFile);
 }
@@ -2089,7 +2128,7 @@ double femModel::CheckMinimumElementMixProduct(double dispFactor){
   double minProd = std::numeric_limits<double>::max();
   double currProd = 0.0;
   for(unsigned int loopA=0;loopA<elementList.size();loopA++){
-    currProd = elementList[loopA]->EvalMixProduct(dispFactor,nodeList);
+    currProd = elementList[loopA]->EvalMixProduct(nodeList);
     if(fabs(currProd) < minProd){
       minProd = fabs(currProd);
     }
@@ -2329,7 +2368,7 @@ void femModel::EvalModelQualityDistributions(std::string fileName, double* limit
     if(femUtils::isInsideLimits(centroid,limitBox)){
       // Determine the Quality indexes
       currVolume = elementList[loopA]->EvalVolume(0.0,nodeList);
-      currMixedProd = elementList[loopA]->EvalMixProduct(0.0,nodeList);
+      currMixedProd = elementList[loopA]->EvalMixProduct(nodeList);
       // Assign to BIN
       // Volume
       femStatistics::AssignToBin(currVolume,numberOfBins,binMinVolume,binMaxVolume,binArrayVolume);
@@ -2689,20 +2728,20 @@ void femModel::WriteSkinSMeshFile(std::string polyFileName){
   // Part 1
   fprintf(outFile,"# Part 1 - node list\n");
   fprintf(outFile,"# node count, 3 dim, no attribute, no boundary marker\n");
-  fprintf(outFile,"%d 3 0 0\n",nodeList.size());
+  fprintf(outFile,"%d 3 0 0\n",(int)nodeList.size());
 
   // Write Node Coordinates
-  for(int loopA=0;loopA<nodeList.size();loopA++){
-    fprintf(outFile,"%d %e %e %e\n",loopA+1,nodeList[loopA]->coords[0],nodeList[loopA]->coords[1],nodeList[loopA]->coords[2]);
+  for(size_t loopA=0;loopA<nodeList.size();loopA++){
+    fprintf(outFile,"%d %e %e %e\n",(int)loopA+1,nodeList[loopA]->coords[0],nodeList[loopA]->coords[1],nodeList[loopA]->coords[2]);
   }
 
   // Part 2
   fprintf(outFile,"# Part 2 - facet list\n");
   fprintf(outFile,"# facet count, no boundary marker\n");
-  fprintf(outFile,"%d 0\n",elementList.size());
+  fprintf(outFile,"%d 0\n",(int)elementList.size());
 
   // Write Facets
-  for(int loopA=0;loopA<elementList.size();loopA++){
+  for(size_t loopA=0;loopA<elementList.size();loopA++){
     // PRINT ONLY TRI3 ELEMENTS
     if(elementList[loopA]->elementConnections.size() == kTri3Nodes){
       //fprintf(outFile,"1\n");
@@ -2769,7 +2808,7 @@ int femModel::ConvertNodeAndElementsToCvPre(std::string nodeFileName, std::strin
   FormElementFaceList();
 
   // Export to VTK file
-  ExportToVTKLegacy(std::string("mainmodel.vtk"));
+  (std::string("mainmodel.vtk"));
 
   // Orientate face nodes before exporting
   OrientateBoundaryFaceNodes();
@@ -2802,28 +2841,37 @@ void femModel::copyModelVelocitiesToVector(std::vector<std::vector<double>> &vel
 
   // ALLOCATE SPACE
   velocity.resize(nodeList.size());
-  for(int loopA=0;loopA<nodeList.size();loopA++){
+  for(size_t loopA=0;loopA<nodeList.size();loopA++){
     velocity[loopA].resize(3);
   }
 
   // FILL VECTORS
-  for(int loopA=0;loopA<resultList.size();loopA++){
+  for(size_t loopA=0;loopA<resultList.size();loopA++){
     if(boost::to_upper_copy(resultList[loopA]->label) == "VELOCITYX"){
-      for(int loopB=0;loopB<resultList[loopA]->values.size();loopB++){
+      for(size_t loopB=0;loopB<resultList[loopA]->values.size();loopB++){
         velocity[loopB][0] = resultList[loopA]->values[loopB];
       }
     }
     if(boost::to_upper_copy(resultList[loopA]->label) == "VELOCITYY"){
-      for(int loopB=0;loopB<resultList[loopA]->values.size();loopB++){
+      for(size_t loopB=0;loopB<resultList[loopA]->values.size();loopB++){
         velocity[loopB][1] = resultList[loopA]->values[loopB];
       }
     }
     if(boost::to_upper_copy(resultList[loopA]->label) == "VELOCITYZ"){
-      for(int loopB=0;loopB<resultList[loopA]->values.size();loopB++){
+      for(size_t loopB=0;loopB<resultList[loopA]->values.size();loopB++){
         velocity[loopB][2] = resultList[loopA]->values[loopB];
       }
     }
   }
+
+  // FILL VECTORS WITH COORDINATES
+  /*for(size_t loopA=0;loopA<nodeList.size();loopA++){
+    velocity[loopA][0] = nodeList[loopA]->coords[0];
+    velocity[loopA][1] = 0.0;
+    velocity[loopA][2] = 0.0;
+  }*/
+
+
 }
 
 // ===========================
@@ -2837,7 +2885,11 @@ void femModel::ComputeWSS(){
 
   // Shape Function Global Derivatives
   femDoubleMat shDerivs(4,std::vector<double>(3));
+  // Node Volume and Initialize
   femDoubleVec nodeVolume(nodeList.size());
+  for(size_t loopA=0;loopA<nodeList.size();loopA++){
+    nodeVolume[loopA] = 0.0;
+  }
   std::vector<bool> flagVector(nodeList.size());
   femDoubleVec globalShearStressesModule(nodeList.size());
   femDoubleMat globalShearStressesVector(nodeList.size(), std::vector<double>(3));
@@ -2850,6 +2902,10 @@ void femModel::ComputeWSS(){
   double shearNormalComponent = 0.0;
   int currFaceNode = 0;
   double module = 0.0;
+  double currMixed = 0.0;
+
+  // Write Message
+  femUtils::WriteMessage(std::string("Computing Wall Shear Stresses...\n"));
 
   // Check if the model has boundary faces
   if(faceList.size() == 0){
@@ -2859,8 +2915,8 @@ void femModel::ComputeWSS(){
   // Get Velocity Vector for the complete mesh
   copyModelVelocitiesToVector(velocity);
 
-  // Get Viscosity
-  double viscosity = 1.06;
+  // Get Viscosity: IMPORTANT !!!
+  double viscosity = 0.04;
 
   // Loop on the Model Faces
   for(size_t loopA=0;loopA<faceList.size();loopA++){
@@ -2874,6 +2930,9 @@ void femModel::ComputeWSS(){
       // Eval the shape function derivatives and Jacobian
       elementList[currElement]->evalShapeFunctionDerivative(nodeList,0.25,0.25,0.25,shDerivs);
       Jacobian = elementList[currElement]->evalJacobian(nodeList,0.25,0.25,0.25);
+      if(Jacobian<0.0){
+        throw femException("INTERNAL: Negative Jacobian!\n");
+      }
 
       // Get Face Normal
       eval3DElementNormal(currElement,loopA,normal);
@@ -2883,7 +2942,7 @@ void femModel::ComputeWSS(){
         for(int loopC=0;loopC<kDims;loopC++){
           // Loop Through the element Nodes
           velGrad[loopB][loopC] = 0.0;
-          for (int loopD=0;loopD<kTetra4Nodes;loopD++){
+          for (int loopD=0;loopD<elementList[currElement]->numberOfNodes;loopD++){
             // Get Velocity at node
             currNode = elementList[currElement]->elementConnections[loopD];
             velGrad[loopB][loopC] += shDerivs[loopD][loopC]*velocity[currNode][loopB];
@@ -2896,21 +2955,21 @@ void femModel::ComputeWSS(){
       for(int loopB=0;loopB<kDims;loopB++){
         shearVector[loopB] = 0.0;
         for(int loopC=0;loopC<kDims;loopC++){
-          shearVector[loopB] = shearVector[loopB] + viscosity*(velGrad[loopB][loopC] + velGrad[loopC][loopB])*normal[loopC];
+          shearVector[loopB] += viscosity*(velGrad[loopB][loopC] + velGrad[loopC][loopB])*normal[loopC];
         }
       }
 
       // Eval Shear Normal Component
       shearNormalComponent = 0.0;
       for(int loopB=0;loopB<kDims;loopB++){
-         shearNormalComponent += shearVector[loopB]*normal[loopB];
+         shearNormalComponent += shearVector[loopB] * normal[loopB];
       }
       for(int loopB=0;loopB<kDims;loopB++){
-        shearVector[loopB] = shearVector[loopB] - shearNormalComponent * normal[loopB];
+        shearVector[loopB] -= shearNormalComponent * normal[loopB];
       }
 
       // Assign Shear Node Vector
-      for (int loopB=0;loopB<kTetra4Nodes;loopB++){
+      for (int loopB=0;loopB<elementList[currElement]->numberOfNodes;loopB++){
         currNode =  elementList[currElement]->elementConnections[loopB];
         nodeVolume[currNode] += Jacobian;
         for(int loopC=0;loopC<kDims;loopC++){
@@ -2919,6 +2978,9 @@ void femModel::ComputeWSS(){
       }
     }
   }
+
+  // Write Message
+  femUtils::WriteMessage(std::string("Smoothing Stresses...\n"));
 
   // Assign to the global shear stress vector
   // INIT FLAG
@@ -2931,31 +2993,84 @@ void femModel::ComputeWSS(){
   }
 
   for(size_t loopA=0;loopA<faceList.size();loopA++){
-    for(size_t loopB=0;loopB<faceList[loopA]->faceNodes.size();loopB++){
-      // Get Node on the Face
-      currFaceNode = faceList[loopA]->faceNodes[loopB];
-      if(!flagVector[currFaceNode]){
-        // Change Flag
-        flagVector[currFaceNode] = true;
-        module = 0.0;
-        for(int loopC=0;loopC<kDims;loopC++){
-          module += (shearForce[currFaceNode][loopC]/nodeVolume[currFaceNode])*(shearForce[currFaceNode][loopC]/nodeVolume[currFaceNode]);
-          globalShearStressesVector[currFaceNode][loopC] += shearForce[currFaceNode][loopC]/nodeVolume[currFaceNode];
-          // WSSV(i,Ac) = WSSV(i,Ac) + sF(i,Ac)/sA(Ac)
+    if(faceList[loopA]->faceElements.size() == 1){
+      for(size_t loopB=0;loopB<faceList[loopA]->faceNodes.size();loopB++){
+        // Get Node on the Face
+        currFaceNode = faceList[loopA]->faceNodes[loopB];
+        if(!flagVector[currFaceNode]){
+          // Change Flag
+          flagVector[currFaceNode] = true;
+          module = 0.0;
+          for(int loopC=0;loopC<kDims;loopC++){
+            module += (shearForce[currFaceNode][loopC]/nodeVolume[currFaceNode])*(shearForce[currFaceNode][loopC]/nodeVolume[currFaceNode]);
+            globalShearStressesVector[currFaceNode][loopC] += shearForce[currFaceNode][loopC]/nodeVolume[currFaceNode];
+          }
+          globalShearStressesModule[currFaceNode] += sqrt(module);
         }
-        globalShearStressesModule[currFaceNode] += sqrt(module);
       }
     }
   }
 
-  // Add New Result for WSS
+  // Write Message
+  femUtils::WriteMessage(std::string("Storing Results...\n"));
+
+
+  /*// Add New Results for WSSX
   femResult* res = new femResult();
-  res->label = std::string("WSS");
+  res->label = std::string("WSSX");
+  res->type = frNode;
+  for(size_t loopA=0;loopA<nodeList.size();loopA++){
+    res->values.push_back(globalShearStressesVector[loopA][0]);
+  }
+  resultList.push_back(res);
+  // Add New Results for WSSY
+  res = new femResult();
+  res->label = std::string("WSSY");
+  res->type = frNode;
+  for(size_t loopA=0;loopA<nodeList.size();loopA++){
+    res->values.push_back(globalShearStressesVector[loopA][1]);
+  }
+  resultList.push_back(res);
+  // Add New Results for WSSZ
+  res = new femResult();
+  res->label = std::string("WSSZ");
+  res->type = frNode;
+  for(size_t loopA=0;loopA<nodeList.size();loopA++){
+    res->values.push_back(globalShearStressesVector[loopA][2]);
+  }
+  resultList.push_back(res);
+  */
+  // Add New Results for WSSMOD
+  femResult* res = new femResult();
+  res->label = std::string("WSSMOD");
   res->type = frNode;
   for(size_t loopA=0;loopA<nodeList.size();loopA++){
     res->values.push_back(globalShearStressesModule[loopA]);
   }
   resultList.push_back(res);
+  /*
+  // Add New Results for NODEVOL
+  res = new femResult();
+  res->label = std::string("NODEVEL");
+  res->type = frNode;
+  for(size_t loopA=0;loopA<nodeList.size();loopA++){
+    res->values.push_back(nodeVolume[loopA]);
+  }
+  resultList.push_back(res);
+  */
+}
+
+// ==========================
+// FIX ELEMENT CONNECTIVITIES
+// ==========================
+void femModel::FixedElementConnectivities(){
+  double currMixed = 0.0;
+  for(size_t loopA=0;loopA<elementList.size();loopA++){
+    currMixed = elementList[loopA]->EvalMixProduct(nodeList);
+    if(currMixed<0.0){
+      elementList[loopA]->swapNodes();
+    }
+  }
 }
 
 // ===================

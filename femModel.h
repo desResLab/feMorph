@@ -114,6 +114,8 @@ class femModel
     // ====================
     // MODEL MANIPULATUIONS
     // ====================
+    // Fixed Element Connectivity
+    void FixedElementConnectivities();
     // Perform Displacement Mapping
     void MapDisplacements(femModel* MappingModel, femInputData* data, double dispScaleFactor);
     // Get next element when finding the enclosing one
@@ -169,7 +171,7 @@ class femModel
     int getResultIndexFromLabel(std::string label);
 
     // ========================
-    // Stenosis Parametrization
+    // STENOSIS PARAMETRIZATION
     // ========================
     // Seek the displacements factor giving a pre-set stonosis level
     double seekStenoticDisplacementFactor(femInputData* data, double targetStenosisLevel, bool debugMode);
@@ -178,7 +180,7 @@ class femModel
                                 bool useDiameter, bool useOldDefinition, double* stenosisDef);
     // Slice Model Skin
     void SliceModelSkin(const int kStenosisSlices, double dispFactor, femInputData* data, std::vector<femModelSlice*> &slices);
-    // GET AREA AT STENOSIS ORIGIN
+    // Get area at the origin of the stenosis
     double GetReferenceArea(femInputData* data);
 };
 

@@ -29,7 +29,8 @@ class femElement
     virtual void EvalVolumeCoordinates(double dispFactor, double* pointCoords, std::vector<femNode*> &nodeList, double* volCoords);
     virtual bool is2D();
     virtual double EvalVolume(double dispFactor, std::vector<femNode*> &nodeList);
-    virtual double EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeList);
+    virtual double EvalMixProduct(std::vector<femNode*> &nodeList);
+    virtual void swapNodes();
     // FINITE ELEMENTS
     virtual void assembleMass(femDoubleMat &nodeVelocities, std::vector<femNode*> nodeList, std::vector<double> tauSUPG, femIntegrationRule rule, double** massMat);
     virtual void assembleStiffness(femDoubleMat &nodeVelocities, std::vector<femNode*> nodeList, std::vector<double> tauSUPG, femIntegrationRule rule, double diffusivity, femDoubleMat &stiffnessMat);
@@ -62,8 +63,9 @@ class femTetra4: public femElement
     virtual void EvalVolumeCoordinates(double dispFactor, double* pointCoords, std::vector<femNode*> &nodeList, double* volCoords);
     virtual bool is2D(){return false;}
     virtual double EvalVolume(double dispFactor, std::vector<femNode*> &nodeList);
-    virtual double EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeList);
+    virtual double EvalMixProduct(std::vector<femNode*> &nodeList);
     virtual bool isNodeInsideElement(double dispFactor, double* pointCoords,std::vector<femNode*> &nodeList);
+    virtual void swapNodes();
     // Finite Elements
     //virtual void assembleStab(femAdvectionDiffusionOption* options, femIntegrationRule* rule,femDoubleMat &nodeVelocities, std::vector<double> &tauSUPG);
     virtual void assembleMass(femDoubleMat &nodeVelocities, std::vector<femNode*> nodeList, std::vector<double> tauSUPG, femIntegrationRule rule, double** massMat);
@@ -90,7 +92,8 @@ class femTetra10: public femElement
     virtual void EvalVolumeCoordinates(double dispFactor, double* pointCoords, std::vector<femNode*> &nodeList, double* volCoords);
     virtual bool isNodeInsideElement(double dispFactor, double* pointCoords,std::vector<femNode*> &nodeList);
     virtual double EvalVolume(std::vector<femNode*> &nodeList){return 0.0;}
-    virtual double EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeList);
+    virtual double EvalMixProduct(std::vector<femNode*> &nodeList);
+    virtual void swapNodes();
     // Element Calculation
     virtual void evalShapeFunction(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction);
     virtual void evalShapeFunctionDerivative(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv);
@@ -110,6 +113,7 @@ class femHexa8: public femElement
     virtual bool is2D();
     virtual bool isNodeInsideElement(double dispFactor, double* pointCoords,std::vector<femNode*> &nodeList);
     virtual double EvalVolume(std::vector<femNode*> &nodeList);
+    virtual void swapNodes();
     // Element Calculation
     virtual void evalShapeFunction(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction);
     virtual void evalShapeFunctionDerivative(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv);
@@ -128,7 +132,8 @@ class femTri3: public femElement
     // Member Functions
     virtual bool is2D(){return true;}
     virtual double EvalVolume(std::vector<femNode*> &nodeList){return 0.0;}
-    virtual double EvalMixProduct(double dispFactor, std::vector<femNode*> &nodeList);
+    virtual double EvalMixProduct(std::vector<femNode*> &nodeList);
+    virtual void swapNodes();
     // Element Calculation
     virtual void evalShapeFunction(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction);
     virtual void evalShapeFunctionDerivative(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv);
