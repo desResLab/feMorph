@@ -48,7 +48,8 @@ int runNormalMode(femProgramOptions* options){
   mappingModel->FormElementFaceList();
 
   // Read Displacement Without Rotations
-  mappingModel->ReadNodeDisplacementsFromFile(data->mappingModelResultsFileName, false);
+  //mappingModel->ReadNodeDisplacementsFromFile(data->mappingModelResultsFileName, false);
+  mappingModel->ApplyParametricDisplacements(data);
 
   // Export Mapping Model for Debug
   if (debugMode){

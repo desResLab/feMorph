@@ -38,6 +38,10 @@ public:
   // Type of Stenosis
   bool useDiameter;
   bool useOldDefinition;
+  // Radius of circular stenosis
+  double mappingDisplacementRadius;
+  bool accountForAngle;
+  double maxAngle;
 
   // Constructor and Destructor
   femInputData();

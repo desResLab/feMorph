@@ -70,8 +70,19 @@ void femInputData::ReadFromFile(std::string fileName){
           mappingModeConnectionslFileName = buffer;
           break;
         case 5:
-          // Results Mapping Model
-          mappingModelResultsFileName = buffer;
+          // Displacements of the mapping model
+          boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
+          if(boost::to_upper_copy(tokenizedString[0]) == "USEFILE"){
+            mappingModelResultsFileName = tokenizedString[1];
+          }else if(boost::to_upper_copy(tokenizedString[0]) == "USEPARAMS"){
+            mappingDisplacementRadius = atof(tokenizedString[1].c_str());
+            if(tokenizedString[2] == "1"){
+              accountForAngle = true;
+              maxAngle = atof(tokenizedString[3].c_str());
+            }else{
+              accountForAngle = false;
+            }
+          }
           break;
         case 6:
           // Origin On Main Model

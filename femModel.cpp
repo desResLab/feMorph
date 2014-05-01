@@ -1267,9 +1267,20 @@ double femModel::seekStenoticDisplacementFactor(femInputData* data, double targe
   double stenosisDefs[6] = {0.0};
   bool converged = false;
   int currIt = 0;
-  double firstDispFactor = 1.0;
+  double firstDispFactor = 0.0;
+  double secondDispFactor = 0.0;
+  // Get First Displacement Guess
+  if(targetStenosisLevel<0.0){
+    firstDispFactor = 1.0;
+  }else{
+    firstDispFactor = -1.0;
+  }
   double firstStenosisLevel = ExtractStenosisLevel(data,firstDispFactor,slices,sliceAreas,data->useDiameter, data->useOldDefinition,stenosisDefs);
-  double secondDispFactor = 5.0;
+  if(targetStenosisLevel<0.0){
+    secondDispFactor = 5.0;
+  }else{
+    secondDispFactor = -5.0;
+  }
   double secondStenosisLevel = ExtractStenosisLevel(data,secondDispFactor,slices,sliceAreas,data->useDiameter, data->useOldDefinition,stenosisDefs);
   double currResidual = 0.0;
   double trialDispFactor = 0.0;
@@ -1426,8 +1437,6 @@ double femModel::ExtractStenosisLevel(femInputData* data, double currDispFactor,
     stenosisDef[4] = ((1.0-(maxArea/minArea))*100.0);
     stenosisDef[5] = ((1.0-(maxArea/refNoStenosisArea))*100.0);
   }
-
-
 
   // Eval Stenosis Level
   if(useDiameter){
@@ -3070,6 +3079,85 @@ void femModel::FixedElementConnectivities(){
     if(currMixed<0.0){
       elementList[loopA]->swapNodes();
     }
+  }
+}
+
+// ==============================================
+// EVAL PARAMETRIC DISPLACEMENTS FROM COORDINATES
+// ==============================================
+void femModel::evalDisplacements(femInputData* data,double coordX,double coordY,double coordZ,double &dispX,double &dispY,double &dispZ){
+  // Get Quantities from input data
+  double radius = data->mappingDisplacementRadius;
+  bool   accountCirc = data->accountForAngle;
+  double maxAngle = data->maxAngle;
+  double currAngle = 0.0;
+  double angleFactor = 0.0;
+  // Init other variables
+  double dispVerY = 0.0;
+  double dispVerZ = 0.0;
+  // Get Longitudianl Size of the Model
+  double minXCoord = modelBox[0];
+  double maxXCoord = modelBox[1];
+  // Get Transverse size of the Model
+  double minYCoord = modelBox[2];
+  double maxYCoord = modelBox[3];
+  double outerModelRadius = 0.5*fabs(maxYCoord-minYCoord);
+  // Get min radius
+  double minRadius = 0.5*(maxXCoord-minXCoord);
+  if(radius<minRadius){
+    throw femException("Error: Radius too small.\n");
+  }
+  // Get Center point coordinates
+  double centreX = 0.5*(minXCoord+maxXCoord);
+  double centreY = -sqrt(radius*radius-minRadius*minRadius);
+  // Get Displacement for current Node
+  double maxRadialDisp = centreY + sqrt(radius*radius - (coordX-centreX)*(coordX-centreX));
+  // Get Current Node Radius
+  double currNodeRadius = sqrt(coordY*coordY + coordZ*coordZ);
+  // Get Displacement versor
+  double vecMod = sqrt(coordY*coordY + coordZ*coordZ);
+  if(vecMod>0.0){
+    dispVerY = coordY/vecMod;
+    dispVerZ = coordZ/vecMod;
+  }else{
+    dispVerY = 0.0;
+    dispVerZ = 0.0;
+  }
+
+  // Calc blending function
+  double m = 0.2;
+  double blendCoord = (currNodeRadius/outerModelRadius);
+  double blending = (1.0 + m)*blendCoord*blendCoord -m*blendCoord;
+
+  // Calc Angle Factor
+  if(accountCirc){
+    currAngle = acos(dispVerY)*(180.0/kPI);
+    if(currAngle>maxAngle){
+      angleFactor = 0.0;
+    }else{
+      angleFactor = (1.0-(1.0/(maxAngle*maxAngle))*(currAngle*currAngle));
+    }
+  }else{
+    angleFactor = 1.0;
+  }
+
+  // Calc final displacements
+  dispX = 0.0;
+  dispY = blending*maxRadialDisp*angleFactor*dispVerY;
+  dispZ = blending*maxRadialDisp*angleFactor*dispVerZ;
+}
+
+// =======================================
+// APPLY PARAMETRIC DISPLACEMENTS TO MODEL
+// =======================================
+void femModel::ApplyParametricDisplacements(femInputData* data){
+  // Init
+  double dispX,dispY,dispZ = 0.0;
+  for(size_t loopA=0;loopA<nodeList.size();loopA++){
+    // Eval Displacements
+    evalDisplacements(data,nodeList[loopA]->coords[0],nodeList[loopA]->coords[1],nodeList[loopA]->coords[2],dispX,dispY,dispZ);
+    // Store Displacements
+    nodeList[loopA]->setDisplacements(dispX,dispY,dispZ,0.0,0.0,0.0);
   }
 }
 

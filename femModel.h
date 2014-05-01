@@ -146,6 +146,9 @@ class femModel
     void ComputeWSS();
     // Calculate Wall Shear Stresses Gradients
     void ComputeWSSGradients();
+    // Apply Parametric Displacements
+    void evalDisplacements(femInputData* data,double coordX,double coordY,double coordZ,double &dispX,double &dispY,double &dispZ);
+    void ApplyParametricDisplacements(femInputData* data);
 
     // =======
     // MESHING
