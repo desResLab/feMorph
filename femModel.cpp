@@ -3141,10 +3141,10 @@ void femModel::evalDisplacements(femInputData* data,double coordX,double coordY,
     angleFactor = 1.0;
   }
 
-  // Calc final displacements
+  // Calc final displacements negative radially !!!
   dispX = 0.0;
-  dispY = blending*maxRadialDisp*angleFactor*dispVerY;
-  dispZ = blending*maxRadialDisp*angleFactor*dispVerZ;
+  dispY = -blending*maxRadialDisp*angleFactor*dispVerY;
+  dispZ = -blending*maxRadialDisp*angleFactor*dispVerZ;
 }
 
 // =======================================
