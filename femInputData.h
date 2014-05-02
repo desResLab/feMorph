@@ -48,6 +48,8 @@ public:
   ~femInputData();
   // Member Function
   void ReadFromFile(std::string fileName);
+  // Check Normalization
+  void checkAxisNormalization();
 };
 
 #endif // FEMINPUTDATA_H

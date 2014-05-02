@@ -38,7 +38,7 @@ void femInputData::ReadFromFile(std::string fileName){
   infile.open(fileName);
 
   // Write Message
-  femUtils::WriteMessage("Reading Input Parameter...");
+  femUtils::WriteMessage("Reading Input Parameter...\n");
 
   // Read Data From File
   int lineCount = 0;
@@ -129,7 +129,7 @@ void femInputData::ReadFromFile(std::string fileName){
           boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
           undeformedStenosisLevel = atof(tokenizedString[0].c_str());
           // Type of Stenosis
-          useDiameter = (atoi(tokenizedString[1].c_str()) == 1);
+          useDiameter= (atoi(tokenizedString[1].c_str()) == 1);
           useOldDefinition = (atoi(tokenizedString[2].c_str()) == 1);
           break;
       }
@@ -139,8 +139,48 @@ void femInputData::ReadFromFile(std::string fileName){
   mainModelCoordsOutputName = std::string("result_model.coordinates");
   mainModelConnectionsOutputName = std::string("result_model.connections");
 
+  // Check Axis Normalization
+  checkAxisNormalization();
+
   // Close File
   infile.close();
 
   femUtils::WriteMessage("Done.\n");
+}
+
+// =========================================
+// RENORMALIZE AXIS SYSTEM AND CHECK RH RULE
+// =========================================
+void femInputData::checkAxisNormalization(){
+  double currMod = 0.0;
+  for(int loopA=0;loopA<kDims;loopA++){
+    currMod = 0.0;
+    for(int loopB=0;loopB<kDims;loopB++){
+      currMod += mainModelRefSystem[loopB][loopA];
+    }
+    currMod = sqrt(currMod);
+    if(abs(currMod-1.0)>kMathZero){
+      femUtils::WriteMessage(std::string("Warning: Axis ") + std::to_string(loopA+1) + std::string(" was normalized.\n"));
+      for(int loopB=0;loopB<kDims;loopB++){
+        mainModelRefSystem[loopB][loopA] = mainModelRefSystem[loopB][loopA]/currMod;
+      }
+    }
+  }
+
+  // Check RH Rule
+  double axis1[3] = {0.0};
+  double axis2[3] = {0.0};
+  double axis3[3] = {0.0};
+  for(int loopA=0;loopA<kDims;loopA++){
+    axis1[loopA] = mainModelRefSystem[loopA][0];
+    axis2[loopA] = mainModelRefSystem[loopA][1];
+  }
+  femUtils::Do3DExternalProduct(axis1,axis2,axis3);
+  double intProd = axis3[0]*mainModelRefSystem[0][2] +
+                   axis3[1]*mainModelRefSystem[1][2] +
+                   axis3[2]*mainModelRefSystem[2][2];
+  if(intProd<0.0){
+    throw femException("The axis system is not consistent with the right-hand rule.\n");
+  }
+
 }

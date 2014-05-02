@@ -1270,13 +1270,13 @@ double femModel::seekStenoticDisplacementFactor(femInputData* data, double targe
   double firstDispFactor = 0.0;
   double secondDispFactor = 0.0;
   // Get First Displacement Guess
-  if(targetStenosisLevel<0.0){
+  if(targetStenosisLevel>0.0){
     firstDispFactor = 1.0;
   }else{
     firstDispFactor = -1.0;
   }
   double firstStenosisLevel = ExtractStenosisLevel(data,firstDispFactor,slices,sliceAreas,data->useDiameter, data->useOldDefinition,stenosisDefs);
-  if(targetStenosisLevel<0.0){
+  if(targetStenosisLevel>0.0){
     secondDispFactor = 5.0;
   }else{
     secondDispFactor = -5.0;
