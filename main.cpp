@@ -372,8 +372,17 @@ int computeModelExpectations(femProgramOptions* options){
   // Create Model Sequence From File
   ms->ReadFromWeightedListFile(options->inputFileName);
 
+  // Fix Connectivities
+  // ms->FixedElementConnectivities();
+
+  // Form Face List
+  // ms->FormElementFaceList();
+
+  // Compute wall shear stresses
+  // ms->ComputeWSS();
+
   // Compute statistics
-  ms->ComputeResultStatistics();
+  ms->ComputeResultStatistics(true);
 
   // Export the last Model To Vtk File
   ms->models[ms->models.size()-1]->ExportToVTKLegacy(options->outputFileName);

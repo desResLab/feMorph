@@ -25,8 +25,12 @@ class femModelSequence{
     // MEMBER FUNCTIONS
     // IO
     void ReadFromWeightedListFile(std::string fileName);
+    // COMPUTE WALL SHEAR STRESSES
+    void ComputeWSS();
     // COMPUTE AV AND SD
-    void ComputeResultStatistics();
+    void ComputeResultStatistics(bool computeSD);
+    void FixedElementConnectivities();
+    void FormElementFaceList();
 };
 
 #endif // FEMMODELSEQUENCE_H

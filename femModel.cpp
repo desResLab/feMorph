@@ -2453,6 +2453,8 @@ void femModel::ReadModelNodesFromVTKFile(std::string fileName){
   std::vector<string> tokenizedString;
   int pointCount = 0;
   int nodeCount = 0;
+  int currCoordCount = 0;
+  double* fileCoords = nullptr;
   femNode* newNode;
   double coordX,coordY,coordZ;
 
@@ -2467,49 +2469,35 @@ void femModel::ReadModelNodesFromVTKFile(std::string fileName){
     if(tokenizedString[0] == std::string("POINTS")){
       // Read Number of Points
       pointCount = atoi(tokenizedString[1].c_str());
-      for(int loopA=0;loopA<pointCount/3;loopA++){
-        // Read New Line
+      // Allocate
+      fileCoords = new double[3*pointCount];
+      // Read
+      currCoordCount = 0;
+      while(currCoordCount<3*pointCount){
         std::getline(infile,buffer);
-        // Trim String
         boost::trim(buffer);
-        // Tokenize String
         boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
         // Add Three points
-        for(int loopB=0;loopB<3;loopB++){
+        for(int loopB=0;loopB<tokenizedString.size();loopB++){
+          fileCoords[currCoordCount] = atof(tokenizedString[loopB].c_str());
           // Increment Node Count
-          nodeCount++;
-          // Constructor for femNode
-          coordX = atof(tokenizedString[loopB*3].c_str());
-          coordY = atof(tokenizedString[loopB*3+1].c_str());
-          coordZ = atof(tokenizedString[loopB*3+2].c_str());
-          newNode = new femNode(nodeCount,coordX,coordY,coordZ);
-          // Add to Node List
-          nodeList.push_back(newNode);
+          currCoordCount++;
         }
       }
-      // Finish Off
-      if((pointCount % 3)>0){
-        // Read New Line
-        std::getline(infile,buffer);
-        // Trim String
-        boost::trim(buffer);
-        // Tokenize String
-        boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
-        // Loop through the other ones
-        for(int loopB=0;loopB<(pointCount % 3);loopB++){
-          // Increment Node Count
-          nodeCount++;
-          // Constructor for femNode
-          coordX = atof(tokenizedString[loopB*3].c_str());
-          coordY = atof(tokenizedString[loopB*3+1].c_str());
-          coordZ = atof(tokenizedString[loopB*3+2].c_str());
-          newNode = new femNode(nodeCount,coordX,coordY,coordZ);
-          // Add to Node List
-          nodeList.push_back(newNode);
-        }
+
+      // Create Nodes
+      for(int loopB=0;loopB<pointCount;loopB++){
+        coordX = fileCoords[loopB*3];
+        coordY = fileCoords[loopB*3+1];
+        coordZ = fileCoords[loopB*3+2];
+        newNode = new femNode(nodeCount,coordX,coordY,coordZ);
+        // Add to Node List
+        nodeList.push_back(newNode);
       }
     }
   }
+  // Delete Allocate File
+  delete [] fileCoords;
 
   // Close File
   infile.close();
@@ -2599,13 +2587,19 @@ void femModel::ReadModelResultsFromVTKFile(std::string fileName){
   // Declare
   std::vector<string> tokenizedString;
   bool isPointDataBlock = false;
+  bool isFieldBlock = false;
   int totResult = 0;
+  int totFields = 0;
+  int totValues = 0;
+  int valueCounter = 0;
+  int totFieldComponents = 0;
   std::string currResultLabel = "";
   bool finished = false;
   int readSoFar = 0;
   double valX = 0.0;
   double valY = 0.0;
   double valZ = 0.0;
+  femResult* res = nullptr;
 
   // Read Data From File
   std::string buffer;
@@ -2664,6 +2658,40 @@ void femModel::ReadModelResultsFromVTKFile(std::string fileName){
       resultList.push_back(res);
 
 
+    }else if((tokenizedString[0] == std::string("FIELD"))&&(isPointDataBlock)){
+      // Read Field Data
+      isPointDataBlock = false;
+      isFieldBlock = true;
+      totFieldComponents = atoi(tokenizedString[1].c_str());
+      totFields = atoi(tokenizedString[2].c_str());
+      for(int loopA=0;loopA<totFieldComponents*totFields;loopA++){
+        // Read Fist Line
+        std::getline(infile,buffer);
+        // Trim
+        boost::trim(buffer);
+        // Tokenize String
+        boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
+        // Get Result Name
+        res = new femResult();
+        res->label = tokenizedString[0];
+        femUtils::WriteMessage(std::string("Reading Result ") + res->label + "...\n");
+        res->type = frNode;
+        // Get Total Values
+        totValues = atoi(tokenizedString[2].c_str());
+        valueCounter = 0;
+        while (valueCounter<totValues){
+          std::getline(infile,buffer);
+          boost::trim(buffer);
+          boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
+          // Update Counted
+          valueCounter = valueCounter + tokenizedString.size();
+          for(int loopB=0;loopB<tokenizedString.size()/totFieldComponents;loopB++){
+            res->values.push_back(atof(tokenizedString[totFieldComponents*loopB].c_str()));
+          }
+        }
+        // Add Result
+        resultList.push_back(res);
+      }
     }else if((tokenizedString[0] == std::string("VECTORS"))&&(isPointDataBlock)){
       // Get Name
       currResultLabel = tokenizedString[1];
@@ -2925,7 +2953,7 @@ void femModel::ComputeWSS(){
   copyModelVelocitiesToVector(velocity);
 
   // Get Viscosity: IMPORTANT !!!
-  double viscosity = 0.04;
+  double viscosity = 0.004;
 
   // Loop on the Model Faces
   for(size_t loopA=0;loopA<faceList.size();loopA++){

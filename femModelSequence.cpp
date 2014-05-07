@@ -8,7 +8,9 @@ femModelSequence::femModelSequence(){
 
 }
 
+// ===========================================
 // READ MODEL SEQUENCE FROM WEIGHTED FILE LIST
+// ===========================================
 void femModelSequence::ReadFromWeightedListFile(std::string fileName){
   // List with files and associated weights
   std::vector<femWeightedFileName*> fileList;
@@ -27,13 +29,14 @@ void femModelSequence::ReadFromWeightedListFile(std::string fileName){
     femUtils::WriteMessage("\n");
     femUtils::WriteMessage(std::string("Reading File ") + currFileName + "...\n");
 
-    // Read nodes and elements only for the first file
-    if(loopA == 0){
-    femUtils::WriteMessage(std::string("Reading Nodes...\n"));
-    model->ReadModelNodesFromVTKFile(currFileName);
-    // Read Elements
-    femUtils::WriteMessage(std::string("Reading Elements...\n"));
-    model->ReadModelElementsFromVTKFile(currFileName);
+    // Read Nodes and Elements for first Model in the sequence
+    if(loopA==0){
+      // Read nodes and elements only for the first file
+      femUtils::WriteMessage(std::string("Reading Nodes...\n"));
+      model->ReadModelNodesFromVTKFile(currFileName);
+      // Read Elements
+      femUtils::WriteMessage(std::string("Reading Elements...\n"));
+      model->ReadModelElementsFromVTKFile(currFileName);
     }
 
     // Read Results
@@ -66,7 +69,7 @@ int isInLabelVector(std::string currLabel,femResultType currType,std::vector<lab
 // =================
 // COMPUTE AV AND SD
 // =================
-void femModelSequence::ComputeResultStatistics(){
+void femModelSequence::ComputeResultStatistics(bool computeSD){
 
   // Count Result Labels in Models
   std::vector<labelCounter*> labelCount;
@@ -78,6 +81,8 @@ void femModelSequence::ComputeResultStatistics(){
   int resIdx = 0;
   int currResult = 0;
   double currWeight = 0.0;
+  femResult* resAV;
+  femResult* resSD;
 
   for(size_t loopA=0;loopA<models.size();loopA++){
     for(size_t loopB=0;loopB<models[loopA]->resultList.size();loopB++){
@@ -111,13 +116,15 @@ void femModelSequence::ComputeResultStatistics(){
 
       // Combine all results with this Label
       // Average Values
-      femResult* resAV = new femResult();
+      resAV = new femResult();
       resAV->label = labelCount[loopA]->label + "_AV";
       resAV->type = labelCount[loopA]->type;
       // Standard Deviations
-      femResult* resSD = new femResult();
-      resSD->label = labelCount[loopA]->label + "_SD";
-      resSD->type = labelCount[loopA]->type;
+      if(computeSD){
+        resSD = new femResult();
+        resSD->label = labelCount[loopA]->label + "_SD";
+        resSD->type = labelCount[loopA]->type;
+      }
       // Check Total Entities
       if(labelCount[loopA]->type == frNode){
         totEntities = combModel->nodeList.size();
@@ -135,26 +142,60 @@ void femModelSequence::ComputeResultStatistics(){
           avValue += currResult*currWeight;
         }
         resAV->values.push_back(avValue);
-        // Loop through all results to Compute the Standard Deviation
-        double stdValue = 0.0;
-        for(int loopC=0;loopC<models.size();loopC++){
-          resIdx = models[loopC]->getResultIndexFromLabel(labelCount[loopA]->label);
-          currResult = models[loopC]->resultList[resIdx]->values[loopB];
-          currWeight = models[loopC]->weight;
-          stdValue += (currResult-avValue)*(currResult-avValue)*currWeight;
-        }
-        if(stdValue>0.0){
-          resSD->values.push_back(sqrt(stdValue));
-        }else{
-          resSD->values.push_back(0.0);
+        if(computeSD){
+          // Loop through all results to Compute the Standard Deviation
+          double stdValue = 0.0;
+          for(int loopC=0;loopC<models.size();loopC++){
+            resIdx = models[loopC]->getResultIndexFromLabel(labelCount[loopA]->label);
+            currResult = models[loopC]->resultList[resIdx]->values[loopB];
+            currWeight = models[loopC]->weight;
+            stdValue += (currResult-avValue)*(currResult-avValue)*currWeight;
+          }
+          if(stdValue>0.0){
+            resSD->values.push_back(sqrt(stdValue));
+          }else{
+            resSD->values.push_back(0.0);
+          }
         }
 
       }
       // Add both Results to The Model
       combModel->resultList.push_back(resAV);
-      combModel->resultList.push_back(resSD);
+      if(computeSD){
+        combModel->resultList.push_back(resSD);
+      }
     }
   }
   // Add Model To Sequence
   models.push_back(combModel);
+}
+
+// ===========
+// COMPUTE WSS
+// ===========
+void femModelSequence::ComputeWSS(){
+  for(size_t loopA=0;loopA<models.size();loopA++){
+    femUtils::WriteMessage(std::string("Computing WSS for model ") + std::to_string(loopA+1) + "\n");
+    models[loopA]->ComputeWSS();
+  }
+}
+
+// =====================
+// FIXING CONNECTIVITIES
+// =====================
+void femModelSequence::FixedElementConnectivities(){
+  for(size_t loopA=0;loopA<models.size();loopA++){
+    femUtils::WriteMessage(std::string("Fixing Connectivities for model ") + std::to_string(loopA+1) + "\n");
+    models[loopA]->FixedElementConnectivities();
+  }
+}
+
+// =========================
+// FORMING ELEMENT FACE LIST
+// =========================
+void femModelSequence::FormElementFaceList(){
+  for(size_t loopA=0;loopA<models.size();loopA++){
+    femUtils::WriteMessage(std::string("Forming element face list for model ") + std::to_string(loopA+1) + "\n");
+    models[loopA]->FormElementFaceList();
+  }
 }
