@@ -156,7 +156,7 @@ void femInputData::checkAxisNormalization(){
   for(int loopA=0;loopA<kDims;loopA++){
     currMod = 0.0;
     for(int loopB=0;loopB<kDims;loopB++){
-      currMod += mainModelRefSystem[loopB][loopA];
+      currMod += mainModelRefSystem[loopB][loopA]*mainModelRefSystem[loopB][loopA];
     }
     currMod = sqrt(currMod);
     if(abs(currMod-1.0)>kMathZero){

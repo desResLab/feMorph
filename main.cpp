@@ -30,8 +30,12 @@ int runNormalMode(femProgramOptions* options){
 
   // Read Main Model
   femModel* mainModel = new femModel();
+  // Read From TEXT Files
   mainModel->ReadNodeCoordsFromFile(data->mainModelCoordsFileName,false);
   mainModel->ReadElementConnectionsFromFile(data->mainModelConnectionsFileName,false);
+  // Read From VTK
+  //mainModel->ReadModelNodesFromVTKFile(data->mainModelCoordsFileName);
+  //mainModel->ReadModelElementsFromVTKFile(data->mainModelCoordsFileName);
   // Form Face List
   mainModel->FormElementFaceList();
 

@@ -3155,7 +3155,8 @@ void femModel::evalDisplacements(femInputData* data,double coordX,double coordY,
   // Calc blending function
   double m = 0.2;
   double blendCoord = (currNodeRadius/outerModelRadius);
-  double blending = (1.0 + m)*blendCoord*blendCoord -m*blendCoord;
+  //double blending = (1.0 + m)*blendCoord*blendCoord -m*blendCoord;
+  double blending = 1.0;
 
   // Calc Angle Factor
   if(accountCirc){

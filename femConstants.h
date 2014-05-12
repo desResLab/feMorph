@@ -53,9 +53,9 @@ const double kStenosisTolerance = 1.0e-4;
 // Max Picard Iterations for Stenosis
 const int kMaxPicardStenosisIt = 20;
 // Transverse Scaling factor
-const double kTransverseScalingFactor = 1.20;
+const double kTransverseScalingFactor = 1.05;
 // Determine nodes to inclue in stenosis box
-const double kStenosisBoxFactor = 0.80;
+const double kStenosisBoxFactor = 0.30;
 // Angle Limit for normal compatibility check
 const double kNormalAngleLimit = 50.0;
 
