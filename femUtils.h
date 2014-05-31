@@ -549,6 +549,10 @@ inline void ReadListFromFile(std::string fileName, std::vector<std::string> &fil
 // READ WEIGHTED FILE LIST - FILE + WEIGHT (DOUBLE)
 // ================================================
 inline void ReadWeightedFileList(std::string fileName, std::vector<femWeightedFileName*> &fileList){
+  // Declare
+  double currWeight1 = 0.0;
+  double currWeight2 = 0.0;
+
   // Declare input File
   std::ifstream infile;
   infile.open(fileName);
@@ -567,9 +571,18 @@ inline void ReadWeightedFileList(std::string fileName, std::vector<femWeightedFi
     // Tokenize String
     boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
     // Read File Name and Associated Weight
-    if(tokenizedString.size() == 2){
+    if(tokenizedString.size() > 1){
+      if(tokenizedString.size() == 2){
+        currWeight1 = atof(tokenizedString[1].c_str());
+        currWeight2 = currWeight1;
+      }else if(tokenizedString.size() == 3){
+        currWeight1 = atof(tokenizedString[1].c_str());
+        currWeight2 = atof(tokenizedString[2].c_str());
+      }else{
+        throw femException("Invalid Weighted File Format.\n");
+      }
       // Add to list
-      femWeightedFileName* wFile = new femWeightedFileName(tokenizedString[0],atof(tokenizedString[1].c_str()));
+      femWeightedFileName* wFile = new femWeightedFileName(tokenizedString[0],currWeight1,currWeight2);
       fileList.push_back(wFile);
     }else{
       throw femException("Invalid Weighted File Format.\n");

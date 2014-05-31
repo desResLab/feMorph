@@ -1,8 +1,19 @@
 #include "femProgramOptions.h"
 #include "femUtils.h"
 
+// ===========
 // CONSTRUCTOR
+// ===========
 femProgramOptions::femProgramOptions(){
+  // Set Default Values
+  runMode = rmNORMAL;
+  debugMode = false;
+  reducedOutput = false;
+  // Use Legacy VTK as inputs
+  useVTKFile = false;
+  tolerance = 0.01;
+  // Normal Angle for surface identification
+  angleLimit = 50.0;
 }
 
 // ===============================================
@@ -16,7 +27,7 @@ int femProgramOptions::getCommadLineOptions(int argc, char **argv){
   echoFile = fopen("options.echo","w");
 
   // Loop Through the Parameters
-  while ((c = getopt (argc, argv, "f:o:ncmelsxbtdhrv")) != -1){
+  while ((c = getopt (argc, argv, "f:o:ancmelsxbtdhrv")) != -1){
     switch (c){
       case 'f':
         inputFileName = std::string(optarg);
@@ -61,6 +72,10 @@ int femProgramOptions::getCommadLineOptions(int argc, char **argv){
       case 't':
         tolerance = atof(optarg);
         fprintf(echoFile,"Tolerance: %s\n",optarg);
+        break;
+      case 'a':
+        angleLimit = atof(optarg);
+        fprintf(echoFile,"Angle Limit: %s\n",optarg);
         break;
       case 'd':
         debugMode = true;

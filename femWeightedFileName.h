@@ -6,10 +6,11 @@
 class femWeightedFileName{
   public:
     // CONSTRUCTOR
-    femWeightedFileName(std::string currfileName, double currWeight);
+    femWeightedFileName(std::string currfileName, double currWeight1, double currWeight2);
     // DATA MEMBERS
     std::string fileName;
-    double weight;
+    double weight1;
+    double weight2;
 };
 
 #endif // FEMWEIGHTEDFILENAME_H

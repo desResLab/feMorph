@@ -27,7 +27,8 @@ class femModel
     // Enclosing Box and Model Centre
     double modelBox[6];
     double modelCentre[3];
-    double weight = 0.0;
+    double weight1 = 0.0;
+    double weight2 = 0.0;
   public:
     // Constructor and Destructor
     femModel();
@@ -77,7 +78,7 @@ class femModel
     // Export Model to VTK Legacy
     void ExportToVTKLegacy(std::string fileName);
     // Export to cvPRE
-    void ExportToCvPre(double dispFactor, std::string pathName);
+    void ExportToCvPre(double dispFactor, std::string pathName, double angleLimit);
     void WriteCvPreFile(std::string fileName);
     void WriteAdjacenciesToFile(std::string fileName);
     void ExportBoundaryElementFiles(double dispFactor, int totalFaceGroups, std::string pathName);
@@ -89,7 +90,7 @@ class femModel
     // Write PolyFile for TETGEN
     void WriteSkinSMeshFile(std::string polyFileName);
     // Convert Node and Element File To CVPre
-    int ConvertNodeAndElementsToCvPre(std::string nodeFileName, std::string elementFileName, bool vtkFile, bool skipFirstRow);
+    int ConvertNodeAndElementsToCvPre(std::string nodeFileName, std::string elementFileName, bool vtkFile, bool skipFirstRow, double angleLimit);
     // Copy velocity Results to Vector
     void copyModelVelocitiesToVector(std::vector<std::vector<double>> &velocity);
 
@@ -97,7 +98,7 @@ class femModel
     // CHECKS AND GEOMETRICAL EVALUATIONS
     // ==================================
     bool IsInsideLimits(double* nodeCoords);
-    bool CheckNormalCompatibility(int firstElement, int secondElement);
+    bool CheckNormalCompatibility(int firstElement, int secondElement, double angleLimit);
 
     // =====================================
     // ASSIGMENT OF BOUNDARY FLOW CONDITIONS
@@ -129,11 +130,11 @@ class femModel
     // Write Rotate Node List from Box
     void createStenosisNodeList(double* stenosisBox, femInputData* data, std::vector<femNode*> &steNodeList);
     // Group boundary faces based on normal
-    void FormBoundaryFaceGroups(int &totalFaceGroups);
+    void FormBoundaryFaceGroups(int &totalFaceGroups, double angleLimit);
     // Form a model using the boundary faces only
     femModel* FormBoundaryFaceModel();
     // Assign 2D element property using normal
-    void GroupFacesByNormal(int &currGroup);
+    void GroupFacesByNormal(int &currGroup, double angleLimit);
     // Eval element Normal: 2D Elements
     void eval2DElementNormal(int firstElement, double* normal);
     // Eval element Normal: 3D Elements

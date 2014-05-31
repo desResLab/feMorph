@@ -30,12 +30,15 @@ int runNormalMode(femProgramOptions* options){
 
   // Read Main Model
   femModel* mainModel = new femModel();
-  // Read From TEXT Files
-  mainModel->ReadNodeCoordsFromFile(data->mainModelCoordsFileName,false);
-  mainModel->ReadElementConnectionsFromFile(data->mainModelConnectionsFileName,false);
-  // Read From VTK
-  //mainModel->ReadModelNodesFromVTKFile(data->mainModelCoordsFileName);
-  //mainModel->ReadModelElementsFromVTKFile(data->mainModelCoordsFileName);
+  if(!options->useVTKFile){
+    // Read From TEXT Files
+    mainModel->ReadNodeCoordsFromFile(data->mainModelCoordsFileName,false);
+    mainModel->ReadElementConnectionsFromFile(data->mainModelConnectionsFileName,false);
+  }else{
+    // Read From VTK
+    mainModel->ReadModelNodesFromVTKFile(data->mainModelCoordsFileName);
+    mainModel->ReadModelElementsFromVTKFile(data->mainModelCoordsFileName);
+  }
   // Form Face List
   mainModel->FormElementFaceList();
 
@@ -99,7 +102,7 @@ int runNormalMode(femProgramOptions* options){
 
   // Export cvPre Model ready to presolve
   if(!reducedOutput){
-    mainModel->ExportToCvPre(0.0,std::string("reference"));
+    mainModel->ExportToCvPre(0.0,std::string("reference"),options->angleLimit);
   }
 
   // Check Volume of Undeformed Mesh
@@ -141,7 +144,7 @@ int runNormalMode(femProgramOptions* options){
       mainModel->WriteNodeCoordsToFile(currDispFactor,ncFile);
     }else{
       // Export cvPre Model ready to presolve
-      mainModel->ExportToCvPre(currDispFactor,std::string("stenosis_") + boost::lexical_cast<std::string>(currStenosisLevel));
+      mainModel->ExportToCvPre(currDispFactor,std::string("stenosis_") + boost::lexical_cast<std::string>(currStenosisLevel),options->angleLimit);
     }
   }
 
@@ -255,7 +258,7 @@ int exctractMeshQualityDistributions(femProgramOptions* options){
 int translateModelToCvPre(femProgramOptions* options){
   femModel* model = new femModel();
 
-  model->ConvertNodeAndElementsToCvPre(options->inputFileName,options->outputFileName,options->useVTKFile,false);
+  model->ConvertNodeAndElementsToCvPre(options->inputFileName,options->outputFileName,options->useVTKFile,false,options->angleLimit);
 
   delete model;
 }
@@ -360,7 +363,7 @@ int meshVTKSkinToCVPre(femProgramOptions* options){
 
   // Export CVPRE File from node Coordinated and Element Incidences
   femUtils::WriteMessage(std::string("Exporting to CVPre ...\n"));
-  model->ConvertNodeAndElementsToCvPre(std::string("model.1.node"),std::string("model.1.ele"),false,true);
+  model->ConvertNodeAndElementsToCvPre(std::string("model.1.node"),std::string("model.1.ele"),false,true,options->angleLimit);
 
   // Delete Model
   delete model;

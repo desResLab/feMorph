@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE QtCreatorProject>
-<!-- Written by QtCreator 3.0.1, 2014-05-12T13:21:51. -->
+<!-- Written by QtCreator 3.0.1, 2014-05-31T13:46:40. -->
 <qtcreator>
  <data>
   <variable>ProjectExplorer.Project.ActiveTarget</variable>
@@ -150,7 +150,7 @@
      <value type="int">14</value>
     </valuelist>
     <value type="QString" key="CMakeProjectManager.CMakeRunConfiguation.Title">feMorph</value>
-    <value type="QString" key="CMakeProjectManager.CMakeRunConfiguration.Arguments">-n -d -f morphtest_NotSym.dat -o test.vtk </value>
+    <value type="QString" key="CMakeProjectManager.CMakeRunConfiguration.Arguments">-x  -f testFile.dat -o test3.vtk </value>
     <value type="bool" key="CMakeProjectManager.CMakeRunConfiguration.UseTerminal">false</value>
     <value type="QString" key="CMakeProjectManager.CMakeRunConfiguration.UserWorkingDirectory"></value>
     <value type="int" key="PE.EnvironmentAspect.Base">2</value>

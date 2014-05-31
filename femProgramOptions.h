@@ -19,8 +19,11 @@ class femProgramOptions{
     runModes runMode;
     bool debugMode = false;
     bool reducedOutput = false;
+    // Use Legacy VTK as inputs
     bool useVTKFile = false;
     double tolerance;
+    // Normal Angle for surface identification
+    double angleLimit;
     std::string inputFileName = "";
     std::string outputFileName = "";
     // MEMBER FUNCTIONS

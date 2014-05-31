@@ -1580,7 +1580,7 @@ void femModel::WriteCvPreFile(std::string fileName){
 // ===========================
 // EXPORT FILE TO CVPRE FOLDER
 // ===========================
-void femModel::ExportToCvPre(double dispFactor, std::string pathName){
+void femModel::ExportToCvPre(double dispFactor, std::string pathName, double angleLimit){
   // VAR
   std::string linuxCommand = "";
   int totalFaceGroups = 0;
@@ -1610,7 +1610,7 @@ void femModel::ExportToCvPre(double dispFactor, std::string pathName){
   system(linuxCommand.c_str());
 
   // FORM FACE GROUPS
-  FormBoundaryFaceGroups(totalFaceGroups);
+  FormBoundaryFaceGroups(totalFaceGroups,angleLimit);
 
   // EXPORT BOUNDARY ELEMENTS
   ExportBoundaryElementFiles(dispFactor,totalFaceGroups,pathName);
@@ -1746,12 +1746,12 @@ femModel* femModel::FormBoundaryFaceModel(){
 // ================
 // FORM FACE GROUPS
 // ================
-void femModel::FormBoundaryFaceGroups(int &totalFaceGroups){
+void femModel::FormBoundaryFaceGroups(int &totalFaceGroups, double angleLimit){
   // Form Skin Model
   femModel* skinModel = nullptr;
   skinModel = FormBoundaryFaceModel();
   // Number Faces using Normal continuity
-  skinModel->GroupFacesByNormal(totalFaceGroups);
+  skinModel->GroupFacesByNormal(totalFaceGroups,angleLimit);
   // Transfer face numbering
   for(unsigned int loopA=0;loopA<skinModel->elementList.size();loopA++){
     faceList[skinModel->elementList[loopA]->elementNumber]->group = skinModel->elementList[loopA]->propertyNumber;
@@ -1940,7 +1940,7 @@ void femModel::eval3DElementNormal(int elementID, int faceID, double* normal){
 // ===============================================
 // CHECK NORMAL COMPATIBILITY BETWEEN TWO ELEMENTS
 // ===============================================
-bool femModel::CheckNormalCompatibility(int firstElement, int secondElement){
+bool femModel::CheckNormalCompatibility(int firstElement, int secondElement, double angleLimit){
   double firstNormal[3] = {0.0};
   double secondNormal[3] = {0.0};
   // eval the first normal: Normalized!
@@ -1961,14 +1961,14 @@ bool femModel::CheckNormalCompatibility(int firstElement, int secondElement){
   //if (alpha > 90.0){
   //  alpha = fabs(alpha - 180.0);
   //}
-  bool isCompatible = (alpha < kNormalAngleLimit);
+  bool isCompatible = (alpha < angleLimit);
   return isCompatible;
 }
 
 // ========================================
 // GROUP FACES BY NORMAL FOR 2D SKIN MODELS
 // ========================================
-void femModel::GroupFacesByNormal(int &currGroup){
+void femModel::GroupFacesByNormal(int &currGroup, double angleLimit){
   // Initialize the total Number of Groups
   currGroup = 0;
   // VAR
@@ -2011,7 +2011,7 @@ void femModel::GroupFacesByNormal(int &currGroup){
             throw femException("Internal error: Invalid Edge definition.");
           }
           // Check normal compatibility of currElement and otherElement
-          isNormalCompatible = CheckNormalCompatibility(currElement,otherElement);
+          isNormalCompatible = CheckNormalCompatibility(currElement,otherElement,angleLimit);
           if((!isVisited[otherElement])&&(isNormalCompatible)){            
             // push in stack
             elementStack.push(otherElement);
@@ -2662,7 +2662,8 @@ void femModel::ReadModelResultsFromVTKFile(std::string fileName){
       // Read Field Data
       isPointDataBlock = false;
       isFieldBlock = true;
-      totFieldComponents = atoi(tokenizedString[1].c_str());
+      //totFieldComponents = atoi(tokenizedString[1].c_str());
+      totFieldComponents = 1;
       totFields = atoi(tokenizedString[2].c_str());
       for(int loopA=0;loopA<totFieldComponents*totFields;loopA++){
         // Read Fist Line
@@ -2826,7 +2827,7 @@ int femModel::getResultIndexFromLabel(std::string label){
 // =====================
 // EXPORT MODEL TO CVPRE
 // =====================
-int femModel::ConvertNodeAndElementsToCvPre(std::string nodeFileName, std::string elementFileName, bool vtkFile, bool skipFirstRow){
+int femModel::ConvertNodeAndElementsToCvPre(std::string nodeFileName, std::string elementFileName, bool vtkFile, bool skipFirstRow, double angleLimit){
 
   // Read Node Coordinates and Connections
   if(vtkFile){
@@ -2852,7 +2853,7 @@ int femModel::ConvertNodeAndElementsToCvPre(std::string nodeFileName, std::strin
 
   // Export cvPre Model ready to presolve
   double currDispFactor = 0.0;
-  ExportToCvPre(currDispFactor,std::string("testTranslation"));
+  ExportToCvPre(currDispFactor,std::string("testTranslation"),angleLimit);
 
   // Return
   return 0;

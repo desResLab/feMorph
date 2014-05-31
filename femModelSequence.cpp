@@ -15,7 +15,8 @@ void femModelSequence::ReadFromWeightedListFile(std::string fileName){
   // List with files and associated weights
   std::vector<femWeightedFileName*> fileList;
   std::string currFileName;
-  double currWeight = 0.0;
+  double currWeight1 = 0.0;
+  double currWeight2 = 0.0;
 
   // Read files names and weights
   femUtils::ReadWeightedFileList(fileName,fileList);
@@ -23,7 +24,8 @@ void femModelSequence::ReadFromWeightedListFile(std::string fileName){
   // Loop for all files in sequence
   for(unsigned int loopA=0;loopA<fileList.size();loopA++){
     currFileName = fileList[loopA]->fileName;
-    currWeight = fileList[loopA]->weight;
+    currWeight1 = fileList[loopA]->weight1;
+    currWeight2 = fileList[loopA]->weight2;
     femModel* model = new femModel();
     // Read Nodes
     femUtils::WriteMessage("\n");
@@ -43,7 +45,8 @@ void femModelSequence::ReadFromWeightedListFile(std::string fileName){
     femUtils::WriteMessage(std::string("Reading Results...\n"));
     model->ReadModelResultsFromVTKFile(currFileName);
     // Assign Integration Weight
-    model->weight = currWeight;
+    model->weight1 = currWeight1;
+    model->weight2 = currWeight2;
     // Add to models
     models.push_back(model);
   }
@@ -138,7 +141,7 @@ void femModelSequence::ComputeResultStatistics(bool computeSD){
         for(int loopC=0;loopC<models.size();loopC++){
           resIdx = models[loopC]->getResultIndexFromLabel(labelCount[loopA]->label);
           currResult = models[loopC]->resultList[resIdx]->values[loopB];
-          currWeight = models[loopC]->weight;
+          currWeight = models[loopC]->weight1;
           avValue += currResult*currWeight;
         }
         resAV->values.push_back(avValue);
@@ -148,7 +151,7 @@ void femModelSequence::ComputeResultStatistics(bool computeSD){
           for(int loopC=0;loopC<models.size();loopC++){
             resIdx = models[loopC]->getResultIndexFromLabel(labelCount[loopA]->label);
             currResult = models[loopC]->resultList[resIdx]->values[loopB];
-            currWeight = models[loopC]->weight;
+            currWeight = models[loopC]->weight2;
             stdValue += (currResult-avValue)*(currResult-avValue)*currWeight;
           }
           if(stdValue>0.0){
