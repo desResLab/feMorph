@@ -1779,9 +1779,9 @@ void femModel::ExportBoundaryElementFiles(double dispFactor, int totalFaceGroups
   // Loop through all groups and export
   for(int loopA=0;loopA<totalFaceGroups;loopA++){
     // Export Global Boundary Elements
-    currFileName = pathName + std::string("/exterior_elemfaces_group_") + boost::lexical_cast<std::string>(loopA) + std::string(".ebc");
+    currFileName = pathName + std::string("/exterior_faces_group_") + boost::lexical_cast<std::string>(loopA) + std::string(".ebc");
     ExportElementFaceGroupToFile(currFileName,loopA);
-    vtkFileName = pathName + std::string("/exterior_elemfaces_group_") + boost::lexical_cast<std::string>(loopA) + std::string(".vtk");
+    vtkFileName = pathName + std::string("/exterior_faces_group_") + boost::lexical_cast<std::string>(loopA) + std::string(".vtk");
     ExportSkinFaceGroupToVTK(vtkFileName,dispFactor,loopA);
     // Zip Face File
     linuxCommand = std::string("gzip ") + currFileName;
@@ -1803,7 +1803,7 @@ void femModel::ExportBoundaryNodeFiles(int totalFaceGroups, std::string pathName
   // Loop through all groups and export
   for(int loopA=0;loopA<totalFaceGroups;loopA++){
     // Export Global Boundary Elements
-    currFileName = pathName + std::string("/exterior_nodes_group_") + boost::lexical_cast<std::string>(loopA) + std::string(".nbc");
+    currFileName = pathName + std::string("/exterior_faces_group_") + boost::lexical_cast<std::string>(loopA) + std::string(".nbc");
     ExportNodeFaceGroupToFile(currFileName,loopA);
     linuxCommand = std::string("gzip ") + currFileName;
     system(linuxCommand.c_str());
