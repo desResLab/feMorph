@@ -1566,9 +1566,9 @@ void femModel::WriteCvPreFile(std::string fileName){
   fprintf(outFile,"zero_pressure exterior_elemfaces_group_1.ebc.gz\n");
   fprintf(outFile,"\n");
   fprintf(outFile,"# SET SURFACE ID\n");
-  fprintf(outFile,"set_surface_id exterior_elemfaces_group_0.ebc.gz 0\n");
-  fprintf(outFile,"set_surface_id exterior_elemfaces_group_1.ebc.gz 1\n");
-  fprintf(outFile,"set_surface_id exterior_elemfaces_group_2.ebc.gz 2\n");
+  fprintf(outFile,"set_surface_id exterior_faces_group_0.ebc.gz 1\n");
+  fprintf(outFile,"set_surface_id exterior_faces_group_1.ebc.gz 2\n");
+  fprintf(outFile,"set_surface_id exterior_faces_group_2.ebc.gz 3\n");
   fprintf(outFile,"\n");
   fprintf(outFile,"# WRITE MODEL DATA\n");
   fprintf(outFile,"write_geombc geombc.dat.1\n");
@@ -2798,7 +2798,7 @@ void femModel::WriteSkinSMeshFile(std::string polyFileName){
 // ================
 void femModel::MeshWithTetGen(std::string polyFileName){
   femUtils::WriteMessage(std::string("Generating Mesh with TetGen...\n"));
-  std::string command(std::string("tetigen -pqQ ") + polyFileName);
+  std::string command(std::string("tetgen -q1.2/10QYka0.08 ") + polyFileName);
   int rpl = system (command.c_str());
   if(rpl != 0){
     throw femException("Error: Cannot find tetgen.\n");
@@ -2842,18 +2842,21 @@ int femModel::ConvertNodeAndElementsToCvPre(std::string nodeFileName, std::strin
     ReadElementConnectionsFromFile(elementFileName,skipFirstRow);
   }
 
+  // FIX CONNECTIVITIES
+  FixedElementConnectivities();
+
   // Form Face List
   FormElementFaceList();
 
   // Export to VTK file
-  (std::string("mainmodel.vtk"));
+  //ExportToVTKLegacy(std::string("mainmodel.vtk"));
 
   // Orientate face nodes before exporting
   OrientateBoundaryFaceNodes();
 
   // Export cvPre Model ready to presolve
   double currDispFactor = 0.0;
-  ExportToCvPre(currDispFactor,std::string("testTranslation"),angleLimit);
+  ExportToCvPre(currDispFactor,std::string("svpre-files"),angleLimit);
 
   // Return
   return 0;
@@ -3106,6 +3109,7 @@ void femModel::FixedElementConnectivities(){
   for(size_t loopA=0;loopA<elementList.size();loopA++){
     currMixed = elementList[loopA]->EvalMixProduct(nodeList);
     if(currMixed<0.0){
+      printf("Fixed!\n");
       elementList[loopA]->swapNodes();
     }
   }

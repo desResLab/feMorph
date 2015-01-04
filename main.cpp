@@ -350,7 +350,7 @@ int meshVTKSkinToCVPre(femProgramOptions* options){
   model->ReadModelElementsFromVTKFile(VTKFileName);
 
   // Test: Write VTK
-  model->ExportToVTKLegacy(std::string("TestExport.vtk"));
+  //model->ExportToVTKLegacy(std::string("TestExport.vtk"));
 
   // Convert To poly file
   std::string polyFileName("model.smesh");
@@ -363,10 +363,18 @@ int meshVTKSkinToCVPre(femProgramOptions* options){
 
   // Export CVPRE File from node Coordinated and Element Incidences
   femUtils::WriteMessage(std::string("Exporting to CVPre ...\n"));
-  model->ConvertNodeAndElementsToCvPre(std::string("model.1.node"),std::string("model.1.ele"),false,true,options->angleLimit);
 
   // Delete Model
   delete model;
+
+  // Create New Model
+  femModel* model2 = new femModel();
+  bool useVTKFile = false;
+  bool skipFirstRow = true;
+  model2->ConvertNodeAndElementsToCvPre(std::string("model.1.node"),std::string("model.1.ele"),useVTKFile,skipFirstRow,options->angleLimit);
+
+  // Delete New Model
+  delete model2;
 }
 
 // ==========================
