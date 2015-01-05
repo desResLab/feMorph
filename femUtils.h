@@ -13,6 +13,7 @@
 #include "femModelSlice.h"
 #include "femException.h"
 #include "femWeightedFileName.h"
+#include "femTypes.h"
 
 // Random Number Generator
 #include <boost/random/mersenne_twister.hpp>
@@ -602,6 +603,42 @@ inline std::string extractFileName(std::string fullPath){
   boost::split(tokenizedString,fullPath, boost::is_any_of("/"), boost::token_compress_on);
   // Return Last
   return tokenizedString[tokenizedString.size()-1];
+}
+
+// INVERT 3x3 MATRIX
+inline void invert3x3Matrix(femDoubleMat mat,femDoubleMat &invMat, double &detJ){
+  double a11 = mat[0][0];
+  double a12 = mat[0][1];
+  double a13 = mat[0][2];
+  double a21 = mat[1][0];
+  double a22 = mat[1][1];
+  double a23 = mat[1][2];
+  double a31 = mat[2][0];
+  double a32 = mat[2][1];
+  double a33 = mat[2][2];
+  double A11 = a22 * a33 - a23 * a32;
+  double A22 = a33 * a11 - a31 * a13;
+  double A33 = a11 * a22 - a12 * a21;
+  double A12 = a23 * a31 - a21 * a33;
+  double A23 = a31 * a12 - a32 * a11;
+  double A31 = a12 * a23 - a13 * a22;
+  double A21 = a32 * a13 - a12 * a33;
+  double A32 = a13 * a21 - a23 * a11;
+  double A13 = a21 * a22 - a31 * a22;
+  detJ = a11 * A11 + a12 * A21 + a13 * A31;
+  invMat.resize(kDims);
+  for(int loopA=0;loopA<kDims;loopA++){
+    invMat[loopA].resize(kDims);
+  }
+  invMat[0][0] = A11/detJ;
+  invMat[0][1] = A12/detJ;
+  invMat[0][2] = A13/detJ;
+  invMat[1][0] = A21/detJ;
+  invMat[1][1] = A22/detJ;
+  invMat[1][2] = A23/detJ;
+  invMat[2][0] = A31/detJ;
+  invMat[2][1] = A32/detJ;
+  invMat[2][2] = A33/detJ;
 }
 
 }

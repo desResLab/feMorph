@@ -132,6 +132,109 @@ void femModel::RotateModel(double angle, double* axis){
   }
 }
 
+// ==================================
+// READ BOUNDARY CONDITIONS FROM FILE
+// ==================================
+void femModel::ReadBoundaryValuesFromFile(std::string fileName, bool skipFirstRow){
+  // Declare input File
+  ifstream infile;
+  infile.open(fileName);
+
+  // Write Message
+  femUtils::WriteMessage(std::string("Reading Boundary Condition Values from file ")+fileName+std::string("..."));
+
+  // Read Data From File
+  std::string buffer;
+  std::vector<string> tokenizedString;
+  // Initialize
+  vector<int> currIntValues;
+  int lineCount = 0;
+  double bcValue = 0.0;
+
+  // Skip First Row If Required
+  if(skipFirstRow){
+    std::getline(infile,buffer);
+  }
+  while (std::getline(infile,buffer)){
+    // Increment line count
+    lineCount++;
+    // Trim String
+    boost::trim(buffer);
+    if((buffer != "")&&(buffer.at(0) != '#')){
+      // Tokenize String
+      boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
+
+      // Read node Number
+      for(size_t loopA=0;loopA<tokenizedString.size()-1;loopA++){
+        currIntValues.push_back(atoi(tokenizedString[loopA].c_str()));
+      }
+
+      // Read Coordinates
+      bcValue = atof(tokenizedString[tokenizedString.size()-1].c_str());
+
+      // Add to source Nodes and Values
+      neumannBCElement.push_back(currIntValues);
+      neumannBCValues.push_back(bcValue);
+    }
+  }
+
+  // Close File
+  infile.close();
+
+  // Done.
+  femUtils::WriteMessage("Done.\n");
+}
+
+// =============================
+// READ ELEMENT SOURCE FROM FILE
+// =============================
+void femModel::ReadElementSourceFromFile(std::string fileName, bool skipFirstRow){
+  // Declare input File
+  ifstream infile;
+  infile.open(fileName);
+
+  // Write Message
+  femUtils::WriteMessage(std::string("Reading Element Source from file ")+fileName+std::string("..."));
+
+  // Read Data From File
+  std::string buffer;
+  std::vector<string> tokenizedString;
+  // Initialize
+  int currElNumber = 0;
+  int lineCount = 0;
+  double sourceValue = 0.0;
+  // Skip First Row If Required
+  if(skipFirstRow){
+    std::getline(infile,buffer);
+  }
+  while (std::getline(infile,buffer)){
+    // Increment line count
+    lineCount++;
+    // Trim String
+    boost::trim(buffer);
+    if((buffer != "")&&(buffer.at(0) != '#')){
+      // Tokenize String
+      boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
+
+      // Read node Number
+      currElNumber = atoi(tokenizedString[0].c_str());
+
+      // Read Coordinates
+      sourceValue = atof(tokenizedString[1].c_str());
+
+      // Add to source Nodes and Values
+      sourceElement.push_back(currElNumber);
+      sourceValues.push_back(sourceValue);
+    }
+  }
+
+  // Close File
+  infile.close();
+
+  // Done.
+  femUtils::WriteMessage("Done.\n");
+}
+
 // ===================================
 // Read the node coordinates from file
 // ===================================
@@ -239,8 +342,10 @@ void femModel::ReadElementConnectionsFromFile(std::string fileName, bool skipFir
         newElement = new femTetra4(currElementNumber,1,totNodes,nodeConnections);
       }else if(totNodes == kTetra10Nodes){
         newElement = new femTetra10(currElementNumber,1,totNodes,nodeConnections);
+      }else if(totNodes == kHexa8Nodes){
+        newElement = new femHexa8(currElementNumber,1,totNodes,nodeConnections);
       }else{
-        throw femException("Error: Invalid Element Type");
+        throw femException("ERROR: Element Type Not Supported.\n");
       }
 
       // Add to the node List
@@ -1593,21 +1698,21 @@ void femModel::ExportToCvPre(double dispFactor, std::string pathName, double ang
   WriteNodeCoordsToFile(dispFactor, coordFile);
   // ZIP FILE
   linuxCommand = std::string("gzip ") + coordFile;
-  system(linuxCommand.c_str());
+  int out = system(linuxCommand.c_str());
 
   // EXPORT CONNECTIVITIES
   std::string connFile = pathName + std::string("/model.connectivity");
   WriteElementConnectionsToFile(connFile);
   // ZIP FILE
   linuxCommand = std::string("gzip ") + connFile;
-  system(linuxCommand.c_str());
+  out = system(linuxCommand.c_str());
 
   // EXPORT ADJACENCY FILE
   std::string adjFile = pathName + std::string("/model.xadj");
   WriteAdjacenciesToFile(adjFile);
   // ZIP FILE
   linuxCommand = std::string("gzip ") + adjFile;
-  system(linuxCommand.c_str());
+  out = system(linuxCommand.c_str());
 
   // FORM FACE GROUPS
   FormBoundaryFaceGroups(totalFaceGroups,angleLimit);
@@ -1774,7 +1879,7 @@ void femModel::ExportBoundaryElementFiles(double dispFactor, int totalFaceGroups
   ExportSkinFaceGroupToVTK(vtkFileName,dispFactor,-1);
   // Zip Face File
   linuxCommand = std::string("gzip ") + currFileName;
-  system(linuxCommand.c_str());
+  int out = system(linuxCommand.c_str());
 
   // Loop through all groups and export
   for(int loopA=0;loopA<totalFaceGroups;loopA++){
@@ -1785,7 +1890,7 @@ void femModel::ExportBoundaryElementFiles(double dispFactor, int totalFaceGroups
     ExportSkinFaceGroupToVTK(vtkFileName,dispFactor,loopA);
     // Zip Face File
     linuxCommand = std::string("gzip ") + currFileName;
-    system(linuxCommand.c_str());
+    out = system(linuxCommand.c_str());
   }
 }
 
@@ -2478,7 +2583,7 @@ void femModel::ReadModelNodesFromVTKFile(std::string fileName){
         boost::trim(buffer);
         boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
         // Add Three points
-        for(int loopB=0;loopB<tokenizedString.size();loopB++){
+        for(size_t loopB=0;loopB<tokenizedString.size();loopB++){
           fileCoords[currCoordCount] = atof(tokenizedString[loopB].c_str());
           // Increment Node Count
           currCoordCount++;
@@ -2646,7 +2751,7 @@ void femModel::ReadModelResultsFromVTKFile(std::string fileName){
         readSoFar += tokenizedString.size();
 
         // Assign to values
-        for(int loopA=0;loopA<tokenizedString.size();loopA++){
+        for(size_t loopA=0;loopA<tokenizedString.size();loopA++){
           res->values.push_back(atof(tokenizedString[loopA].c_str()));
         }
 
@@ -2686,7 +2791,7 @@ void femModel::ReadModelResultsFromVTKFile(std::string fileName){
           boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
           // Update Counted
           valueCounter = valueCounter + tokenizedString.size();
-          for(int loopB=0;loopB<tokenizedString.size()/totFieldComponents;loopB++){
+          for(size_t loopB=0;loopB<tokenizedString.size()/totFieldComponents;loopB++){
             res->values.push_back(atof(tokenizedString[totFieldComponents*loopB].c_str()));
           }
         }
@@ -2726,7 +2831,7 @@ void femModel::ReadModelResultsFromVTKFile(std::string fileName){
         readSoFar += tokenizedString.size();
 
         // Assign to values
-        for(int loopA=0;loopA<tokenizedString.size()/3;loopA++){
+        for(size_t loopA=0;loopA<tokenizedString.size()/3;loopA++){
           valX = atof(tokenizedString[loopA*3].c_str());
           valY = atof(tokenizedString[loopA*3 + 1].c_str());
           valZ = atof(tokenizedString[loopA*3 + 2].c_str());
@@ -2811,7 +2916,7 @@ void femModel::MeshWithTetGen(std::string polyFileName){
 int femModel::getResultIndexFromLabel(std::string label){
   bool found = false;
   int count = 0;
-  while((!found)&&(count<resultList.size())){
+  while((!found)&&(count<(int)resultList.size())){
     found = (label == resultList[count]->label);
     // Update Caout
     count++;
@@ -2868,7 +2973,7 @@ int femModel::ConvertNodeAndElementsToCvPre(std::string nodeFileName, std::strin
 void femModel::copyModelVelocitiesToVector(std::vector<std::vector<double>> &velocity){
   // Look for the velocity components as results
   bool foundResult = false;
-  for(int loopA=0;loopA<resultList.size();loopA++){
+  for(size_t loopA=0;loopA<resultList.size();loopA++){
     if((boost::to_upper_copy(resultList[loopA]->label) == "VELOCITYX")||
        (boost::to_upper_copy(resultList[loopA]->label) == "VELOCITYY")||
        (boost::to_upper_copy(resultList[loopA]->label) == "VELOCITYZ")){

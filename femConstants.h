@@ -31,6 +31,9 @@ const int kTetra4Nodes = 4;
 const int kTetra10Nodes = 10;
 // Number of face in tetrahedra
 const int kTetraFaces = 4;
+// Number of face in hexa 8
+const int kHexa8Nodes = 8;
+
 
 // Constants: Model Quality
 // Volume

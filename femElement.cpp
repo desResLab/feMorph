@@ -33,7 +33,7 @@ femElement::femElement(const femElement* other){
 }
 
 // ==========
-// Destructor
+// DISTRUCTOR
 // ==========
 femElement::~femElement(){
 }
@@ -90,8 +90,7 @@ femIntegrationRule* femElement::evalIntegrationRule(intRuleType type){
 // =====================
 void femElement::evalElementCentroid(std::vector<femNode*> &nodeList, double* centroid){
   // Initialize Centroid
-  centroid[0] = 0.0;
-  centroid[1] = 0.0;
+  centroid[0] = 0.0;  centroid[1] = 0.0;
   centroid[2] = 0.0;
   int currNode = 0;
   int totNodes = elementConnections.size();
@@ -930,4 +929,83 @@ void femTetra4::assembleStiffness(femDoubleMat &nodeVelocities, std::vector<femN
       }
     }
   }
+}
+
+// =================================
+// POISSON PROBLEM - ASSEMBLE MATRIX
+// =================================
+void femElement::formPoissonMatrix(std::vector<femNode*> nodeList,femIntegrationRule* rule,femDoubleMat &elMat){
+
+  // CLEAR AND ALLOCATE MATRIX
+  femDoubleMat currStiff;
+  elMat.clear();
+  elMat.resize(numberOfNodes);
+  currStiff.resize(numberOfNodes);
+  for(int loopA=0;loopA<numberOfNodes;loopA++){
+    elMat[loopA].resize(numberOfNodes);
+    currStiff[loopA].resize(numberOfNodes);
+  }
+  for(int loopA=0;loopA<numberOfNodes;loopA++){
+    for(int loopB=0;loopB<numberOfNodes;loopB++){
+      elMat[loopA][loopB] = 0.0;
+    }
+  }
+
+  // INIT SHAPE DERIVATIVE MATRIX
+  femDoubleMat shapeDeriv;
+
+  // GAUSS POINTS LOOP
+  for(int loopA=0;loopA<rule->totalGP;loopA++){
+
+    // Eval Current Shape Derivatives Matrix
+    evalShapeFunctionDerivative(nodeList,rule->coords[loopA][0],rule->coords[loopA][1],rule->coords[loopA][2],shapeDeriv);
+
+    // Eval Resulting Matrix
+    for(int loopB=0;loopB<numberOfNodes;loopB++){
+      for(int loopC=0;loopC<numberOfNodes;loopC++){
+        currStiff[loopB][loopC] = 0.0;
+        for(int loopD=0;loopD<kDims;loopD++){
+          currStiff[loopB][loopC] += shapeDeriv[loopB][loopD] * shapeDeriv[loopC][loopD];
+        }
+        // Assemble Gauss Point Contribution
+        elMat[loopB][loopC] += currStiff[loopB][loopC] * rule->weight[loopA]; //DET J ????
+      }
+    }
+  }
+}
+
+// =================================
+// POISSON PROBLEM - ASSEMBLE SOURCE
+// =================================
+void femElement::formPoissonSource(std::vector<femNode*> nodeList,femIntegrationRule* rule,double sourceValue,femDoubleVec &elSourceVec){
+
+  // Shape Function Values
+  femDoubleVec shapeFunction;
+
+  // Init Source Array
+  elSourceVec.clear();
+  elSourceVec.resize(numberOfNodes);
+  for(int loopA=0;loopA<numberOfNodes;loopA++){
+    elSourceVec[loopA] = 0.0;
+  }
+
+  // Gauss Point Loop
+  for(int loopA=0;loopA<rule->totalGP;loopA++){
+
+    // Eval Shape Function At the current GP
+    evalShapeFunction(nodeList,rule->coords[loopA][0],rule->coords[loopA][1],rule->coords[loopA][2],shapeFunction);
+
+    // Eval Resulting Matrix
+    for(int loopB=0;loopB<numberOfNodes;loopB++){
+      elSourceVec[loopB] += shapeFunction[loopB] * sourceValue * rule->weight[loopA];
+    }
+  }
+}
+
+// =================================
+// POISSON PROBLEM - ASSEMBLE SOURCE
+// =================================
+
+void femElement::formPoissonBCFlux(std::vector<femNode*> nodeList,femIntVec bcNodes,double bcValue,femIntegrationRule* rule,femDoubleVec &elBCVec){
+
 }

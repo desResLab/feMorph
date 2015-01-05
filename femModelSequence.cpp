@@ -56,7 +56,7 @@ void femModelSequence::ReadFromWeightedListFile(std::string fileName){
 int isInLabelVector(std::string currLabel,femResultType currType,std::vector<labelCounter*> labelCount){
   bool found = false;
   int count = 0;
-  while((!found)&&(count<labelCount.size())){
+  while((!found)&&(count<(int)labelCount.size())){
     found = ((labelCount[count]->label == currLabel)&&(labelCount[count]->type == currType));
     // Update Counter
     count++;
@@ -114,8 +114,8 @@ void femModelSequence::ComputeResultStatistics(bool computeSD){
   }
 
   // Loop through all results that appear models.size() times
-  for(int loopA=0;loopA<labelCount.size();loopA++){
-    if(labelCount[loopA]->count == models.size()){
+  for(int loopA=0;loopA<(int)labelCount.size();loopA++){
+    if(labelCount[loopA]->count == (int)models.size()){
 
       // Combine all results with this Label
       // Average Values
@@ -138,7 +138,7 @@ void femModelSequence::ComputeResultStatistics(bool computeSD){
       for(int loopB=0;loopB<totEntities;loopB++){
         // Loop through all results to Compute the Average Value
         double avValue = 0.0;
-        for(int loopC=0;loopC<models.size();loopC++){
+        for(size_t loopC=0;loopC<models.size();loopC++){
           resIdx = models[loopC]->getResultIndexFromLabel(labelCount[loopA]->label);
           currResult = models[loopC]->resultList[resIdx]->values[loopB];
           currWeight = models[loopC]->weight1;
@@ -148,7 +148,7 @@ void femModelSequence::ComputeResultStatistics(bool computeSD){
         if(computeSD){
           // Loop through all results to Compute the Standard Deviation
           double stdValue = 0.0;
-          for(int loopC=0;loopC<models.size();loopC++){
+          for(size_t loopC=0;loopC<models.size();loopC++){
             resIdx = models[loopC]->getResultIndexFromLabel(labelCount[loopA]->label);
             currResult = models[loopC]->resultList[resIdx]->values[loopB];
             currWeight = models[loopC]->weight2;

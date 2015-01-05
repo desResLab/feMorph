@@ -7,6 +7,7 @@
 #include "femWeightedFileName.h"
 #include "femModelSequence.h"
 #include "femProgramOptions.h"
+#include "femSolver.h"
 
 // ====================
 // Normal Model Running
@@ -261,6 +262,8 @@ int translateModelToCvPre(femProgramOptions* options){
   model->ConvertNodeAndElementsToCvPre(options->inputFileName,options->outputFileName,options->useVTKFile,false,options->angleLimit);
 
   delete model;
+
+  return 0;
 }
 
 // Match The Faces in the Model
@@ -375,6 +378,9 @@ int meshVTKSkinToCVPre(femProgramOptions* options){
 
   // Delete New Model
   delete model2;
+
+  // Return OK
+  return 0;
 }
 
 // ==========================
@@ -427,6 +433,44 @@ int computeModelWSS(femProgramOptions* options){
 
   // Export to VTK
   model->ExportToVTKLegacy(options->outputFileName);
+
+  // Return OK
+  return 0;
+}
+
+// ======================
+// SOLVE POISSON EQUATION
+// ======================
+int solvePoissonEquation(femProgramOptions* options){
+  // Create New Model
+  femModel* model = new femModel();
+
+  // Read Node Coord
+  model->ReadNodeCoordsFromFile(options->nodeFileName,false);
+
+  // Read Element Connections
+  model->ReadElementConnectionsFromFile(options->connectionFileName,false);
+
+  // Read Source Term
+  model->ReadElementSourceFromFile(options->sourceFileName,false);
+
+  // Read Dirichelet Variables
+  model->ReadBoundaryValuesFromFile(options->diricheletBCFileName,false);
+
+  // Read Neumann Fluxes
+  model->ReadBoundaryValuesFromFile(options->neumannBCFileName,false);
+
+  // CREATE NEW POISSON SOLVER
+  femPoissonSolver* poisson = new femPoissonSolver();
+
+  // CREATE OPTIONS FOR POISSON SOLVER
+  femPoissonSolverOptions* slvOptions = new femPoissonSolverOptions();
+
+  // SOLVE PROBLEM
+  poisson->solve(slvOptions,model);
+
+  // Return
+  return 0;
 }
 
 // ============
@@ -476,15 +520,20 @@ int main(int argc, char **argv){
       case rmCOMPUTEMODELWSS:
         val = computeModelWSS(options);
         break;
+      case rmSOLVEPOISSON:
+        val = solvePoissonEquation(options);
+        break;
     }
   }catch (std::exception& ex){
     femUtils::WriteMessage(std::string(ex.what()));
     femUtils::WriteMessage(std::string("\n"));
     femUtils::WriteMessage(std::string("Program Terminated.\n"));
+    femUtils::WriteMessage(std::string("\n"));
     return -1;
   }
   femUtils::WriteMessage(std::string("\n"));
   femUtils::WriteMessage(std::string("Program Completed.\n"));
+  femUtils::WriteMessage(std::string("\n"));
   delete options;
   return val;
 

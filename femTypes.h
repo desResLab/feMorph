@@ -10,6 +10,8 @@ enum femResultType{frNode,frElement};
 enum intRuleType{irFirstOrder,irSecondOrder};
 
 typedef std::vector<std::vector<double>> femDoubleMat;
+typedef std::vector<std::vector<int>> femIntMat;
 typedef std::vector<double> femDoubleVec;
+typedef std::vector<int> femIntVec;
 
 #endif // FEMTYPES_H

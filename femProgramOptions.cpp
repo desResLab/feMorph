@@ -27,7 +27,7 @@ int femProgramOptions::getCommadLineOptions(int argc, char **argv){
   echoFile = fopen("options.echo","w");
 
   // Loop Through the Parameters
-  while ((c = getopt (argc, argv, "f:a:t:o:ncmelsxbdhrv")) != -1){
+  while ((c = getopt (argc, argv, "f:a:t:o:ncmelsxbdhrvz")) != -1){
     switch (c){
       case 'f':
         inputFileName = std::string(optarg);
@@ -91,6 +91,14 @@ int femProgramOptions::getCommadLineOptions(int argc, char **argv){
       case 'v':
         useVTKFile = true;
         fprintf(echoFile,"Use VTK Legacy Files For Input\n");
+        break;
+      case 'z':
+        runMode = rmSOLVEPOISSON;
+        nodeFileName = "poissonNodes.dat";
+        connectionFileName = "poissonConnections.dat";
+        sourceFileName = "poissonSources.dat";
+        diricheletBCFileName = "poissonDirBC.dat";
+        neumannBCFileName = "poissonFluxBC.dat";
         break;
       case '?':
         if (optopt == 'f'){

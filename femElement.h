@@ -50,6 +50,11 @@ class femElement
     int    getAdjacentElement(int localFaceID, std::vector<femFace*> &faceList);
     void   CreateBoundingBoxNodeList(std::vector<femNode*> &nodeList,std::vector<femNode*> &boxNodeList);
     void   CreateMinMaxNodeList(std::vector<femNode*> &nodeList,std::vector<femNode*> &minMaxNodeList);    
+
+    // POISSON PROBLEM
+    void formPoissonMatrix(std::vector<femNode*> nodeList,femIntegrationRule* rule,femDoubleMat &elMat);
+    void formPoissonSource(std::vector<femNode*> nodeList,femIntegrationRule* rule, double sourceValue,femDoubleVec &elSourceVec);
+    void formPoissonBCFlux(std::vector<femNode*> nodeList,femIntVec bcNodes, double bcValue, femIntegrationRule* rule, femDoubleVec &elBCVec);
 };
 
 // TETRAHEDRAL ELEMENT

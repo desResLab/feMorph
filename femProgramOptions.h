@@ -3,12 +3,14 @@
 
 #include <string>
 
+using namespace std;
+
 enum runModes{
   rmNORMAL,rmTRANSLATETOCVPRE,
   rmSIMPLEMAP,rmEXTRACTMESHQUALITY,
   rmMATCHFACELIST,rmMESHSKINTOCVPRE,
   rmCOMPUTEMODELEXPECTATIONS,
-  rmCOMPUTEMODELWSS
+  rmCOMPUTEMODELWSS,rmSOLVEPOISSON
 };
 
 class femProgramOptions{
@@ -24,8 +26,16 @@ class femProgramOptions{
     double tolerance;
     // Normal Angle for surface identification
     double angleLimit;
-    std::string inputFileName = "";
-    std::string outputFileName = "";
+    string inputFileName = "";
+    string outputFileName = "";
+
+    // File Names
+    string nodeFileName = "";
+    string connectionFileName = "";
+    string sourceFileName = "";
+    string diricheletBCFileName = "";
+    string neumannBCFileName = "";
+
     // MEMBER FUNCTIONS
     int getCommadLineOptions(int argc, char **argv);
 };

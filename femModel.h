@@ -14,16 +14,27 @@
 #include "femInputData.h"
 #include "femResult.h"
 
+using namespace std;
+
 class femModel
 {
   public:
-    std::vector<femNode*> nodeList;
-    std::vector<femElement*> elementList;
-    std::vector<femFace*> faceList;
-    std::vector<femEdge*> edgeList;
-    std::vector<femProperty*> propList;
+    vector<femNode*> nodeList;
+    vector<femElement*> elementList;
+    vector<femFace*> faceList;
+    vector<femEdge*> edgeList;
+    vector<femProperty*> propList;
+    // Source Array
+    femIntVec sourceElement;
+    femDoubleVec sourceValues;
+    // Dirichelet BC Array
+    femIntVec diricheletBCNode;
+    femDoubleVec diricheletBCValues;
+    // Neumann BC Array
+    femIntMat neumannBCElement;
+    femDoubleVec neumannBCValues;
     // Results
-    std::vector<femResult*> resultList;
+    vector<femResult*> resultList;
     // Enclosing Box and Model Centre
     double modelBox[6];
     double modelCentre[3];
@@ -65,6 +76,10 @@ class femModel
     void ReadModelElementsFromVTKFile(std::string fileName);
     // Read Model Results From VTK Legacy
     void ReadModelResultsFromVTKFile(std::string fileName);
+    // Read Element Sources From File
+    void ReadElementSourceFromFile(std::string fileName, bool skipFirstRow);
+    // Read Boundary Conditions From File
+    void ReadBoundaryValuesFromFile(std::string fileName, bool skipFirstRow);
 
     // =====================
     // WRITE FUNCTIONALITIES
