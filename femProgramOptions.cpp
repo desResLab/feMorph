@@ -27,7 +27,7 @@ int femProgramOptions::getCommadLineOptions(int argc, char **argv){
   echoFile = fopen("options.echo","w");
 
   // Loop Through the Parameters
-  while ((c = getopt (argc, argv, "f:a:t:o:ncmelsxbdhrvz")) != -1){
+  while ((c = getopt (argc, argv, "f:a:t:o:ncmelsxbdhrvzg")) != -1){
     switch (c){
       case 'f':
         inputFileName = std::string(optarg);
@@ -96,9 +96,15 @@ int femProgramOptions::getCommadLineOptions(int argc, char **argv){
         runMode = rmSOLVEPOISSON;
         nodeFileName = "poissonNodes.dat";
         connectionFileName = "poissonConnections.dat";
+        diffusivityFileName = "poissonDiffusivity.dat";
         sourceFileName = "poissonSources.dat";
         diricheletBCFileName = "poissonDirBC.dat";
         neumannBCFileName = "poissonFluxBC.dat";
+        break;
+      case 'g':
+        runMode = rmTESTELEMENTS;
+        nodeFileName = "poissonNodes.dat";
+        connectionFileName = "poissonConnections.dat";
         break;
       case '?':
         if (optopt == 'f'){

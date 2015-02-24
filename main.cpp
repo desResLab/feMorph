@@ -34,7 +34,8 @@ int runNormalMode(femProgramOptions* options){
   if(!options->useVTKFile){
     // Read From TEXT Files
     mainModel->ReadNodeCoordsFromFile(data->mainModelCoordsFileName,false);
-    mainModel->ReadElementConnectionsFromFile(data->mainModelConnectionsFileName,false);
+    bool numbersFromZero = false;
+    mainModel->ReadElementConnectionsFromFile(data->mainModelConnectionsFileName,false,numbersFromZero);
   }else{
     // Read From VTK
     mainModel->ReadModelNodesFromVTKFile(data->mainModelCoordsFileName);
@@ -51,7 +52,8 @@ int runNormalMode(femProgramOptions* options){
   // Read Mapping Model
   femModel* mappingModel = new femModel();
   mappingModel->ReadNodeCoordsFromFile(data->mappingModelCoordsFileName,false);
-  mappingModel->ReadElementConnectionsFromFile(data->mappingModeConnectionslFileName,false);
+  bool numbersFromZero = false;
+  mappingModel->ReadElementConnectionsFromFile(data->mappingModeConnectionslFileName,false,numbersFromZero);
   // Form Face List
   mappingModel->FormElementFaceList();
 
@@ -175,14 +177,15 @@ int simpleMapMode(femProgramOptions* options){
   // Read Main Model
   femModel* mainModel = new femModel();
   mainModel->ReadNodeCoordsFromFile(data->mainModelCoordsFileName,false);
-  mainModel->ReadElementConnectionsFromFile(data->mainModelConnectionsFileName,false);
+  bool numbersFromZero = false;
+  mainModel->ReadElementConnectionsFromFile(data->mainModelConnectionsFileName,false,numbersFromZero);
   // Form Face List
   mainModel->FormElementFaceList();
 
   // Read Mapping Model
   femModel* mappingModel = new femModel();
   mappingModel->ReadNodeCoordsFromFile(data->mappingModelCoordsFileName,false);
-  mappingModel->ReadElementConnectionsFromFile(data->mappingModeConnectionslFileName,false);
+  mappingModel->ReadElementConnectionsFromFile(data->mappingModeConnectionslFileName,false,numbersFromZero);
   // Form Face List
   mappingModel->FormElementFaceList();
 
@@ -226,7 +229,8 @@ int exctractMeshQualityDistributions(femProgramOptions* options){
 
   // Read Node Coordinates and Connections
   mainModel->ReadNodeCoordsFromFile(options->inputFileName,false);
-  mainModel->ReadElementConnectionsFromFile(options->outputFileName,false);
+  bool numbersFromZero = false;
+  mainModel->ReadElementConnectionsFromFile(options->outputFileName,false,numbersFromZero);
 
   // Form Box
   double limitBox[6];
@@ -446,19 +450,28 @@ int solvePoissonEquation(femProgramOptions* options){
   femModel* model = new femModel();
 
   // Read Node Coord
-  model->ReadNodeCoordsFromFile(options->nodeFileName,false);
+  bool skipFirstRow = false;
+  model->ReadNodeCoordsFromFile(options->nodeFileName,skipFirstRow);
 
   // Read Element Connections
-  model->ReadElementConnectionsFromFile(options->connectionFileName,false);
+  bool numbersFromZero = true;
+  model->ReadElementConnectionsFromFile(options->connectionFileName,skipFirstRow,numbersFromZero);
+
+  // Read Element Connections
+  numbersFromZero = true;
+  model->ReadDiffusivityFromFile(options->diffusivityFileName,skipFirstRow,numbersFromZero);
+
+  // Restore Positive Volume
+  model->FixedElementConnectivities();
 
   // Read Source Term
-  model->ReadElementSourceFromFile(options->sourceFileName,false);
+  model->ReadElementSourceFromFile(options->sourceFileName,skipFirstRow,numbersFromZero);
 
   // Read Dirichelet Variables
-  model->ReadBoundaryValuesFromFile(options->diricheletBCFileName,false);
+  model->ReadDirBCFromFile(options->diricheletBCFileName,skipFirstRow,numbersFromZero);
 
   // Read Neumann Fluxes
-  model->ReadBoundaryValuesFromFile(options->neumannBCFileName,false);
+  model->ReadNeumannBCFromFile(options->neumannBCFileName,skipFirstRow,numbersFromZero);
 
   // CREATE NEW POISSON SOLVER
   femPoissonSolver* poisson = new femPoissonSolver();
@@ -469,9 +482,44 @@ int solvePoissonEquation(femProgramOptions* options){
   // SOLVE PROBLEM
   poisson->solve(slvOptions,model);
 
+  // TEST : EXPORT TO VTK
+  model->ExportToVTKLegacy("test.vtk");
+
   // Return
   return 0;
 }
+
+// =========================
+// TEST ELEMENTS FORMULATION
+// =========================
+int testElementFormulation(femProgramOptions* options){
+  // Create New Model
+  femModel* model = new femModel();
+
+  // Read Node Coord
+  bool skipFirstRow = false;
+  model->ReadNodeCoordsFromFile(options->nodeFileName,skipFirstRow);
+
+  // Read Element Connections
+  bool numbersFromZero = true;
+  model->ReadElementConnectionsFromFile(options->connectionFileName,skipFirstRow,numbersFromZero);
+
+  // Restore Positive Volume
+  model->FixedElementConnectivities();
+
+  // CREATE NEW POISSON SOLVER
+  femTestSolver* test = new femTestSolver();
+
+  // CREATE OPTIONS FOR POISSON SOLVER
+  femTestSolverOptions* slvOptions = new femTestSolverOptions();
+
+  // SOLVE PROBLEM
+  test->solve(slvOptions,model);
+
+  // Return
+  return 0;
+}
+
 
 // ============
 // ============
@@ -522,6 +570,9 @@ int main(int argc, char **argv){
         break;
       case rmSOLVEPOISSON:
         val = solvePoissonEquation(options);
+        break;
+      case rmTESTELEMENTS:
+        val = testElementFormulation(options);
         break;
     }
   }catch (std::exception& ex){

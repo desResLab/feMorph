@@ -132,23 +132,28 @@ void femModel::RotateModel(double angle, double* axis){
   }
 }
 
-// ==================================
-// READ BOUNDARY CONDITIONS FROM FILE
-// ==================================
-void femModel::ReadBoundaryValuesFromFile(std::string fileName, bool skipFirstRow){
+// ==============================================
+// READ BOUNDARY CONDITIONS FROM FILE: DIRICHELET
+// ==============================================
+void femModel::ReadDirBCFromFile(std::string fileName, bool skipFirstRow, bool numbersFromZero){
+
+  // Init
+  diricheletBCNode.clear();
+  diricheletBCValues.clear();
+
   // Declare input File
   ifstream infile;
   infile.open(fileName);
 
   // Write Message
-  femUtils::WriteMessage(std::string("Reading Boundary Condition Values from file ")+fileName+std::string("..."));
+  femUtils::WriteMessage(std::string("Reading Dirichelet BCs Values from file ")+fileName+std::string("..."));
 
   // Read Data From File
   std::string buffer;
   std::vector<string> tokenizedString;
   // Initialize
-  vector<int> currIntValues;
   int lineCount = 0;
+  int bcNode = 0;
   double bcValue = 0.0;
 
   // Skip First Row If Required
@@ -165,15 +170,91 @@ void femModel::ReadBoundaryValuesFromFile(std::string fileName, bool skipFirstRo
       boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
 
       // Read node Number
-      for(size_t loopA=0;loopA<tokenizedString.size()-1;loopA++){
-        currIntValues.push_back(atoi(tokenizedString[loopA].c_str()));
+      if(numbersFromZero){
+        // Entity Numbers from 0
+        bcNode = atoi(tokenizedString[0].c_str());
+      }else{
+        // Entity Numbers from 1
+        bcNode = atoi(tokenizedString[0].c_str()) - 1;
       }
 
       // Read Coordinates
+      bcValue = atof(tokenizedString[1].c_str());
+
+      // Add to source Nodes and Values
+      diricheletBCNode.push_back(bcNode);
+      diricheletBCValues.push_back(bcValue);
+    }
+  }
+
+  // Close File
+  infile.close();
+
+  // Done.
+  femUtils::WriteMessage("Done.\n");
+}
+
+// ===========================================
+// READ BOUNDARY CONDITIONS FROM FILE: NEUMANN
+// ===========================================
+void femModel::ReadNeumannBCFromFile(std::string fileName, bool skipFirstRow, bool numbersFromZero){
+
+  // Add to source Nodes and Values
+  neumannBCElement.clear();
+  neumannBCFaceNodes.clear();
+  neumannBCValues.clear();
+
+  // Declare input File
+  ifstream infile;
+  infile.open(fileName);
+
+  // Write Message
+  femUtils::WriteMessage(std::string("Reading Neumann BCs from file ")+fileName+std::string("..."));
+
+  // Read Data From File
+  std::string buffer;
+  std::vector<string> tokenizedString;
+  // Initialize
+  int lineCount = 0;
+  int bcElement = 0;
+  int bcFace = 0;
+  double bcValue = 0.0;
+  femIntVec temp;
+
+  // Skip First Row If Required
+  if(skipFirstRow){
+    std::getline(infile,buffer);
+  }
+  while (std::getline(infile,buffer)){
+    // Increment line count
+    lineCount++;
+    // Trim String
+    boost::trim(buffer);
+    if((buffer != "")&&(buffer.at(0) != '#')){
+      // Tokenize String
+      boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
+
+      // Read Element Number
+      if(numbersFromZero){
+        // Entity Numbers from 0
+        bcElement = atoi(tokenizedString[0].c_str());
+      }else{
+        // Entity Numbers from 1
+        bcElement = atoi(tokenizedString[0].c_str()) - 1;
+      }
+
+      // Read BC Face
+      temp.clear();
+      for(int loopA=1;loopA<(tokenizedString.size()-1);loopA++){
+        temp.push_back(atoi(tokenizedString[loopA].c_str()));
+      }
+      neumannBCFaceNodes.push_back(temp);
+
+      // Read Value
       bcValue = atof(tokenizedString[tokenizedString.size()-1].c_str());
 
       // Add to source Nodes and Values
-      neumannBCElement.push_back(currIntValues);
+      neumannBCElement.push_back(bcElement);
       neumannBCValues.push_back(bcValue);
     }
   }
@@ -185,10 +266,11 @@ void femModel::ReadBoundaryValuesFromFile(std::string fileName, bool skipFirstRo
   femUtils::WriteMessage("Done.\n");
 }
 
+
 // =============================
 // READ ELEMENT SOURCE FROM FILE
 // =============================
-void femModel::ReadElementSourceFromFile(std::string fileName, bool skipFirstRow){
+void femModel::ReadElementSourceFromFile(std::string fileName, bool skipFirstRow, bool numbersFromZero){
   // Declare input File
   ifstream infile;
   infile.open(fileName);
@@ -217,7 +299,11 @@ void femModel::ReadElementSourceFromFile(std::string fileName, bool skipFirstRow
       boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
 
       // Read node Number
-      currElNumber = atoi(tokenizedString[0].c_str());
+      if(numbersFromZero){
+        currElNumber = atoi(tokenizedString[0].c_str());
+      }else{
+        currElNumber = atoi(tokenizedString[0].c_str()) - 1;
+      }
 
       // Read Coordinates
       sourceValue = atof(tokenizedString[1].c_str());
@@ -225,6 +311,68 @@ void femModel::ReadElementSourceFromFile(std::string fileName, bool skipFirstRow
       // Add to source Nodes and Values
       sourceElement.push_back(currElNumber);
       sourceValues.push_back(sourceValue);
+    }
+  }
+
+  // Close File
+  infile.close();
+
+  // Done.
+  femUtils::WriteMessage("Done.\n");
+}
+
+// ============================
+// Read diffusivities from file
+// ============================
+void femModel::ReadDiffusivityFromFile(std::string fileName, bool skipFirstRow, bool numbersFromZero){
+  // Declare input File
+  ifstream infile;
+  infile.open(fileName);
+  double diffX = 0.0;
+  double diffY = 0.0;
+  double diffZ = 0.0;
+  femDoubleVec temp;
+
+  // Write Message
+  femUtils::WriteMessage(std::string("Reading Element Diffusivities from file ")+fileName+std::string("..."));
+
+  // Read Data From File
+  std::string buffer;
+  std::vector<string> tokenizedString;
+  // Initialize
+  int currElNumber = 0;
+  int lineCount = 0;
+  // Skip First Row If Required
+  if(skipFirstRow){
+    std::getline(infile,buffer);
+  }
+  while (std::getline(infile,buffer)){
+    // Increment line count
+    lineCount++;
+    // Trim String
+    boost::trim(buffer);
+    if((buffer != "")&&(buffer.at(0) != '#')){
+      // Tokenize String
+      boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
+
+      // Read node Number
+      if(numbersFromZero){
+        currElNumber = atoi(tokenizedString[0].c_str());
+      }else{
+        currElNumber = atoi(tokenizedString[0].c_str()) - 1;
+      }
+
+      // Read Coordinates
+      temp.clear();
+      diffX = atof(tokenizedString[1].c_str());
+      diffY = atof(tokenizedString[2].c_str());
+      diffZ = atof(tokenizedString[3].c_str());
+      temp.push_back(diffX);
+      temp.push_back(diffY);
+      temp.push_back(diffZ);
+
+      // Add to source Nodes and Values
+      elDiffusivity.push_back(temp);
     }
   }
 
@@ -298,7 +446,7 @@ void femModel::ReadNodeCoordsFromFile(std::string fileName, bool skipFirstRow){
 // =====================================
 // Read Element Connectivities From File
 // =====================================
-void femModel::ReadElementConnectionsFromFile(std::string fileName, bool skipFirstRow){
+void femModel::ReadElementConnectionsFromFile(std::string fileName, bool skipFirstRow, bool numbersFromZero){
   // Declare input File
   ifstream infile;
   infile.open(fileName);
@@ -326,14 +474,25 @@ void femModel::ReadElementConnectionsFromFile(std::string fileName, bool skipFir
       boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
 
       // Read element Number: IMPORTANT they start from 1 in the file
-      currElementNumber = atoi(tokenizedString[0].c_str()) - 1;
+      if(numbersFromZero){
+        // Element numbering starts from 0
+        currElementNumber = atoi(tokenizedString[0].c_str());
+      }else{
+        // Element numbering starts from 1
+        currElementNumber = atoi(tokenizedString[0].c_str()) - 1;
+      }
 
       // Read Element Connections
       totNodes = tokenizedString.size() - 1;
       int* nodeConnections = new int[totNodes];
       for (int loopA=0;loopA<totNodes;loopA++){
-        // node numbering starts from 1
-        nodeConnections[loopA] = atoi(tokenizedString[loopA+1].c_str()) - 1;
+        if(numbersFromZero){
+          // node numbering starts from 0
+          nodeConnections[loopA] = atoi(tokenizedString[loopA+1].c_str());
+        }else{
+          // node numbering starts from 1
+          nodeConnections[loopA] = atoi(tokenizedString[loopA+1].c_str()) - 1;
+        }
       }
 
       // Create a new Element: Fixed Property Number for the time being!!!
@@ -1132,7 +1291,7 @@ void femModel::ExportToVTKLegacy(std::string fileName){
   FILE* outFile;
   outFile = fopen(fileName.c_str(),"w");
 
-  // Wrtie Header
+  // Write Header
   fprintf(outFile,"# vtk DataFile Version 2.0\n");
   fprintf(outFile,"Model Exported from feMorph\n");
   fprintf(outFile,"ASCII\n");
@@ -1169,11 +1328,17 @@ void femModel::ExportToVTKLegacy(std::string fileName){
       fprintf(outFile,"%d\n",24);
     }else if(elementList[loopA]->elementConnections.size() == 3){
       fprintf(outFile,"%d\n",5);
+    }else if(elementList[loopA]->elementConnections.size() == 8){
+        fprintf(outFile,"%d\n",12);
     }else{
       fclose(outFile);
       throw femException("Error: Invalid element to Export.");
     }
   }
+
+  // ==========
+  // POINT DATA
+  // ==========
 
   // Point Data Header
   fprintf(outFile,"POINT_DATA %d\n",(int)nodeList.size());
@@ -1192,6 +1357,44 @@ void femModel::ExportToVTKLegacy(std::string fileName){
       fprintf(outFile,"%e\n",resultList[loopA]->values[loopB]);
     }
   }
+
+  // Print Dirichelet Boundary Conditions
+  femDoubleVec dirBC;
+  dirBC.resize(nodeList.size());
+  for(int loopA=0;loopA<nodeList.size();loopA++){
+    dirBC[loopA] = 0.0;
+  }
+  for(int loopA=0;loopA<diricheletBCNode.size();loopA++){
+    dirBC[diricheletBCNode[loopA]] = diricheletBCValues[loopA];
+  }
+  fprintf(outFile,"SCALARS dirBC double 1\n");
+  fprintf(outFile,"LOOKUP_TABLE default\n");
+  for(unsigned int loopB=0;loopB<dirBC.size();loopB++){
+    fprintf(outFile,"%e\n",dirBC[loopB]);
+  }
+
+  // PRINT NEUMANN BOUNDARY CONDITIONS ON FILE
+  femDoubleVec newBC;
+  newBC.resize(nodeList.size());
+  for(int loopA=0;loopA<nodeList.size();loopA++){
+    newBC[loopA] = 0.0;
+  }
+  for(int loopA=0;loopA<neumannBCElement.size();loopA++){
+    for(int loopB=0;loopB<neumannBCFaceNodes[loopA].size();loopB++){
+      newBC[neumannBCFaceNodes[loopA][loopB]] = 1.0;
+    }
+  }
+  fprintf(outFile,"SCALARS newBC double 1\n");
+  fprintf(outFile,"LOOKUP_TABLE default\n");
+  for(unsigned int loopB=0;loopB<newBC.size();loopB++){
+    fprintf(outFile,"%e\n",newBC[loopB]);
+  }
+
+
+  // =========
+  // CELL DATA
+  // =========
+
   // Save properties as scalars
   fprintf(outFile,"CELL_DATA %d\n",int(elementList.size()));
 
@@ -1215,13 +1418,37 @@ void femModel::ExportToVTKLegacy(std::string fileName){
   for(unsigned int loopA=0;loopA<elementList.size();loopA++){
     fprintf(outFile,"%e %e %e\n",normal[loopA][0],normal[loopA][1],normal[loopA][2]);
   }
+
+  // PRINT DIFFUSIVITY
+  fprintf(outFile,"VECTORS diffusivity double\n");
+  for(unsigned int loopA=0;loopA<elDiffusivity.size();loopA++){
+    fprintf(outFile,"%e %e %e\n",elDiffusivity[loopA][0],elDiffusivity[loopA][1],elDiffusivity[loopA][2]);
+  }
+
   /*fprintf(outFile,"SCALARS cell_scalars int 1\n");
   fprintf(outFile,"LOOKUP_TABLE default\n");
   for(unsigned int loopA=0;loopA<elementList.size();loopA++){
     fprintf(outFile,"%d\n",(int)elementList[loopA]->propertyNumber);
   }*/
+
+  // Print Source Array
+  femDoubleVec elSource;
+  elSource.resize(elementList.size());
+  for(int loopA=0;loopA<elementList.size();loopA++){
+    elSource[loopA] = 0.0;
+  }
+  for(int loopA=0;loopA<sourceElement.size();loopA++){
+    elSource[sourceElement[loopA]] = sourceValues[loopA];
+  }
+  fprintf(outFile,"SCALARS source double 1\n");
+  fprintf(outFile,"LOOKUP_TABLE default\n");
+  for(unsigned int loopB=0;loopB<elSource.size();loopB++){
+    fprintf(outFile,"%e\n",elSource[loopB]);
+  }
+
   // Close Output file
   fclose(outFile);
+
   // Write Message
   femUtils::WriteMessage(std::string("Done.\n"));
 }
@@ -2944,7 +3171,8 @@ int femModel::ConvertNodeAndElementsToCvPre(std::string nodeFileName, std::strin
     // Read Nodes from node.connection file
     ReadNodeCoordsFromFile(nodeFileName,skipFirstRow);
     // Read Elements from element.connection file
-    ReadElementConnectionsFromFile(elementFileName,skipFirstRow);
+    bool numbersFromZero = false;
+    ReadElementConnectionsFromFile(elementFileName,skipFirstRow,numbersFromZero);
   }
 
   // FIX CONNECTIVITIES
@@ -3074,7 +3302,7 @@ void femModel::ComputeWSS(){
       currElement = faceList[loopA]->faceElements[0];
 
       // Eval the shape function derivatives and Jacobian
-      elementList[currElement]->evalShapeFunctionDerivative(nodeList,0.25,0.25,0.25,shDerivs);
+      elementList[currElement]->evalGlobalShapeFunctionDerivative(nodeList,0.25,0.25,0.25,shDerivs);
       Jacobian = elementList[currElement]->evalJacobian(nodeList,0.25,0.25,0.25);
       if(Jacobian<0.0){
         throw femException("INTERNAL: Negative Jacobian!\n");
@@ -3210,14 +3438,18 @@ void femModel::ComputeWSS(){
 // FIX ELEMENT CONNECTIVITIES
 // ==========================
 void femModel::FixedElementConnectivities(){
-  double currMixed = 0.0;
+  // Use Sedcond Order Integration Rule
+  femIntegrationRule* rule = new femIntegrationRule(irSecondOrder);
+  double minDetJ = std::numeric_limits<double>::max();
   for(size_t loopA=0;loopA<elementList.size();loopA++){
-    currMixed = elementList[loopA]->EvalMixProduct(nodeList);
-    if(currMixed<0.0){
-      printf("Fixed!\n");
-      elementList[loopA]->swapNodes();
+    minDetJ = elementList[loopA]->checkMinDetJ(nodeList,rule);
+    if(minDetJ<=0.0){
+      //printf("FLIPPED %f \n",minDetJ);
+      elementList[loopA]->fixConnectivities(nodeList);
     }
   }
+  // Free
+  delete rule;
 }
 
 // ==============================================

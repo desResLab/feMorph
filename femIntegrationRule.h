@@ -4,10 +4,14 @@
 #include "femTypes.h"
 
 class femIntegrationRule{
+  protected:
+    intRuleType type;
   public:
-    int totalGP;
-    femDoubleMat coords;
-    femDoubleVec weight;
+    // DATA ACCESS
+    int getTotGP(int totNodes);
+    femDoubleMat getCoords(int totNodes);
+    femDoubleVec getWeights(int totNodes);
+
     // CONSTRUCTOR
     femIntegrationRule(intRuleType type);
 };

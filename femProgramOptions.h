@@ -10,7 +10,8 @@ enum runModes{
   rmSIMPLEMAP,rmEXTRACTMESHQUALITY,
   rmMATCHFACELIST,rmMESHSKINTOCVPRE,
   rmCOMPUTEMODELEXPECTATIONS,
-  rmCOMPUTEMODELWSS,rmSOLVEPOISSON
+  rmCOMPUTEMODELWSS,rmSOLVEPOISSON,
+  rmTESTELEMENTS
 };
 
 class femProgramOptions{
@@ -32,6 +33,7 @@ class femProgramOptions{
     // File Names
     string nodeFileName = "";
     string connectionFileName = "";
+    string diffusivityFileName = "";
     string sourceFileName = "";
     string diricheletBCFileName = "";
     string neumannBCFileName = "";

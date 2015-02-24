@@ -27,11 +27,14 @@ class femModel
     // Source Array
     femIntVec sourceElement;
     femDoubleVec sourceValues;
+    // Element Diffusivity
+    femDoubleMat elDiffusivity;
     // Dirichelet BC Array
     femIntVec diricheletBCNode;
     femDoubleVec diricheletBCValues;
     // Neumann BC Array
-    femIntMat neumannBCElement;
+    femIntVec neumannBCElement;
+    femIntMat neumannBCFaceNodes;
     femDoubleVec neumannBCValues;
     // Results
     vector<femResult*> resultList;
@@ -65,7 +68,7 @@ class femModel
     // Read Only Coords
     void ReadNodeCoordsFromFile(std::string fileName, bool skipFirstRow);
     // Read Only Element Connections
-    void ReadElementConnectionsFromFile(std::string fileName, bool skipFirstRow);
+    void ReadElementConnectionsFromFile(std::string fileName, bool skipFirstRow, bool numbersFromZero);
     // Read Node Displacements From File
     void ReadNodeDisplacementsFromFile(std::string fileName, bool readRotations);
     // Read File From VTK Legacy
@@ -77,9 +80,13 @@ class femModel
     // Read Model Results From VTK Legacy
     void ReadModelResultsFromVTKFile(std::string fileName);
     // Read Element Sources From File
-    void ReadElementSourceFromFile(std::string fileName, bool skipFirstRow);
-    // Read Boundary Conditions From File
-    void ReadBoundaryValuesFromFile(std::string fileName, bool skipFirstRow);
+    void ReadElementSourceFromFile(std::string fileName, bool skipFirstRow, bool numbersFromZero);
+    // Read Dirichelet Boundary Conditions From File
+    void ReadDirBCFromFile(std::string fileName, bool skipFirstRow, bool numbersFromZero);
+    // Read Neumann Boundary Conditions From File
+    void ReadNeumannBCFromFile(std::string fileName, bool skipFirstRow, bool numbersFromZero);
+    // Read Element Diffusivity From File
+    void ReadDiffusivityFromFile(std::string fileName, bool skipFirstRow, bool numbersFromZero);
 
     // =====================
     // WRITE FUNCTIONALITIES

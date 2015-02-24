@@ -24,3 +24,15 @@ void femVector::applyDirichelet(femIntVec diricheletBCNode,femDoubleVec dirichel
     values[diricheletBCNode[loopA]] = diricheletBCValues[loopA];
   }
 }
+
+// WRITE VECTOR TO FILE
+void femVector::writeToFile(string fileName){
+  //Create File
+  FILE* f;
+  f = fopen(fileName.c_str(),"w");
+  for(int loopA=0;loopA<values.size();loopA++){
+    fprintf(f,"%e \n",values[loopA]);
+  }
+  // Close File
+  fclose(f);
+}

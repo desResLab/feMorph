@@ -3,32 +3,35 @@
 # include "femConstants.h"
 # include "femUtils.h"
 
-// EVAL JACOBIAN MATRIX
-void evalJacobianMatrixLocal(int numberOfNodes, femDoubleMat elNodeCoords, femDoubleMat shLocalDerivs, femDoubleMat &jacMat){
-  // Assemble Jacobian Matrix
-  for(int loopA=0;loopA<kDims;loopA++){
-    for(int loopB=0;loopB<kDims;loopB++){
-      jacMat[loopA][loopB] = 0.0;
-      for(int loopC=0;loopC<numberOfNodes;loopC++){
-        jacMat[loopA][loopB] += shLocalDerivs[loopC][loopA] * elNodeCoords[loopC][loopB];
-      }
-    }
-  }
+// EVAL SHAPE FUNCTION AT GIVEN LOCATION
+void femHexa8::evalShapeFunction(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction){
+ shapeFunction.clear();
+ shapeFunction.reserve(numberOfNodes);
+ double c1[8] = {-1.0,1.0,1.0,-1.0,-1.0,1.0,1.0,-1.0};
+ double c2[8] = {-1.0,-1.0,1.0,1.0,-1.0,-1.0,1.0,1.0};
+ double c3[8] = {-1.0,-1.0,-1.0,-1.0,1.0,1.0,1.0,1.0};
+ double currN = 0.0;
+ for(int loopA=0;loopA<numberOfNodes;loopA++){
+   currN = (1.0/8.0)*(1.0 + coord1 * c1[loopA])*
+                     (1.0 + coord2 * c2[loopA])*
+                     (1.0 + coord3 * c3[loopA]);
+   shapeFunction.push_back(currN);
+ }
 }
 
-void evalShLocalDerivative(double coord1, double coord2, double coord3, femDoubleMat &shLocalDerivs){
-  shLocalDerivs.clear();
-  shLocalDerivs.reserve(8);
+void femHexa8::evalLocalShapeFunctionDerivative(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv){
+  shapeDeriv.clear();
+  shapeDeriv.reserve(numberOfNodes);
   double c1[8] = {-1.0,1.0,1.0,-1.0,-1.0,1.0,1.0,-1.0};
   double c2[8] = {-1.0,-1.0,1.0,1.0,-1.0,-1.0,1.0,1.0};
   double c3[8] = {-1.0,-1.0,-1.0,-1.0,1.0,1.0,1.0,1.0};
   femDoubleVec temp;
-  for(int loopA=0;loopA<8;loopA++){
+  for(int loopA=0;loopA<numberOfNodes;loopA++){
     temp.clear();
     temp.push_back((1.0/8.0)*c1[loopA]*(1.0 + coord2 * c2[loopA])*(1.0 + coord3 * c3[loopA]));
     temp.push_back((1.0/8.0)*c2[loopA]*(1.0 + coord1 * c1[loopA])*(1.0 + coord3 * c3[loopA]));
     temp.push_back((1.0/8.0)*c3[loopA]*(1.0 + coord1 * c1[loopA])*(1.0 + coord2 * c2[loopA]));
-    shLocalDerivs.push_back(temp);
+    shapeDeriv.push_back(temp);
   }
 }
 
@@ -44,79 +47,43 @@ double femHexa8::EvalVolume(std::vector<femNode*> &nodeList){
   throw femException("Not Implemented.\n");
 }
 
-void femHexa8::swapNodes(){
-  throw femException("Not Implemented.\n");
+// EVAL ELEMENT MIXED PRODUCT
+double femHexa8::EvalMixProduct(std::vector<femNode*> &nodeList){
+  // Init
+  double vecA[3] = {0.0};
+  double vecB[3] = {0.0};
+  double vecC[3] = {0.0};
+  double vec1[3] = {0.0};
+  double currProd = 0.0;
+  // Get three vectors
+  vecA[0] = nodeList[elementConnections[1]]->coords[0] - nodeList[elementConnections[0]]->coords[0];
+  vecA[1] = nodeList[elementConnections[1]]->coords[1] - nodeList[elementConnections[0]]->coords[1];
+  vecA[2] = nodeList[elementConnections[1]]->coords[2] - nodeList[elementConnections[0]]->coords[2];
+  vecB[0] = nodeList[elementConnections[2]]->coords[0] - nodeList[elementConnections[0]]->coords[0];
+  vecB[1] = nodeList[elementConnections[2]]->coords[1] - nodeList[elementConnections[0]]->coords[1];
+  vecB[2] = nodeList[elementConnections[2]]->coords[2] - nodeList[elementConnections[0]]->coords[2];
+  vecC[0] = nodeList[elementConnections[4]]->coords[0] - nodeList[elementConnections[0]]->coords[0];
+  vecC[1] = nodeList[elementConnections[4]]->coords[1] - nodeList[elementConnections[0]]->coords[1];
+  vecC[2] = nodeList[elementConnections[4]]->coords[2] - nodeList[elementConnections[0]]->coords[2];
+  // Get external product
+  femUtils::Do3DExternalProduct(vecA,vecB,vec1);
+  // Get Internal Product
+  currProd = femUtils::Do3DInternalProduct(vec1,vecC);
+  return currProd;
 }
 
-// EVAL SHAPE FUNCTION AT GIVEN LOCATION
-void femHexa8::evalShapeFunction(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction){
- shapeFunction.clear();
- shapeFunction.reserve(8);
- double c1[8] = {-1.0,1.0,1.0,-1.0,-1.0,1.0,1.0,-1.0};
- double c2[8] = {-1.0,-1.0,1.0,1.0,-1.0,-1.0,1.0,1.0};
- double c3[8] = {-1.0,-1.0,-1.0,-1.0,1.0,1.0,1.0,1.0};
- double currN = 0.0;
- for(int loopA=0;loopA<8;loopA++){
-   currN = (1.0/8.0)*(1.0 + coord1 * c1[loopA])*
-                     (1.0 + coord2 * c2[loopA])*
-                     (1.0 + coord3 * c3[loopA]);
-   shapeFunction.push_back(currN);
- }
-}
-// EVAL SHAPE FUNCTION DERIVATIVES RESPECT TO GLOBAL COORDINATES
-void femHexa8::evalShapeFunctionDerivative(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv){
+// SWAP NODES
+void femHexa8::fixConnectivities(std::vector<femNode*> &nodeList){
+  // Swap 2 with 3
+  int temp = elementConnections[2];
+  elementConnections[2] = elementConnections[3];
+  elementConnections[3] = temp;
 
-  // Compute Node Coordinate Vector
-  int currNode = 0;
-  femDoubleMat elNodeCoords;
-  elNodeCoords.resize(8);
-  for(int loopA=0;loopA<8;loopA++){
-    elNodeCoords[loopA].resize(kDims);
-  }
-  for(int loopA=0;loopA<numberOfNodes;loopA++){
-    currNode = elementConnections[loopA];
-    for(int loopB=0;loopB<kDims;loopB++){
-      elNodeCoords[loopA][loopB] = nodeList[currNode]->coords[loopB];
-    }
-  }
-
-  // Compute Local Derivatives
-  femDoubleMat shLocalDerivs;
-  evalShLocalDerivative(coord1,coord2,coord3,shLocalDerivs);
-
-  // Compute Jacobian Matrix
-  femDoubleMat jacMat;
-  evalJacobianMatrixLocal(numberOfNodes,elNodeCoords,shLocalDerivs,jacMat);
-
-  // Invert Jacobian Matrix
-  femDoubleMat invJacMat;
-  double detJ;
-  femUtils::invert3x3Matrix(jacMat,invJacMat,detJ);
-
-  // Obtain Global SF Derivatives
-  femDoubleVec temp;
-  for(int loopA=0;loopA<numberOfNodes;loopA++){
-    for(int loopB=0;loopB<kDims;loopB++){
-      shapeDeriv[loopA][loopB] = 0.0;
-      for(int loopC=0;loopC<kDims;loopC++){
-        shapeDeriv[loopA][loopB] += invJacMat[loopB][loopC] * shLocalDerivs[loopA][loopC];
-      }
-    }
-  }
+  // Swap 6 with 7
+  temp = elementConnections[6];
+  elementConnections[6] = elementConnections[7];
+  elementConnections[7] = temp;
 }
 
-// EVAL JACOBIAN DETERMINANT
-double femHexa8::evalJacobian(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3){
-  throw femException("Not Implemented.\n");
-}
 
-// EVAL JACOBIAN DETERMINANT
-void femHexa8::evalJacobianMatrix(double coord1, double coord2, double coord3, femDoubleMat shDerivs){
-  throw femException("Not Implemented.\n");
-}
-
-// EVAL INTEGRATION RULE
-femIntegrationRule* femHexa8::evalIntegrationRule(intRuleType type){
-  throw femException("Not Implemented.\n");
-}
 

@@ -2,12 +2,13 @@
 # include "femException.h"
 
 femMatrix::femMatrix(){
-  throw femException("Not Implemented.\n");
 }
 
 // CONSTRUCTOR FOR DENSE MATRIX
 femDenseMatrix::femDenseMatrix(femModel* model){
   int totDof = model->nodeList.size();
+  totRows = totDof;
+  totCols = totDof;
   values.resize(totDof);
   for(int loopA=0;loopA<totDof;loopA++){
     values[loopA].resize(totDof);
@@ -86,19 +87,11 @@ void femDenseMatrix::applyDirichelet(femIntVec dofs){
   for(int loopA=0;loopA<size;loopA++){
     currIndex = dofs[loopA];
     // Operate on row
-    for(int loopB=0;loopB<(int)values.size();loopB++){
+    for(int loopB=0;loopB<(int)values[0].size();loopB++){
       if(loopB == currIndex){
         values[currIndex][loopB] = 1.0;
       }else{
         values[currIndex][loopB] = 0.0;
-      }
-    }
-    // Operate on column
-    for(int loopB=0;loopB<(int)values[0].size();loopB++){
-      if(loopB == currIndex){
-        values[loopB][currIndex] = 1.0;
-      }else{
-        values[loopB][currIndex] = 0.0;
       }
     }
   }
@@ -129,6 +122,44 @@ void femSparseMatrix::applyDirichelet(femIntVec dofs){
   }
 }
 
+// WRITE MATRIX TO FILE
+void femMatrix::writeToFile(string fileName){
+  throw femException("Not Implemented.\n");
+}
+
+void femDenseMatrix::writeToFile(string fileName){
+  //Create File
+  FILE* f;
+  f = fopen(fileName.c_str(),"w");
+  for(int loopA=0;loopA<totRows;loopA++){
+    for(int loopB=0;loopB<totCols;loopB++){
+      fprintf(f,"%e ",values[loopA][loopB]);
+    }
+    fprintf(f,"\n");
+  }
+  // Close File
+  fclose(f);
+}
+
+void femSparseMatrix::writeToFile(string fileName){
+  throw femException("Not Implemented.\n");
+}
+
+double femMatrix::getRowSum(int loopA){
+  throw femException("Not Implemented.\n");
+}
+
+double femDenseMatrix::getRowSum(int row){
+  double sum = 0.0;
+  for(int loopA=0;loopA<totCols;loopA++){
+    sum += values[row][loopA];
+  }
+  return sum;
+}
+
+double femSparseMatrix::getRowSum(int loopA){
+  throw femException("Not Implemented.\n");
+}
 
 
 

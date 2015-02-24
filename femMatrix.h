@@ -9,11 +9,16 @@ class femMatrix{
   public:
     int totRows;
     int totCols;
+
     // CONSTRUCTOR
     femMatrix();
+
     // VIRTUAL FUNCTIONS
     virtual void assemble(femDoubleMat elMat,femIntVec connections);
     virtual void applyDirichelet(femIntVec dofs);
+    // I/O
+    virtual void writeToFile(string fileName);
+    virtual double getRowSum(int loopA);
 };
 
 // DERIVED DENSE MATRIX CLASS
@@ -25,8 +30,13 @@ class femDenseMatrix: public femMatrix{
     // CONSTRUCTOR
     femDenseMatrix(femModel* model);
 
+    // VIRTUAL FUNCTIONS
     virtual void assemble(femDoubleMat elMat,femIntVec connections);
     virtual void applyDirichelet(femIntVec dofs);
+    // I/O
+    virtual void writeToFile(string fileName);
+    virtual double getRowSum(int loopA);
+
 };
 
 
@@ -41,8 +51,12 @@ class femSparseMatrix: public femMatrix{
     // CONSTRUCTOR
     femSparseMatrix(femModel* model);
 
+    // VIRTUAL FUNCTIONS
     virtual void assemble(femDoubleMat elMat,femIntVec connections);
     virtual void applyDirichelet(femIntVec dofs);
+    // I/O
+    virtual void writeToFile(string fileName);
+    virtual double getRowSum(int loopA);
 };
 
 

@@ -9,3 +9,7 @@ femAdvectionDiffusionOptions::femAdvectionDiffusionOptions(){
 femPoissonSolverOptions::femPoissonSolverOptions(){
 }
 
+femTestSolverOptions::femTestSolverOptions(){
+
+}
+

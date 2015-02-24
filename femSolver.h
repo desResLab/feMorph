@@ -28,6 +28,13 @@ class femPoissonSolver: public femSolver{
     virtual void solve(femOption* options, femModel* model);
 };
 
+// TEST ELEMENTS
+class femTestSolver: public femSolver{
+  public:
+    femTestSolver();
+    // SOLVE PROBLEM
+    virtual void solve(femOption* options, femModel* model);
+};
 
 
 #endif // FEMSOLVER_H

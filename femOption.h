@@ -19,4 +19,10 @@ class femPoissonSolverOptions: public femOption{
     femPoissonSolverOptions();
 };
 
+// TEST SOLVER OPTIONS
+class femTestSolverOptions: public femOption{
+  public:
+    femTestSolverOptions();
+};
+
 #endif // FEMOPTION_H

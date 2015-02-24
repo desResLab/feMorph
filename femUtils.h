@@ -46,10 +46,9 @@ inline void WriteAppHeader(){
   WriteMessage("\n");
   WriteMessage("------------------------------------\n");
   WriteMessage("FEM Morphing Application\n");
-  WriteMessage("Release 0.1 beta\n");
-  WriteMessage("Daniele Schiavazzi Ph.D., 2013\n");
-  WriteMessage("Marsden LAB\n");
-  WriteMessage("University of California @ San Diego\n");
+  WriteMessage("Alpha Release 0.5\n");
+  WriteMessage("Daniele Schiavazzi Ph.D., 2015\n");
+  WriteMessage("University of California, San Diego\n");
   WriteMessage("------------------------------------\n");
   WriteMessage("\n");
 }
