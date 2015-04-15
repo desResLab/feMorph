@@ -35,10 +35,6 @@ void femHexa8::evalLocalShapeFunctionDerivative(std::vector<femNode*> nodeList, 
   }
 }
 
-bool femHexa8::is2D(){
-  return false;
-}
-
 bool femHexa8::isNodeInsideElement(double dispFactor, double* pointCoords,std::vector<femNode*> &nodeList){
   throw femException("Not Implemented.\n");
 }

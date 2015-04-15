@@ -25,7 +25,7 @@ class femModel
     vector<femEdge*> edgeList;
     vector<femProperty*> propList;
     // Element Velocity
-    femDoubleVec elVelocity;
+    femDoubleMat elVelocity;
     // Source Array
     femIntVec sourceElement;
     femDoubleVec sourceValues;
@@ -89,6 +89,11 @@ class femModel
     void ReadNeumannBCFromFile(std::string fileName, bool skipFirstRow, bool numbersFromZero);
     // Read Element Diffusivity From File
     void ReadDiffusivityFromFile(std::string fileName, bool skipFirstRow, bool numbersFromZero);
+    // Read Model From Text File
+    void ReadFromFEMTextFile(std::string fileName);
+    // Read Advection Velocity From File
+    void ReadVelocityFromTextFile(std::string fileName);
+
 
     // =====================
     // WRITE FUNCTIONALITIES

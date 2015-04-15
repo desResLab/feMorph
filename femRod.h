@@ -8,8 +8,8 @@ class femRod: public femElement{
   public:
     // Data
     double area;
-    // Member Functions
-    femRod(int number, int prop, int totalNodes, int* connections):femElement(number,prop,totalNodes,connections){numberOfNodes = 2;}
+    // Constructor/Descructor
+    femRod(int number, int prop, int totalNodes, int* connections,double currArea);
     virtual ~femRod(){}
 
     // Member Functions

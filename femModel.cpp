@@ -12,6 +12,7 @@
 #include "femModel.h"
 #include "femGrid.h"
 #include "femPoint.h"
+#include "femRod.h"
 #include "femInputData.h"
 #include "femException.h"
 #include "femConstants.h"
@@ -333,6 +334,17 @@ void femModel::ReadDiffusivityFromFile(std::string fileName, bool skipFirstRow, 
   double diffZ = 0.0;
   femDoubleVec temp;
 
+  // Initialize Diffusivities to zero
+  femDoubleVec tempDiff;
+  elDiffusivity.clear();
+  for(int loopA=0;loopA<elementList.size();loopA++){
+    tempDiff.clear();
+    tempDiff.push_back(0.0);
+    tempDiff.push_back(0.0);
+    tempDiff.push_back(0.0);
+    elDiffusivity.push_back(tempDiff);
+  }
+
   // Write Message
   femUtils::WriteMessage(std::string("Reading Element Diffusivities from file ")+fileName+std::string("..."));
 
@@ -363,16 +375,15 @@ void femModel::ReadDiffusivityFromFile(std::string fileName, bool skipFirstRow, 
       }
 
       // Read Coordinates
-      temp.clear();
       diffX = atof(tokenizedString[1].c_str());
       diffY = atof(tokenizedString[2].c_str());
       diffZ = atof(tokenizedString[3].c_str());
-      temp.push_back(diffX);
-      temp.push_back(diffY);
-      temp.push_back(diffZ);
 
       // Add to source Nodes and Values
-      elDiffusivity.push_back(temp);
+      elDiffusivity[currElNumber][0] = diffX;
+      elDiffusivity[currElNumber][1] = diffY;
+      elDiffusivity[currElNumber][2] = diffZ;
+
     }
   }
 
@@ -3574,3 +3585,121 @@ void femModel::ApplyParametricDisplacements(femInputData* data){
 //    }
 //  }
 //}
+
+// =========================
+// Read Model From Text File
+// =========================
+void femModel::ReadFromFEMTextFile(std::string fileName){
+
+  // Declare input File
+  std::ifstream infile;
+  infile.open(fileName);
+
+  // Declare
+  std::vector<string> tokenizedString;
+  int pointCount = 0;
+  int nodeCount = 0;
+  int currCoordCount = 0;
+  double* fileCoords = nullptr;
+  femNode* newNode;
+  int currNumber = 0.0;
+  double currX,currY,currZ;
+  int rodConnections[2];
+  int currProp = 0;
+  double currArea = 0.0;
+
+  // Read Data From File
+  std::string buffer;
+  while (std::getline(infile,buffer)){
+    // Trim String
+    boost::trim(buffer);
+    // Tokenize String
+    boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
+    // CHECK THE ELEMENT TYPE
+    if(boost::to_upper_copy(tokenizedString[0]) == std::string("NODE")){
+      try{
+        // Element Number
+        currNumber = atoi(tokenizedString[1].c_str());
+        currX = atoi(tokenizedString[2].c_str());
+        currY = atoi(tokenizedString[3].c_str());
+        currZ = atoi(tokenizedString[4].c_str());
+      }catch(...){
+        throw femException("ERROR: Invalid Node Format.\n");
+      }
+      // Create New Node
+      femNode* newNode = new femNode(currNumber,currX,currY,currZ);
+      // Add To Node List
+      nodeList.push_back(newNode);
+    }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("ROD")){
+      try{
+        // Element Number
+        currNumber = atoi(tokenizedString[1].c_str());
+        currProp = atoi(tokenizedString[2].c_str());
+        // Read Two Element Connections: 1-Based
+        rodConnections[0] = atoi(tokenizedString[3].c_str())-1;
+        rodConnections[1] = atoi(tokenizedString[4].c_str())-1;
+        // Read Area
+        currArea = atof(tokenizedString[5].c_str());
+      }catch(...){
+        throw femException("ERROR: Invalid ROD Element Format.\n");
+      }
+      // Create New Element
+      femElement* newElement = new femRod(currNumber,currProp,2,rodConnections,currArea);
+      elementList.push_back(newElement);
+    }
+  }
+  // Close File
+  infile.close();
+}
+
+// =================================
+// Read Advection Velocity From File
+// =================================
+void femModel::ReadVelocityFromTextFile(std::string fileName){
+  // Declare input File
+  std::ifstream infile;
+  infile.open(fileName);
+
+  // Initialize Velocity List
+  femDoubleVec tempVel;
+  for(int loopA=0;loopA<nodeList.size();loopA++){
+    tempVel.clear();
+    tempVel.push_back(0.0);
+    tempVel.push_back(0.0);
+    tempVel.push_back(0.0);
+    elVelocity.push_back(tempVel);
+  }
+
+  // Declare
+  std::vector<string> tokenizedString;
+  int currNumber = 0.0;
+  double currVelX,currVelY,currVelZ;
+
+  // Read Data From File
+  std::string buffer;
+  while (std::getline(infile,buffer)){
+    // Trim String
+    boost::trim(buffer);
+    // Tokenize String
+    boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
+    try{
+      // Read Element Number: 1-Based
+      currNumber = atoi(tokenizedString[0].c_str());
+      // Read Velocities
+      currVelX = atoi(tokenizedString[1].c_str());
+      currVelY = atoi(tokenizedString[2].c_str());
+      currVelZ = atoi(tokenizedString[3].c_str());
+    }catch(...){
+      throw femException("ERROR: Invalid Element Velocity Format.\n");
+    }
+    // Assign Velocity
+    elVelocity[currNumber-1][0] = currVelX;
+    elVelocity[currNumber-1][1] = currVelY;
+    elVelocity[currNumber-1][2] = currVelZ;
+  }
+  // Close File
+  infile.close();
+}
+
+
+

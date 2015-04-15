@@ -50,9 +50,6 @@ bool femElement::isNodeInsideElement(double dispFactor, double* pointCoords, std
 void femElement::EvalVolumeCoordinates(double dispFactor, double* pointCoords, std::vector<femNode*> &nodeList, double* volCoords){
   throw femException("Not Implemented.\n");
 }
-bool femElement::is2D(){
-  throw femException("Not Implemented.\n");
-}
 double femElement::EvalVolume(double dispFactor, std::vector<femNode*> &nodeList){
   throw femException("Not Implemented.\n");
 }
@@ -945,12 +942,14 @@ double femElement::integrateNodalVector(std::vector<femNode*> nodeList,femIntegr
   return result;
 }
 
-// ASSEMBLE ADVECTION DIFFUSION EQUATION
+// ================================
+// ASSEMBLE ADVECTION DIFFUSION LHS
+// ================================
 void femElement::formAdvDiffLHS(std::vector<femNode*> nodeList,femIntegrationRule* rule,femDoubleVec diffusivity,femDoubleVec velocity,femDoubleMat &elMat){
 
   // GET SCALAR Diffusivity and Velocity
-  scalarDiff = diffusivity[0];
-  scalarVel = velocity[0];
+  double scalarDiff = diffusivity[0];
+  double scalarVel = velocity[0];
 
   // CLEAR AND ALLOCATE MATRIX
   elMat.clear();
@@ -966,6 +965,7 @@ void femElement::formAdvDiffLHS(std::vector<femNode*> nodeList,femIntegrationRul
 
   // INIT SHAPE DERIVATIVE MATRIX
   femDoubleMat shapeDeriv;
+  femDoubleVec shapeFunction;
 
   // GAUSS POINTS LOOP
   femDoubleMat intCoords;
@@ -1007,6 +1007,9 @@ void femElement::formAdvDiffLHS(std::vector<femNode*> nodeList,femIntegrationRul
   }
 }
 
+// ================================
+// ASSEMBLE ADVECTION DIFFUSION RHS
+// ================================
 void femElement::formAdvDiffRHS(std::vector<femNode*> nodeList,femIntegrationRule* rule,double sourceValue,femDoubleVec &elSourceVec){
 
   // Shape Function Values

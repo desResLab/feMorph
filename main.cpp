@@ -489,6 +489,38 @@ int solvePoissonEquation(femProgramOptions* options){
   return 0;
 }
 
+// ===============================================
+// SOLVE STEADY-STATE ADVECTION-DIFFUSION EQUATION
+// ===============================================
+int solveSteadyStateAdvectionDiffusionEquation(femProgramOptions* options){
+  // Create New Model
+  femModel* model = new femModel();
+
+  // Read Model From Text File
+  model->ReadFromFEMTextFile(options->inputFileName);
+
+  // Read Advection Velocity From File
+  model->ReadVelocityFromTextFile(options->velocityFileName);
+
+  // Read Element Connections
+  bool numbersFromZero = false;
+  bool skipFirstRow = false;
+  model->ReadDiffusivityFromFile(options->diffusivityFileName,skipFirstRow,numbersFromZero);
+
+  // CREATE NEW POISSON SOLVER
+  femSteadyStateAdvectionDiffusionSolver* advDiffSolver = new femSteadyStateAdvectionDiffusionSolver();
+
+  // CREATE OPTIONS FOR POISSON SOLVER
+  femPoissonSolverOptions* slvOptions = new femPoissonSolverOptions();
+
+  // SOLVE PROBLEM
+  advDiffSolver->solve(slvOptions,model);
+
+  // Return
+  return 0;
+}
+
+
 // =========================
 // TEST ELEMENTS FORMULATION
 // =========================
@@ -570,6 +602,9 @@ int main(int argc, char **argv){
         break;
       case rmSOLVEPOISSON:
         val = solvePoissonEquation(options);
+        break;
+      case rmSOLVESTEADYSTATEADVECTIONDIFFUSION:
+        val = solveSteadyStateAdvectionDiffusionEquation(options);
         break;
       case rmTESTELEMENTS:
         val = testElementFormulation(options);

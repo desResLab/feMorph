@@ -13,9 +13,9 @@ class femSolver{
 };
 
 // ADVECTION DIFFUSION SOLVER
-class femAdvectionDiffusionSolver: public femSolver{
+class femSteadyStateAdvectionDiffusionSolver: public femSolver{
   public:
-    femAdvectionDiffusionSolver();
+    femSteadyStateAdvectionDiffusionSolver();
     // SOLVE PROBLEM
     virtual void solve(femOption* options, femModel* model);
 };

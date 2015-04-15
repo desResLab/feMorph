@@ -1,7 +1,8 @@
 # include "femRod.h"
 # include "femException.h"
 
-femRod::femRod(double currArea){
+femRod::femRod(int number, int prop, int totalNodes, int* connections, double currArea):femElement(number,prop,totalNodes,connections){
+  numberOfNodes = 2;
   area = currArea;
   dims = d1;
 }

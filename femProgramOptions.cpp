@@ -27,7 +27,7 @@ int femProgramOptions::getCommadLineOptions(int argc, char **argv){
   echoFile = fopen("options.echo","w");
 
   // Loop Through the Parameters
-  while ((c = getopt (argc, argv, "f:a:t:o:ncmelsxbdhrvzg")) != -1){
+  while ((c = getopt (argc, argv, "f:a:t:o:ncmelsxbdhrvzgu")) != -1){
     switch (c){
       case 'f':
         inputFileName = std::string(optarg);
@@ -100,6 +100,12 @@ int femProgramOptions::getCommadLineOptions(int argc, char **argv){
         sourceFileName = "poissonSources.dat";
         diricheletBCFileName = "poissonDirBC.dat";
         neumannBCFileName = "poissonFluxBC.dat";
+        break;
+      case 'u':
+        runMode = rmSOLVESTEADYSTATEADVECTIONDIFFUSION;
+        inputFileName = "inputMesh.dat";
+        velocityFileName = "inputVel_1.dat";
+        diffusivityFileName = "inputVel_1.dat";
         break;
       case 'g':
         runMode = rmTESTELEMENTS;

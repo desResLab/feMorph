@@ -41,7 +41,7 @@ femSolver::femSolver(){
 }
 
 // ADVECTION-DIFFUSION SOLVER
-femAdvectionDiffusionSolver::femAdvectionDiffusionSolver(){
+femSteadyStateAdvectionDiffusionSolver::femSteadyStateAdvectionDiffusionSolver(){
 }
 
 // POISSON SOLVER
@@ -59,7 +59,7 @@ void femSolver::solve(femOption* options, femModel* model){
 }
 
 // SOLVE ADVECTION-DIFFUSION PROBLEM
-void femAdvectionDiffusionSolver::solve(femOption* options, femModel* model){
+void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel* model){
     printf("Solving Advection-Diffusion...\n");
 
     // Get Integration Rule
@@ -84,6 +84,10 @@ void femAdvectionDiffusionSolver::solve(femOption* options, femModel* model){
       // Assemble Sparse Matrix
       advDiffMat->assemble(elMat,model->elementList[loopElement]->elementConnections);
     }
+
+    // PRINT LHS MATRIX
+    advDiffMat->writeToFile(string("lhsMatrix.txt"));
+
 
     // ASSEMBLE RHS TERM
     printf("Assembling RHS Vector...\n");
@@ -116,7 +120,7 @@ void femAdvectionDiffusionSolver::solve(femOption* options, femModel* model){
     res->type = frNode;
     // Assign to values
     for(size_t loopA=0;loopA<solution.size();loopA++){
-      //printf("Solution %d %f\n",loopA,solution[loopA]);
+      printf("Solution %d %f\n",loopA,solution[loopA]);
       res->values.push_back(solution[loopA]);
     }
     model->resultList.push_back(res);
@@ -124,42 +128,6 @@ void femAdvectionDiffusionSolver::solve(femOption* options, femModel* model){
     // Free Memory
     //delete poissonMat;
     //delete poissonVec;
-
-
-
-/*
-  // Initialize Solution
-  initSolution(model,scalarVector);
-
-  // Get Integration Rule
-  femIntegrationRule* rule = new femIntegrationRule(irSecondOrder);
-
-  // Time Loop
-  double currentTime = 0.0;
-  for(int loopTime=0;loopTime<options.totalTimeSteps;loopTime++){
-
-    // Advance in time
-    if(loopTime>0){
-      currentTime += options.timeStep;
-    }
-
-    // Get Local Mass and Stiffness Matrices from each element
-    for(int loopElement=0;loopElement<model->elementList.size();loopElement++){
-      // Get Stabilitzation Parameter at Gauss Points
-      elementList[loopElement]->assembleStab(rule,tauSUPG);
-      // Get Mass
-      elementList[loopElement]->assembleMass(nodeVelocities,model->nodeList,tauSUPG,rule,massMat);
-      // Get Stiffness
-      elementList[loopElement]->assembleStiffness(nodeVelocities,model->nodeList,tauSUPG,rule,diffusivity,stiffnessMat);
-      // Get RHS
-      elementList[loopElement]->assembleRHS();
-      // Assemble in Global Sparse Matrix and RHS Vector
-      assembleInSparseMatrixAndRHS(massMat,stiffnessMat,RHS);
-    }
-
-    // Solve Linear System
-
-  }*/
 }
 
 // ======================

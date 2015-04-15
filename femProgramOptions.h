@@ -11,7 +11,7 @@ enum runModes{
   rmMATCHFACELIST,rmMESHSKINTOCVPRE,
   rmCOMPUTEMODELEXPECTATIONS,
   rmCOMPUTEMODELWSS,rmSOLVEPOISSON,
-  rmTESTELEMENTS
+  rmTESTELEMENTS,rmSOLVESTEADYSTATEADVECTIONDIFFUSION
 };
 
 class femProgramOptions{
@@ -31,6 +31,7 @@ class femProgramOptions{
     string outputFileName = "";
 
     // File Names
+    string velocityFileName = "";
     string nodeFileName = "";
     string connectionFileName = "";
     string diffusivityFileName = "";

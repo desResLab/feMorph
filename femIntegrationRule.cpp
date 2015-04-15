@@ -42,7 +42,13 @@ femDoubleMat femIntegrationRule::getCoords(int totNodes){
   switch(type){
     // First Order Integration Rules
     case irFirstOrder:
-      if(totNodes == kTri3Nodes){
+      if(totNodes == kRodNodes){
+        // First Order Integration for Triangles
+        tempCoords.push_back(0.0);
+        tempCoords.push_back(0.0);
+        tempCoords.push_back(0.0);
+        result.push_back(tempCoords);
+      }else if(totNodes == kTri3Nodes){
         // First Order Integration for Triangles
         tempCoords.push_back(1.0/3.0);
         tempCoords.push_back(1.0/3.0);
@@ -72,7 +78,20 @@ femDoubleMat femIntegrationRule::getCoords(int totNodes){
       break;
     // Second Order Integration Rules
     case irSecondOrder:
-      if(totNodes == kTri3Nodes){
+      if(totNodes == kRodNodes){
+        // Point 1
+        tempCoords.clear();
+        tempCoords.push_back(1.0/sqrt(3.0));
+        tempCoords.push_back(0.0);
+        tempCoords.push_back(0.0);
+        result.push_back(tempCoords);
+        // Point 2
+        tempCoords.clear();
+        tempCoords.push_back(1.0/sqrt(3.0));
+        tempCoords.push_back(0.0);
+        tempCoords.push_back(0.0);
+        result.push_back(tempCoords);
+      }else if(totNodes == kTri3Nodes){
         // Point 1
         tempCoords.clear();
         tempCoords.push_back(0.5);
@@ -212,7 +231,11 @@ femDoubleVec femIntegrationRule::getWeights(int totNodes){
   double origVolume = 0.0;
   switch(type){
     case irFirstOrder:
-      if(totNodes == kTri3Nodes){
+      if(totNodes == kRodNodes){
+        // Second Order Integration Rule for Triangles
+        origVolume = 2.0;
+        result.push_back(origVolume*1.0);
+      }else if(totNodes == kTri3Nodes){
         // Second Order Integration Rule for Triangles
         origVolume = 0.5;
         result.push_back(origVolume*1.0);
@@ -230,7 +253,11 @@ femDoubleVec femIntegrationRule::getWeights(int totNodes){
       }
       break;
     case irSecondOrder:
-      if(totNodes == kTri3Nodes){
+      if(totNodes == kRodNodes){
+        origVolume = 2.0;
+        result.push_back(origVolume*0.5);
+        result.push_back(origVolume*0.5);
+      }else if(totNodes == kTri3Nodes){
         // Second Order Integration Rule for Triangles
         origVolume = 0.5;
         result.push_back(origVolume*(1.0/3.0));
