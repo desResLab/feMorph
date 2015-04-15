@@ -23,6 +23,7 @@ const int kGridSizeY = 10;
 const int kGridSizeZ = 10;
 
 // Constants: ELEMENTS
+const int kRodNodes = 2;
 // Number of face in tetrahedra 4
 const int kTri3Nodes = 3;
 // Number of face in tetrahedra 4

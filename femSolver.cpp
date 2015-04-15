@@ -8,6 +8,34 @@
 
 using namespace std;
 
+// ======================================
+// SOLVE LINEAR SYSTEM WITH DIRECT METHOD
+// ======================================
+femDoubleVec solveLinearSystem(femDenseMatrix* poissonMat,femVector* poissonVec){
+  // Initialize Armadillo Matrix
+  arma::mat A(poissonMat->totRows,poissonMat->totCols);
+  for(int loopA=0;loopA<poissonMat->totRows;loopA++){
+    for(int loopB=0;loopB<poissonMat->totCols;loopB++){
+      A(loopA,loopB) = poissonMat->values[loopA][loopB];
+    }
+  }
+  // Fill RHS Vector
+  arma::vec b(poissonVec->values.size());
+  for(int loopA=0;loopA<poissonVec->values.size();loopA++){
+    b(loopA) = poissonVec->values[loopA];
+  }
+  printf("Solving...\n");
+  // Solve Linear Set of equations
+  arma::vec x = solve(A, b);
+  // Return
+  femDoubleVec result;
+  for(int loopA=0;loopA<x.size();loopA++){
+    result.push_back(x[loopA]);
+  }
+  // Return Result
+  return result;
+}
+
 // MAIN SOLVER CLASS
 femSolver::femSolver(){
 }
@@ -32,6 +60,73 @@ void femSolver::solve(femOption* options, femModel* model){
 
 // SOLVE ADVECTION-DIFFUSION PROBLEM
 void femAdvectionDiffusionSolver::solve(femOption* options, femModel* model){
+    printf("Solving Advection-Diffusion...\n");
+
+    // Get Integration Rule
+    femIntegrationRule* rule = new femIntegrationRule(irSecondOrder);
+
+    // Init Sparse Matrix and Dense Vector
+    femMatrix* advDiffMat;
+    advDiffMat = new femDenseMatrix(model);
+    femVector* advDiffVec = new femVector((int)model->nodeList.size());
+
+    // Local Element Matrix
+    femDoubleMat elMat;
+    femDoubleVec elRhs;
+    femDoubleVec elBCVec;
+    femIntVec currIdxList;
+
+    // ASSEMBLE LHS MATRIX
+    printf("Assembling RHS Matrix...\n");
+    for(size_t loopElement=0;loopElement<model->elementList.size();loopElement++){
+      // Assemble Advection-Diffusion Matrix
+      model->elementList[loopElement]->formAdvDiffLHS(model->nodeList,rule,(femDoubleVec)model->elDiffusivity[loopElement],(femDoubleVec)model->elVelocity[loopElement],elMat);
+      // Assemble Sparse Matrix
+      advDiffMat->assemble(elMat,model->elementList[loopElement]->elementConnections);
+    }
+
+    // ASSEMBLE RHS TERM
+    printf("Assembling RHS Vector...\n");
+    int currEl = 0;
+    double currDiff = 0.0;
+    double currValue = 0.0;
+    for(size_t loopSource=0;loopSource<model->sourceElement.size();loopSource++){
+      // Get Current Element
+      currEl = model->sourceElement[loopSource];
+      // Eval Source Vector
+      model->elementList[currEl]->formAdvDiffRHS(model->nodeList,rule,model->sourceValues[loopSource],elRhs);
+      // Assemble Source Vector
+      advDiffVec->assemble(elRhs,model->elementList[currEl]->elementConnections);
+    }
+
+    // APPLY DIRICHELET BOUNDARY CONDITIONS
+    printf("Assembling Dirichelet BCs...\n");
+    // Sparse Matrix
+    advDiffMat->applyDirichelet(model->diricheletBCNode);
+    // RHS Vector
+    advDiffVec->applyDirichelet(model->diricheletBCNode,model->diricheletBCValues);
+
+    // SOLVE LINEAR SYSTEM OF EQUATIONS
+    femDoubleVec solution;
+    solution = solveLinearSystem((femDenseMatrix*)advDiffMat,advDiffVec);
+
+    // ADD SOLUTION TO MODEL RESULTS
+    femResult* res = new femResult();
+    res->label = string("PoissonResult");
+    res->type = frNode;
+    // Assign to values
+    for(size_t loopA=0;loopA<solution.size();loopA++){
+      //printf("Solution %d %f\n",loopA,solution[loopA]);
+      res->values.push_back(solution[loopA]);
+    }
+    model->resultList.push_back(res);
+
+    // Free Memory
+    //delete poissonMat;
+    //delete poissonVec;
+
+
+
 /*
   // Initialize Solution
   initSolution(model,scalarVector);
@@ -65,34 +160,6 @@ void femAdvectionDiffusionSolver::solve(femOption* options, femModel* model){
     // Solve Linear System
 
   }*/
-}
-
-// ======================================
-// SOLVE LINEAR SYSTEM WITH DIRECT METHOD
-// ======================================
-femDoubleVec solveLinearSystem(femDenseMatrix* poissonMat,femVector* poissonVec){
-  // Initialize Armadillo Matrix
-  arma::mat A(poissonMat->totRows,poissonMat->totCols);
-  for(int loopA=0;loopA<poissonMat->totRows;loopA++){
-    for(int loopB=0;loopB<poissonMat->totCols;loopB++){
-      A(loopA,loopB) = poissonMat->values[loopA][loopB];
-    }
-  }
-  // Fill RHS Vector
-  arma::vec b(poissonVec->values.size());
-  for(int loopA=0;loopA<poissonVec->values.size();loopA++){
-    b(loopA) = poissonVec->values[loopA];
-  }
-  printf("Solving...\n");
-  // Solve Linear Set of equations
-  arma::vec x = solve(A, b);
-  // Return
-  femDoubleVec result;
-  for(int loopA=0;loopA<x.size();loopA++){
-    result.push_back(x[loopA]);
-  }
-  // Return Result
-  return result;
 }
 
 // ======================
@@ -177,7 +244,6 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
   for(int loopA=0;loopA<poissonVec->getSize();loopA++){
     poissonVec->values[loopA] += elBCVec[loopA];
   }
-
 
   // APPLY DIRICHELET BOUNDARY CONDITIONS
   printf("Assembling Dirichelet...\n");

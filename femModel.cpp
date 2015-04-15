@@ -2218,7 +2218,7 @@ int pickNotVisited(int size, bool* isVisited){
 // EVAL ELEMENT NORMAL ONLY FOR 2D ELEMENTS
 // ========================================
 void femModel::eval2DElementNormal(int firstElement, double* normal){
-  if(elementList[firstElement]->is2D()){
+  if(elementList[firstElement]->dims == d2){
     int elNodes[3] = {0};
     double firstVector[3] = {0.0};
     double secondVector[3] = {0.0};

@@ -16,7 +16,9 @@ int femIntegrationRule::getTotGP(int totNodes){
       result = 1;
       break;
     case irSecondOrder:
-      if(totNodes == kTri3Nodes){
+      if(totNodes == kRodNodes){
+        result = 2;
+      }else if(totNodes == kTri3Nodes){
         result = 3;
       }else if(totNodes == kTetra4Nodes){
         result = 4;

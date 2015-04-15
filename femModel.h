@@ -24,6 +24,8 @@ class femModel
     vector<femFace*> faceList;
     vector<femEdge*> edgeList;
     vector<femProperty*> propList;
+    // Element Velocity
+    femDoubleVec elVelocity;
     // Source Array
     femIntVec sourceElement;
     femDoubleVec sourceValues;

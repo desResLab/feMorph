@@ -944,3 +944,102 @@ double femElement::integrateNodalVector(std::vector<femNode*> nodeList,femIntegr
   //printf("GP %d, Value %f, Weight %f, Result: %f\n",rule->getTotGP(numberOfNodes),currGPValue,intWeights[0],result);
   return result;
 }
+
+// ASSEMBLE ADVECTION DIFFUSION EQUATION
+void femElement::formAdvDiffLHS(std::vector<femNode*> nodeList,femIntegrationRule* rule,femDoubleVec diffusivity,femDoubleVec velocity,femDoubleMat &elMat){
+
+  // GET SCALAR Diffusivity and Velocity
+  scalarDiff = diffusivity[0];
+  scalarVel = velocity[0];
+
+  // CLEAR AND ALLOCATE MATRIX
+  elMat.clear();
+  elMat.resize(numberOfNodes);
+  for(int loopA=0;loopA<numberOfNodes;loopA++){
+    elMat[loopA].resize(numberOfNodes);
+  }
+  for(int loopA=0;loopA<numberOfNodes;loopA++){
+    for(int loopB=0;loopB<numberOfNodes;loopB++){
+      elMat[loopA][loopB] = 0.0;
+    }
+  }
+
+  // INIT SHAPE DERIVATIVE MATRIX
+  femDoubleMat shapeDeriv;
+
+  // GAUSS POINTS LOOP
+  femDoubleMat intCoords;
+  femDoubleVec intWeights;
+  double detJ = 0.0;
+  double currStiff = 0.0;
+
+  // Get Integration Coords and Weights
+  intCoords = rule->getCoords(numberOfNodes);
+  intWeights = rule->getWeights(numberOfNodes);
+
+  // Gauss Point Loop
+  for(int loopA=0;loopA<rule->getTotGP(numberOfNodes);loopA++){
+
+    // Eval Shape Function
+    evalShapeFunction(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeFunction);
+
+    // Eval Current Shape Derivatives Matrix
+    evalGlobalShapeFunctionDerivative(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeDeriv);
+
+    // Eval Determinant of the Jacobian Matrix
+    detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
+
+    // Eval Resulting Matrix
+    for(int loopB=0;loopB<numberOfNodes;loopB++){
+      for(int loopC=0;loopC<numberOfNodes;loopC++){
+        currStiff = 0.0;
+        for(int loopD=0;loopD<kDims;loopD++){
+          currStiff +=
+          // Diffusion
+          scalarDiff * shapeDeriv[loopB][loopD] * shapeDeriv[loopC][loopD] +
+          // Advection
+          scalarVel * shapeFunction[loopB] * shapeDeriv[loopC][loopD];
+        }
+        // Assemble Gauss Point Contribution
+        elMat[loopB][loopC] += currStiff * detJ * intWeights[loopA];
+      }
+    }
+  }
+}
+
+void femElement::formAdvDiffRHS(std::vector<femNode*> nodeList,femIntegrationRule* rule,double sourceValue,femDoubleVec &elSourceVec){
+
+  // Shape Function Values
+  femDoubleVec shapeFunction;
+
+  // Init Source Array
+  elSourceVec.clear();
+  elSourceVec.resize(numberOfNodes);
+  for(int loopA=0;loopA<numberOfNodes;loopA++){
+    elSourceVec[loopA] = 0.0;
+  }
+
+  // Gauss Point Loop
+  femDoubleMat intCoords;
+  femDoubleVec intWeights;
+  double detJ = 0.0;
+
+  // Get Integration Coords and Weights
+  intCoords = rule->getCoords(numberOfNodes);
+  intWeights = rule->getWeights(numberOfNodes);
+
+  for(int loopA=0;loopA<rule->getTotGP(numberOfNodes);loopA++){
+
+    // Eval Shape Function At the current GP
+    evalShapeFunction(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeFunction);
+
+    // Eval Determinant of the Jacobian Matrix
+    detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
+
+    // Eval Resulting Matrix
+    for(int loopB=0;loopB<numberOfNodes;loopB++){
+      elSourceVec[loopB] += shapeFunction[loopB] * sourceValue * detJ * intWeights[loopA];
+    }
+  }
+}
+
