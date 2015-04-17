@@ -87,7 +87,7 @@ femDoubleMat femIntegrationRule::getCoords(int totNodes){
         result.push_back(tempCoords);
         // Point 2
         tempCoords.clear();
-        tempCoords.push_back(1.0/sqrt(3.0));
+        tempCoords.push_back(-1.0/sqrt(3.0));
         tempCoords.push_back(0.0);
         tempCoords.push_back(0.0);
         result.push_back(tempCoords);

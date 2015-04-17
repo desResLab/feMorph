@@ -105,7 +105,9 @@ int femProgramOptions::getCommadLineOptions(int argc, char **argv){
         runMode = rmSOLVESTEADYSTATEADVECTIONDIFFUSION;
         inputFileName = "inputMesh.dat";
         velocityFileName = "inputVel_1.dat";
-        diffusivityFileName = "inputVel_1.dat";
+        diffusivityFileName = "inputDiff.dat";
+        diricheletBCFileName = "dirBC.dat";
+        sourceFileName = "source.dat";
         break;
       case 'g':
         runMode = rmTESTELEMENTS;

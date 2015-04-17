@@ -640,6 +640,13 @@ inline void invert3x3Matrix(femDoubleMat mat,femDoubleMat &invMat, double &detJ)
   invMat[2][2] = A33/detJ;
 }
 
+// HYPERBOLIC COTANGENT
+inline double coth(double value){
+  double temp;
+  temp = exp(value);
+  return (temp + 1 / temp) / (temp - 1 / temp);
+}
+
 }
 
 #endif // FEMUTILS_H

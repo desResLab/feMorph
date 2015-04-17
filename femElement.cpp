@@ -99,8 +99,10 @@ void femElement::evalLocalShapeFunctionDerivative(std::vector<femNode*> nodeList
   throw femException("Not Implemented.\n");
 }
 
+// ====================
 // EVAL JACOBIAN MATRIX
-void evalJacobianMatrixLocal(int numberOfNodes, femDoubleMat elNodeCoords, femDoubleMat shLocalDerivs, femDoubleMat &jacMat){
+// ====================
+void evalJacobianMatrixLocal(int numberOfNodes, femDoubleMat elNodeCoords, femDoubleMat shLocalDerivs, elDim dims, femDoubleMat &jacMat){
   jacMat.resize(kDims);
   for(int loopA=0;loopA<kDims;loopA++){
     jacMat[loopA].resize(kDims);
@@ -114,12 +116,19 @@ void evalJacobianMatrixLocal(int numberOfNodes, femDoubleMat elNodeCoords, femDo
       }
     }
   }
+  // Put one on the diagonal for 1D and 2D problems
+  if(dims == d1){
+    jacMat[1][1] = 1.0;
+    jacMat[2][2] = 1.0;
+  }else if(dims == d2){
+    jacMat[2][2] = 1.0;
+  }
 }
 
 // ====================
 // EVAL JACOBIAN MATRIX
 // ====================
-void femElement::evalJacobianMatrix(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &jacMat){
+void femElement::evalJacobianMatrix(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, elDim dims, femDoubleMat &jacMat){
 
   // Compute Node Coordinate Vector
   int currNode = 0;
@@ -140,7 +149,7 @@ void femElement::evalJacobianMatrix(std::vector<femNode*> nodeList, double coord
   evalLocalShapeFunctionDerivative(nodeList,coord1,coord2,coord3,shLocalDerivs);
 
   // Compute Jacobian Matrix
-  evalJacobianMatrixLocal(numberOfNodes,elNodeCoords,shLocalDerivs,jacMat);
+  evalJacobianMatrixLocal(numberOfNodes,elNodeCoords,shLocalDerivs,dims,jacMat);
 }
 
 // ===========================
@@ -168,7 +177,7 @@ double femElement::evalJacobian(std::vector<femNode*> nodeList, double coord1, d
 
   // Compute Jacobian Matrix
   femDoubleMat jacMat;
-  evalJacobianMatrixLocal(numberOfNodes,elNodeCoords,shLocalDerivs,jacMat);
+  evalJacobianMatrixLocal(numberOfNodes,elNodeCoords,shLocalDerivs,dims,jacMat);
 
   // Print Jac Matrix
   //printf("JACOBIAN MATRIX\n");
@@ -194,6 +203,10 @@ double femElement::evalJacobian(std::vector<femNode*> nodeList, double coord1, d
 // ======================================
 void femElement::evalGlobalShapeFunctionDerivative(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &globShDeriv){
 
+  // Flag to print shape functions
+  bool printSF = false;
+  bool printJAC = false;
+
   // Compute Node Coordinate Vector
   int currNode = 0;
   femDoubleMat elNodeCoords;
@@ -212,27 +225,31 @@ void femElement::evalGlobalShapeFunctionDerivative(std::vector<femNode*> nodeLis
   femDoubleMat shLocalDerivs;
   evalLocalShapeFunctionDerivative(nodeList,coord1,coord2,coord3,shLocalDerivs);
 
-  //printf("Local Shape Functions\n");
-  //for(int loopA=0;loopA<numberOfNodes;loopA++){
-  //    printf("Node %d, dx: %f, dy: %f, dz: %f\n",loopA,shLocalDerivs[loopA][0],shLocalDerivs[loopA][1],shLocalDerivs[loopA][2]);
-  //}
-  //printf("\n");
+  // Print Shape Functions if requested
+  if(printSF){
+    printf("Local Shape Functions\n");
+    for(int loopA=0;loopA<numberOfNodes;loopA++){
+        printf("Node %d, dx: %f, dy: %f, dz: %f\n",loopA,shLocalDerivs[loopA][0],shLocalDerivs[loopA][1],shLocalDerivs[loopA][2]);
+    }
+    printf("\n");
+  }
 
   // Compute Jacobian Matrix
   femDoubleMat jacMat;
-  evalJacobianMatrixLocal(numberOfNodes,elNodeCoords,shLocalDerivs,jacMat);
+  evalJacobianMatrixLocal(numberOfNodes,elNodeCoords,shLocalDerivs,dims,jacMat);
 
   // Invert Jacobian Matrix
   femDoubleMat invJacMat;
   double detJ;
   femUtils::invert3x3Matrix(jacMat,invJacMat,detJ);
 
-  //printf("Jacobian\n");
-  //for(int loopA=0;loopA<kDims;loopA++){
-  //    printf("%f %f %f\n",jacMat[loopA][0],jacMat[loopA][1],jacMat[loopA][2]);
-  //}
-  //printf("\n");
-
+  if(printJAC){
+    printf("Jacobian\n");
+    for(int loopA=0;loopA<kDims;loopA++){
+      printf("%12.3f %12.3f %12.3f\n",jacMat[loopA][0],jacMat[loopA][1],jacMat[loopA][2]);
+    }
+    printf("\n");
+  }
 
   // Allocate Global Shape derivatives
   globShDeriv.clear();
@@ -951,6 +968,29 @@ void femElement::formAdvDiffLHS(std::vector<femNode*> nodeList,femIntegrationRul
   double scalarDiff = diffusivity[0];
   double scalarVel = velocity[0];
 
+  // Eval Element Length
+  double elSize = EvalVolume(1.0,nodeList);
+
+  // Eval Factor
+  double alpha = (scalarVel*elSize)/(2.0*scalarDiff);
+  double tauFactor = femUtils::coth(alpha) - 1.0/alpha;
+
+  // CHOOSE ARTIFICIAL DIFFUSION MODEL
+  int schemeType = 0; // SUPG
+  //int schemeType = 1; // GALERKIN
+  //int schemeType = 2; // UD
+  //int schemeType = 3; // GALERKIN + EAD
+  double artDiff = 0.0;
+  if(schemeType == 0){
+    artDiff = 0.0;
+  }else if(schemeType == 1){
+    artDiff = 0.0;
+  }else if(schemeType == 2){
+    artDiff = 0.5 * elSize * scalarVel;
+  }else if(schemeType == 3){
+    artDiff = 0.5 * elSize * scalarVel * tauFactor;
+  }
+
   // CLEAR AND ALLOCATE MATRIX
   elMat.clear();
   elMat.resize(numberOfNodes);
@@ -971,11 +1011,12 @@ void femElement::formAdvDiffLHS(std::vector<femNode*> nodeList,femIntegrationRul
   femDoubleMat intCoords;
   femDoubleVec intWeights;
   double detJ = 0.0;
-  double currStiff = 0.0;
 
   // Get Integration Coords and Weights
   intCoords = rule->getCoords(numberOfNodes);
   intWeights = rule->getWeights(numberOfNodes);
+
+  // printf("Total Gauss Points: %d\n",rule->getTotGP(numberOfNodes));
 
   // Gauss Point Loop
   for(int loopA=0;loopA<rule->getTotGP(numberOfNodes);loopA++){
@@ -983,22 +1024,43 @@ void femElement::formAdvDiffLHS(std::vector<femNode*> nodeList,femIntegrationRul
     // Eval Shape Function
     evalShapeFunction(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeFunction);
 
+    //printf(" Gauss Point %f %f %f\n",intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
+    //printf(" Shape Function %f %f\n",shapeFunction[0],shapeFunction[1]);
+
     // Eval Current Shape Derivatives Matrix
     evalGlobalShapeFunctionDerivative(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeDeriv);
+
+    //printf("dN1/dx %f, dN1/dy %f, dN1/dz %f\n",shapeDeriv[0][0],shapeDeriv[0][1],shapeDeriv[0][2]);
+    //printf("dN2/dx %f, dN2/dy %f, dN2/dz %f\n",shapeDeriv[1][0],shapeDeriv[1][1],shapeDeriv[1][2]);
 
     // Eval Determinant of the Jacobian Matrix
     detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
 
+    // printf("detJ %f\n",detJ);
+
     // Eval Resulting Matrix
+    double currStiff = 0.0;
+    double diffTerm = 0.0;
+    double advTerm = 0.0;
+    double currSign = 0.0;
     for(int loopB=0;loopB<numberOfNodes;loopB++){
       for(int loopC=0;loopC<numberOfNodes;loopC++){
         currStiff = 0.0;
-        for(int loopD=0;loopD<kDims;loopD++){
-          currStiff +=
-          // Diffusion
-          scalarDiff * shapeDeriv[loopB][loopD] * shapeDeriv[loopC][loopD] +
-          // Advection
-          scalarVel * shapeFunction[loopB] * shapeDeriv[loopC][loopD];
+        for(int loopD=0;loopD<kDims;loopD++){          
+          // Check if SUPG
+          if(schemeType == 0){
+            // SUPG Diffusion
+            diffTerm = scalarDiff * shapeDeriv[loopB][loopD] * shapeDeriv[loopC][loopD];
+            // SUPG Advection: SHOULD YOU USE THE LOCAL OR GLOBAL SHAPE DERIV??
+            advTerm = scalarVel * (shapeFunction[loopB] + (0.5*elSize*tauFactor)*shapeDeriv[loopB][loopD]) * shapeDeriv[loopC][loopD];
+          }else{
+            // Diffusion
+            diffTerm = (scalarDiff + artDiff) * shapeDeriv[loopB][loopD] * shapeDeriv[loopC][loopD];
+            // Advection
+            advTerm = scalarVel * shapeFunction[loopB] * shapeDeriv[loopC][loopD];
+          }
+          // Combine the two
+          currStiff += diffTerm + advTerm;
         }
         // Assemble Gauss Point Contribution
         elMat[loopB][loopC] += currStiff * detJ * intWeights[loopA];
@@ -1007,13 +1069,47 @@ void femElement::formAdvDiffLHS(std::vector<femNode*> nodeList,femIntegrationRul
   }
 }
 
+// EVAL FORCING FOR ADV-DIFF EXERCISE
+double evalForcing(double coord,double advVelocity,double totLength){
+  double result = 0.0;
+  if((coord>=0.0)&&(coord<=3.75)){
+    result = (16.0*advVelocity/totLength)*(1.0 - 4.0*coord/totLength);
+  }else if((coord>3.75)&&(coord<=5.0)){
+    result = (16.0*advVelocity/totLength)*(-2.0 + 4.0*coord/totLength);
+  }else{
+    result = 0.0;
+  }
+  return result;
+}
+
 // ================================
 // ASSEMBLE ADVECTION DIFFUSION RHS
 // ================================
-void femElement::formAdvDiffRHS(std::vector<femNode*> nodeList,femIntegrationRule* rule,double sourceValue,femDoubleVec &elSourceVec){
+void femElement::formAdvDiffRHS(std::vector<femNode*> nodeList,femIntegrationRule* rule,double sourceValue,femDoubleVec diffusivity,femDoubleVec velocity,femDoubleVec &elSourceVec){
+
+  // CHOOSE ARTIFICIAL DIFFUSION MODEL
+  int schemeType = 0; // SUPG
+  //int schemeType = 1; // GALERKIN
+  //int schemeType = 2; // UD
+  //int schemeType = 3; // GALERKIN + EAD
+
+  // GET SCALAR Diffusivity and Velocity
+  double scalarDiff = diffusivity[0];
+  double scalarVel = velocity[0];
+
+  // Eval Element Length
+  double elSize = EvalVolume(1.0,nodeList);
+
+  // Eval Factor
+  double alpha = (scalarVel*elSize)/(2.0*scalarDiff);
+  double tauFactor = femUtils::coth(alpha) - 1.0/alpha;
 
   // Shape Function Values
   femDoubleVec shapeFunction;
+  femDoubleVec shapeFunction1;
+  femDoubleVec shapeFunction2;
+  femDoubleMat shapeDeriv1;
+  femDoubleMat shapeDeriv2;
 
   // Init Source Array
   elSourceVec.clear();
@@ -1022,27 +1118,84 @@ void femElement::formAdvDiffRHS(std::vector<femNode*> nodeList,femIntegrationRul
     elSourceVec[loopA] = 0.0;
   }
 
-  // Gauss Point Loop
-  femDoubleMat intCoords;
-  femDoubleVec intWeights;
-  double detJ = 0.0;
+  bool exactForcing = true;
 
-  // Get Integration Coords and Weights
-  intCoords = rule->getCoords(numberOfNodes);
-  intWeights = rule->getWeights(numberOfNodes);
+  if(exactForcing){
+    // Use the Trapeziodal rule
+    // Get end Nodes
+    double node1x = nodeList[elementConnections[0]]->coords[0];
+    double node2x = nodeList[elementConnections[1]]->coords[0];
 
-  for(int loopA=0;loopA<rule->getTotGP(numberOfNodes);loopA++){
+    // Choose the total number of intervals
+    int totalTrapzPoints = 8;
 
-    // Eval Shape Function At the current GP
-    evalShapeFunction(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeFunction);
+    // Loop on trapeziodal points
+    elSourceVec[0] = 0.0;
+    elSourceVec[1] = 0.0;
+    double intCoordX1 = 0.0;
+    double intCoordX2 = 0.0;
+    double normCoord1 = 0.0;
+    double normCoord2 = 0.0;
+    double currForcing1 = 0.0;
+    double currForcing2 = 0.0;
+    for(int loopA=0;loopA<totalTrapzPoints;loopA++){
+      // Eval Physical Coordinates
+      intCoordX1 = node1x + loopA*(node2x - node1x)/(double)totalTrapzPoints;
+      intCoordX2 = node1x + (loopA + 1)*(node2x - node1x)/(double)totalTrapzPoints;
+      // Eval Normalized Coords
+      normCoord1 = (2.0*intCoordX1/(node2x - node1x)) - 1.0;
+      normCoord2 = (2.0*intCoordX2/(node2x - node1x)) - 1.0;
 
-    // Eval Determinant of the Jacobian Matrix
-    detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
+      // Eval Shape Function At the current Trapz Point
+      evalShapeFunction(nodeList,normCoord1,0.0,0.0,shapeFunction1);
+      evalShapeFunction(nodeList,normCoord2,0.0,0.0,shapeFunction2);
 
-    // Eval Resulting Matrix
-    for(int loopB=0;loopB<numberOfNodes;loopB++){
-      elSourceVec[loopB] += shapeFunction[loopB] * sourceValue * detJ * intWeights[loopA];
+      // Eval Current Shape Derivatives
+      evalGlobalShapeFunctionDerivative(nodeList,normCoord1,0.0,0.0,shapeDeriv1);
+      evalGlobalShapeFunctionDerivative(nodeList,normCoord2,0.0,0.0,shapeDeriv2);
+
+      if(schemeType = 0){
+        shapeFunction1[0] += (0.5*elSize*tauFactor)*shapeDeriv1[0][0];
+        shapeFunction1[1] += (0.5*elSize*tauFactor)*shapeDeriv1[1][0];
+        shapeFunction2[0] += (0.5*elSize*tauFactor)*shapeDeriv2[0][0];
+        shapeFunction2[1] += (0.5*elSize*tauFactor)*shapeDeriv2[1][0];
+      }
+
+      // Eval Forcing
+      currForcing1 = evalForcing(intCoordX1,scalarVel,elSize);
+      currForcing2 = evalForcing(intCoordX2,scalarVel,elSize);
+      // Eval RHS for element
+      elSourceVec[0] += 0.5*(intCoordX2-intCoordX1)*(currForcing1*shapeFunction1[0] + currForcing2*shapeFunction2[0]);
+      elSourceVec[1] += 0.5*(intCoordX2-intCoordX1)*(currForcing1*shapeFunction1[1] + currForcing2*shapeFunction2[1]);
+    }
+
+    printf("source 0: %f\n",elSourceVec[0]);
+    printf("source 1: %f\n",elSourceVec[1]);
+
+  }else{
+    // Gauss Point Loop
+    femDoubleMat intCoords;
+    femDoubleVec intWeights;
+    double detJ = 0.0;
+
+    // Get Integration Coords and Weights
+    intCoords = rule->getCoords(numberOfNodes);
+    intWeights = rule->getWeights(numberOfNodes);
+
+    for(int loopA=0;loopA<rule->getTotGP(numberOfNodes);loopA++){
+
+      // Eval Shape Function At the current GP
+      evalShapeFunction(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeFunction);
+
+      // Eval Determinant of the Jacobian Matrix
+      detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
+
+      // Eval Resulting Matrix
+      for(int loopB=0;loopB<numberOfNodes;loopB++){
+        elSourceVec[loopB] += shapeFunction[loopB] * sourceValue * detJ * intWeights[loopA];
+      }
     }
   }
+
 }
 

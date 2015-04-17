@@ -14,7 +14,7 @@ class femRod: public femElement{
 
     // Member Functions
     virtual bool   isNodeInsideElement(double dispFactor, double* pointCoords,std::vector<femNode*> &nodeList);
-    virtual double EvalVolume(std::vector<femNode*> &nodeList);
+    virtual double EvalVolume(double dispFactor, std::vector<femNode*> &nodeList);
     // Positive Volume Evaluation
     virtual double EvalMixProduct(std::vector<femNode*> &nodeList);
     virtual void   fixConnectivities(std::vector<femNode*> &nodeList);

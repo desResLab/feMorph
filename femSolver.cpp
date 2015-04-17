@@ -58,7 +58,9 @@ void femSolver::solve(femOption* options, femModel* model){
   throw femException("Not Implemented.\n");
 }
 
+// =================================
 // SOLVE ADVECTION-DIFFUSION PROBLEM
+// =================================
 void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel* model){
     printf("Solving Advection-Diffusion...\n");
 
@@ -88,7 +90,6 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
     // PRINT LHS MATRIX
     advDiffMat->writeToFile(string("lhsMatrix.txt"));
 
-
     // ASSEMBLE RHS TERM
     printf("Assembling RHS Vector...\n");
     int currEl = 0;
@@ -98,10 +99,13 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
       // Get Current Element
       currEl = model->sourceElement[loopSource];
       // Eval Source Vector
-      model->elementList[currEl]->formAdvDiffRHS(model->nodeList,rule,model->sourceValues[loopSource],elRhs);
+      model->elementList[currEl]->formAdvDiffRHS(model->nodeList,rule,model->sourceValues[loopSource],(femDoubleVec)model->elDiffusivity[loopSource],(femDoubleVec)model->elVelocity[loopSource],elRhs);
       // Assemble Source Vector
       advDiffVec->assemble(elRhs,model->elementList[currEl]->elementConnections);
     }
+
+    // PRINT RHS VECTOR
+    advDiffVec->writeToFile(string("rhsVector.txt"));
 
     // APPLY DIRICHELET BOUNDARY CONDITIONS
     printf("Assembling Dirichelet BCs...\n");
@@ -115,15 +119,19 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
     solution = solveLinearSystem((femDenseMatrix*)advDiffMat,advDiffVec);
 
     // ADD SOLUTION TO MODEL RESULTS
+    FILE* outFile;
+    outFile = fopen("outSol.dat","w");
     femResult* res = new femResult();
-    res->label = string("PoissonResult");
+    res->label = string("AdvDiffResult");
     res->type = frNode;
     // Assign to values
     for(size_t loopA=0;loopA<solution.size();loopA++){
-      printf("Solution %d %f\n",loopA,solution[loopA]);
+      fprintf(outFile,"%d %f\n",(int)loopA,solution[loopA]);
+      printf("Solution %d %f\n",(int)loopA,solution[loopA]);
       res->values.push_back(solution[loopA]);
     }
     model->resultList.push_back(res);
+    fclose(outFile);
 
     // Free Memory
     //delete poissonMat;

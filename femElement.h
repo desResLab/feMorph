@@ -42,7 +42,7 @@ class femElement{
     virtual void   evalLocalShapeFunctionDerivative(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv);
 
     // Common
-    void   evalJacobianMatrix(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &jacMat);
+    void   evalJacobianMatrix(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, elDim dims, femDoubleMat &jacMat);
     double evalJacobian(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3);
     void   evalGlobalShapeFunctionDerivative(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &globShDeriv);
 
@@ -66,7 +66,7 @@ class femElement{
 
     // ADVECTION DIFFUSION
     void formAdvDiffLHS(std::vector<femNode*> nodeList,femIntegrationRule* rule,femDoubleVec diffusivity, femDoubleVec velocity,femDoubleMat &elMat);
-    void formAdvDiffRHS(std::vector<femNode*> nodeList,femIntegrationRule* rule,double sourceValue,femDoubleVec &elRhs);
+    void formAdvDiffRHS(std::vector<femNode*> nodeList,femIntegrationRule* rule,double sourceValue,femDoubleVec diffusivity,femDoubleVec velocity,femDoubleVec &elRhs);
     void assembleMass(femDoubleMat &nodeVelocities, std::vector<femNode*> nodeList, std::vector<double> tauSUPG, femIntegrationRule rule, double** massMat);
     void assembleStiffness(femDoubleMat &nodeVelocities, std::vector<femNode*> nodeList, std::vector<double> tauSUPG, femIntegrationRule rule, double diffusivity, femDoubleMat &stiffnessMat);
 

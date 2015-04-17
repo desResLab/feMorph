@@ -1,3 +1,4 @@
+# include "math.h"
 # include "femRod.h"
 # include "femException.h"
 
@@ -13,8 +14,14 @@ bool femRod::isNodeInsideElement(double dispFactor, double* pointCoords,std::vec
 }
 
 // Eval Rod Volume
-double femRod::EvalVolume(std::vector<femNode*> &nodeList){
-    return 0.0;
+double femRod::EvalVolume(double dispFactor, std::vector<femNode*> &nodeList){
+  // Eval Rod Length
+  int node1 = elementConnections[0];
+  int node2 = elementConnections[1];
+  double dx = nodeList[node2]->coords[0] - nodeList[node1]->coords[0];
+  double dy = nodeList[node2]->coords[1] - nodeList[node1]->coords[1];
+  double dz = nodeList[node2]->coords[2] - nodeList[node1]->coords[2];
+  return sqrt(dx*dx + dy*dy + dz*dz);
 }
 
 // Positive Volume Evaluation
@@ -34,8 +41,8 @@ void femRod::fixConnectivities(std::vector<femNode*> &nodeList){
 void femRod::evalShapeFunction(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction){
   // Insert the two shape functions
   shapeFunction.clear();
-  shapeFunction.push_back(0.5*(1.0 + coord1));
   shapeFunction.push_back(0.5*(1.0 - coord1));
+  shapeFunction.push_back(0.5*(1.0 + coord1));
 }
 
 // Eval Local shape functions derivatives
@@ -43,10 +50,14 @@ void femRod::evalLocalShapeFunctionDerivative(std::vector<femNode*> nodeList, do
   // Insert the two shape functions
   femDoubleVec temp;
   shapeDeriv.clear();
-  temp.push_back(0.5);
+  temp.push_back(-0.5);
+  temp.push_back(0.0);
+  temp.push_back(0.0);
   shapeDeriv.push_back(temp);
   temp.clear();
-  temp.push_back(-0.5);
+  temp.push_back(0.5);
+  temp.push_back(0.0);
+  temp.push_back(0.0);
   shapeDeriv.push_back(temp);
 }
 
