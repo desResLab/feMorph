@@ -3,7 +3,9 @@
 femOption::femOption(){
 }
 
-femAdvectionDiffusionOptions::femAdvectionDiffusionOptions(){
+femAdvectionDiffusionOptions::femAdvectionDiffusionOptions(int scheme, string fileName){
+  advDiffScheme = scheme;
+  outputFileName = fileName;
 }
 
 femPoissonSolverOptions::femPoissonSolverOptions(){

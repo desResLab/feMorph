@@ -1,6 +1,10 @@
 #ifndef FEMOPTION_H
 #define FEMOPTION_H
 
+# include <string>
+
+using namespace std;
+
 // GENERAL FEM OPTION
 class femOption{
   public:
@@ -10,7 +14,11 @@ class femOption{
 // ADVECTION DIFFUSION SOLVER OPTIONS
 class femAdvectionDiffusionOptions: public femOption{
 public:
-  femAdvectionDiffusionOptions();
+  // Data Members
+  int advDiffScheme;
+  string outputFileName;
+  // Constructor
+  femAdvectionDiffusionOptions(int scheme, string fileName);
 };
 
 // POISSON SOLVER OPTIONS

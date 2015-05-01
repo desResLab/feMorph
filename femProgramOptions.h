@@ -39,6 +39,11 @@ class femProgramOptions{
     string diricheletBCFileName = "";
     string neumannBCFileName = "";
 
+    // Option for Advection Diffusion Solver
+    int advDiffScheme;
+    int advDiffVelType;
+    int advDiffSourceType;
+
     // MEMBER FUNCTIONS
     int getCommadLineOptions(int argc, char **argv);
 };

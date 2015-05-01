@@ -134,15 +134,18 @@ void femElement::evalJacobianMatrix(std::vector<femNode*> nodeList, double coord
   int currNode = 0;
   femDoubleMat elNodeCoords;
   elNodeCoords.resize(8);
-  for(int loopA=0;loopA<8;loopA++){
+  for(int loopA=0;loopA<numberOfNodes;loopA++){
     elNodeCoords[loopA].resize(kDims);
   }
   for(int loopA=0;loopA<numberOfNodes;loopA++){
     currNode = elementConnections[loopA];
     for(int loopB=0;loopB<kDims;loopB++){
       elNodeCoords[loopA][loopB] = nodeList[currNode]->coords[loopB];
+      printf("Curr Coord: %f",nodeList[currNode]->coords[loopB]);
     }
   }
+
+  printf("CIAO\n");
 
   // Compute Local Derivatives
   femDoubleMat shLocalDerivs;
@@ -962,7 +965,11 @@ double femElement::integrateNodalVector(std::vector<femNode*> nodeList,femIntegr
 // ================================
 // ASSEMBLE ADVECTION DIFFUSION LHS
 // ================================
-void femElement::formAdvDiffLHS(std::vector<femNode*> nodeList,femIntegrationRule* rule,femDoubleVec diffusivity,femDoubleVec velocity,femDoubleMat &elMat){
+void femElement::formAdvDiffLHS(std::vector<femNode*> nodeList,
+                                femIntegrationRule* rule,
+                                femDoubleVec diffusivity,femDoubleVec velocity,
+                                int schemeType,
+                                femDoubleMat &elMat){
 
   // GET SCALAR Diffusivity and Velocity
   double scalarDiff = diffusivity[0];
@@ -976,10 +983,7 @@ void femElement::formAdvDiffLHS(std::vector<femNode*> nodeList,femIntegrationRul
   double tauFactor = femUtils::coth(alpha) - 1.0/alpha;
 
   // CHOOSE ARTIFICIAL DIFFUSION MODEL
-  int schemeType = 0; // SUPG
-  //int schemeType = 1; // GALERKIN
-  //int schemeType = 2; // UD
-  //int schemeType = 3; // GALERKIN + EAD
+  //scheme: // 0-SUPG, 1-GALERKIN, 2-UD, 3-GALERKIN + EAD
   double artDiff = 0.0;
   if(schemeType == 0){
     artDiff = 0.0;
@@ -1036,7 +1040,7 @@ void femElement::formAdvDiffLHS(std::vector<femNode*> nodeList,femIntegrationRul
     // Eval Determinant of the Jacobian Matrix
     detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
 
-    // printf("detJ %f\n",detJ);
+    //printf("detJ %f\n",detJ);
 
     // Eval Resulting Matrix
     double currStiff = 0.0;
@@ -1085,13 +1089,15 @@ double evalForcing(double coord,double advVelocity,double totLength){
 // ================================
 // ASSEMBLE ADVECTION DIFFUSION RHS
 // ================================
-void femElement::formAdvDiffRHS(std::vector<femNode*> nodeList,femIntegrationRule* rule,double sourceValue,femDoubleVec diffusivity,femDoubleVec velocity,femDoubleVec &elSourceVec){
+void femElement::formAdvDiffRHS(std::vector<femNode*> nodeList,
+                                femIntegrationRule* rule,
+                                double sourceValue,
+                                femDoubleVec diffusivity,femDoubleVec velocity,
+                                int schemeType, int sourceType,
+                                femDoubleVec &elSourceVec){
 
   // CHOOSE ARTIFICIAL DIFFUSION MODEL
-  int schemeType = 0; // SUPG
-  //int schemeType = 1; // GALERKIN
-  //int schemeType = 2; // UD
-  //int schemeType = 3; // GALERKIN + EAD
+  //scheme: // 0-SUPG, 1-GALERKIN, 2-UD, 3-GALERKIN + EAD
 
   // GET SCALAR Diffusivity and Velocity
   double scalarDiff = diffusivity[0];
@@ -1118,7 +1124,13 @@ void femElement::formAdvDiffRHS(std::vector<femNode*> nodeList,femIntegrationRul
     elSourceVec[loopA] = 0.0;
   }
 
-  bool exactForcing = true;
+  // Determine Type of Forcing
+  bool exactForcing;
+  if (sourceType == 0){
+    exactForcing = false;
+  }else{
+    exactForcing = true;
+  }
 
   if(exactForcing){
     // Use the Trapeziodal rule
@@ -1127,7 +1139,7 @@ void femElement::formAdvDiffRHS(std::vector<femNode*> nodeList,femIntegrationRul
     double node2x = nodeList[elementConnections[1]]->coords[0];
 
     // Choose the total number of intervals
-    int totalTrapzPoints = 8;
+    int totalTrapzPoints = 1024;
 
     // Loop on trapeziodal points
     elSourceVec[0] = 0.0;
@@ -1143,8 +1155,8 @@ void femElement::formAdvDiffRHS(std::vector<femNode*> nodeList,femIntegrationRul
       intCoordX1 = node1x + loopA*(node2x - node1x)/(double)totalTrapzPoints;
       intCoordX2 = node1x + (loopA + 1)*(node2x - node1x)/(double)totalTrapzPoints;
       // Eval Normalized Coords
-      normCoord1 = (2.0*intCoordX1/(node2x - node1x)) - 1.0;
-      normCoord2 = (2.0*intCoordX2/(node2x - node1x)) - 1.0;
+      normCoord1 = (2.0*(intCoordX1 - node1x)/(node2x - node1x)) - 1.0;
+      normCoord2 = (2.0*(intCoordX2 - node1x)/(node2x - node1x)) - 1.0;
 
       // Eval Shape Function At the current Trapz Point
       evalShapeFunction(nodeList,normCoord1,0.0,0.0,shapeFunction1);
@@ -1154,23 +1166,28 @@ void femElement::formAdvDiffRHS(std::vector<femNode*> nodeList,femIntegrationRul
       evalGlobalShapeFunctionDerivative(nodeList,normCoord1,0.0,0.0,shapeDeriv1);
       evalGlobalShapeFunctionDerivative(nodeList,normCoord2,0.0,0.0,shapeDeriv2);
 
-      if(schemeType = 0){
+      if(schemeType == 0){
         shapeFunction1[0] += (0.5*elSize*tauFactor)*shapeDeriv1[0][0];
         shapeFunction1[1] += (0.5*elSize*tauFactor)*shapeDeriv1[1][0];
         shapeFunction2[0] += (0.5*elSize*tauFactor)*shapeDeriv2[0][0];
         shapeFunction2[1] += (0.5*elSize*tauFactor)*shapeDeriv2[1][0];
+        //printf("SUPG SH1: %f\n",(0.5*elSize*tauFactor)*shapeDeriv1[0][0]);
+        //printf("SUPG SH2: %f\n",(0.5*elSize*tauFactor)*shapeDeriv1[1][0]);
+        //printf("SUPG SH3: %f\n",(0.5*elSize*tauFactor)*shapeDeriv2[0][0]);
+        //printf("SUPG SH4: %f\n",(0.5*elSize*tauFactor)*shapeDeriv2[1][0]);
       }
 
       // Eval Forcing
-      currForcing1 = evalForcing(intCoordX1,scalarVel,elSize);
-      currForcing2 = evalForcing(intCoordX2,scalarVel,elSize);
+      currForcing1 = evalForcing(intCoordX1,scalarVel,10.0);
+      currForcing2 = evalForcing(intCoordX2,scalarVel,10.0);
+
       // Eval RHS for element
       elSourceVec[0] += 0.5*(intCoordX2-intCoordX1)*(currForcing1*shapeFunction1[0] + currForcing2*shapeFunction2[0]);
       elSourceVec[1] += 0.5*(intCoordX2-intCoordX1)*(currForcing1*shapeFunction1[1] + currForcing2*shapeFunction2[1]);
     }
 
-    printf("source 0: %f\n",elSourceVec[0]);
-    printf("source 1: %f\n",elSourceVec[1]);
+    //printf("source 0: %f\n",elSourceVec[0]);
+    //printf("source 1: %f\n",elSourceVec[1]);
 
   }else{
     // Gauss Point Loop
