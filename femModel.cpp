@@ -3620,9 +3620,9 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
       try{
         // Element Number
         currNumber = atoi(tokenizedString[1].c_str());
-        currX = atoi(tokenizedString[2].c_str());
-        currY = atoi(tokenizedString[3].c_str());
-        currZ = atoi(tokenizedString[4].c_str());
+        currX = atof(tokenizedString[2].c_str());
+        currY = atof(tokenizedString[3].c_str());
+        currZ = atof(tokenizedString[4].c_str());
       }catch(...){
         throw femException("ERROR: Invalid Node Format.\n");
       }

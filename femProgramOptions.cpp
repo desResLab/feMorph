@@ -27,7 +27,7 @@ int femProgramOptions::getCommadLineOptions(int argc, char **argv){
   echoFile = fopen("options.echo","w");
 
   // Loop Through the Parameters
-  while ((c = getopt (argc, argv, "f:a:t:o:ncmelsxbdhrvzgu")) != -1){
+  while ((c = getopt (argc, argv, "f:a:t:o:u:ncmelsxbdhrvzg")) != -1){
     switch (c){
       case 'f':
         inputFileName = std::string(optarg);
@@ -103,11 +103,34 @@ int femProgramOptions::getCommadLineOptions(int argc, char **argv){
         break;
       case 'u':
         runMode = rmSOLVESTEADYSTATEADVECTIONDIFFUSION;
-        inputFileName = "inputMesh.dat";
-        velocityFileName = "inputVel_1.dat";
-        diffusivityFileName = "inputDiff.dat";
-        diricheletBCFileName = "dirBC.dat";
-        sourceFileName = "source.dat";
+        try{
+          char temp = std::string(optarg).at(0);
+          advDiffScheme = temp - '0';
+          temp = std::string(optarg).at(1);
+          advDiffVelType = temp - '0';
+          temp = std::string(optarg).at(2);
+          advDiffSourceType = temp - '0';
+          fprintf(echoFile,"Advection Diffusion Scheme Type: %d\n",advDiffScheme);
+          fprintf(echoFile,"Advection Diffusion Velocity Type: %d\n",advDiffVelType);
+          fprintf(echoFile,"Advection Diffusion Source Type: %d\n",advDiffSourceType);
+        }catch(...){
+          abort();
+        }
+        inputFileName = "../inputMesh.dat";
+        switch(advDiffVelType){
+          case 0:
+            velocityFileName = "../inputVel_1.dat";
+            break;
+          case 1:
+            velocityFileName = "../inputVel_10.dat";
+            break;
+          case 2:
+            velocityFileName = "../inputVel_100.dat";
+            break;
+        }
+        diffusivityFileName = "../inputDiff.dat";
+        diricheletBCFileName = "../dirBC.dat";
+        sourceFileName = "../source.dat";
         break;
       case 'g':
         runMode = rmTESTELEMENTS;

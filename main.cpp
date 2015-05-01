@@ -516,7 +516,11 @@ int solveSteadyStateAdvectionDiffusionEquation(femProgramOptions* options){
   femSteadyStateAdvectionDiffusionSolver* advDiffSolver = new femSteadyStateAdvectionDiffusionSolver();
 
   // CREATE OPTIONS FOR POISSON SOLVER
-  femPoissonSolverOptions* slvOptions = new femPoissonSolverOptions();
+  femOption* slvOptions = new femAdvectionDiffusionOptions(options->advDiffScheme,
+                                                           options->advDiffVelType,
+                                                           options->advDiffSourceType,
+                                                           options->outputFileName);
+
 
   // SOLVE PROBLEM
   advDiffSolver->solve(slvOptions,model);
