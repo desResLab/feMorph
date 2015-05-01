@@ -8,9 +8,9 @@ class femIntegrationRule{
     intRuleType type;
   public:
     // DATA ACCESS
-    int getTotGP(int totNodes);
-    femDoubleMat getCoords(int totNodes);
-    femDoubleVec getWeights(int totNodes);
+    int getTotGP(int totNodes,elDim dims);
+    femDoubleMat getCoords(int totNodes,elDim dims);
+    femDoubleVec getWeights(int totNodes,elDim dims);
 
     // CONSTRUCTOR
     femIntegrationRule(intRuleType type);

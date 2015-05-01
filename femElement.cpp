@@ -63,12 +63,12 @@ double femElement::EvalMixProduct(std::vector<femNode*> &nodeList){
 double femElement::checkMinDetJ(std::vector<femNode*> &nodeList, femIntegrationRule* rule){
 
   // Get Gauss Coords and Weightds
-  femDoubleMat intCoords = rule->getCoords(numberOfNodes);
+  femDoubleMat intCoords = rule->getCoords(numberOfNodes,dims);
 
   // Loop through the Gauss Points
   double minDetJ = std::numeric_limits<double>::max();
   double detJ = 0.0;
-  for(int loopA=0;loopA<rule->getTotGP(numberOfNodes);loopA++){
+  for(int loopA=0;loopA<rule->getTotGP(numberOfNodes,dims);loopA++){
     // Eval the Jacobian Determinant at the current location
     detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
     if(detJ < minDetJ){
@@ -738,10 +738,10 @@ void femElement::assembleMass(femDoubleMat &nodeVelocities, std::vector<femNode*
   double currProd = 0.0;
 
   // Get Gauss Points and Weights
-  intCoords = rule.getCoords(numberOfNodes);
-  intWeights = rule.getWeights(numberOfNodes);
+  intCoords = rule.getCoords(numberOfNodes,dims);
+  intWeights = rule.getWeights(numberOfNodes,dims);
 
-  for(int loopA=0;loopA<rule.getTotGP(numberOfNodes);loopA++){
+  for(int loopA=0;loopA<rule.getTotGP(numberOfNodes,dims);loopA++){
 
     // Eval Shape Functions
     evalShapeFunction(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeFunction);
@@ -780,10 +780,10 @@ void femElement::assembleStiffness(femDoubleMat &nodeVelocities, std::vector<fem
   double tauTerm = 0.0;
 
   // Get Integration Coords and Weights
-  intCoords = rule.getCoords(numberOfNodes);
-  intWeights = rule.getWeights(numberOfNodes);
+  intCoords = rule.getCoords(numberOfNodes,dims);
+  intWeights = rule.getWeights(numberOfNodes,dims);
 
-  for(int loopA=0;loopA<rule.getTotGP(numberOfNodes);loopA++){
+  for(int loopA=0;loopA<rule.getTotGP(numberOfNodes,dims);loopA++){
 
     // Eval Shape Functions
     evalShapeFunction(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeFunction);
@@ -841,8 +841,8 @@ void femElement::formPoissonMatrix(std::vector<femNode*> nodeList,femIntegration
   double currStiff = 0.0;
 
   // Get Integration Coords and Weights
-  intCoords = rule->getCoords(numberOfNodes);
-  intWeights = rule->getWeights(numberOfNodes);
+  intCoords = rule->getCoords(numberOfNodes,dims);
+  intWeights = rule->getWeights(numberOfNodes,dims);
 
   //printf("Gauss Points: %d\n",intCoords.size());
   //for(int loopA=0;loopA<rule->getTotGP(numberOfNodes);loopA++){
@@ -851,7 +851,7 @@ void femElement::formPoissonMatrix(std::vector<femNode*> nodeList,femIntegration
   //printf("\n");
 
 
-  for(int loopA=0;loopA<rule->getTotGP(numberOfNodes);loopA++){
+  for(int loopA=0;loopA<rule->getTotGP(numberOfNodes,dims);loopA++){
 
     // Eval Current Shape Derivatives Matrix
     evalGlobalShapeFunctionDerivative(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeDeriv);
@@ -901,10 +901,10 @@ void femElement::formPoissonSource(std::vector<femNode*> nodeList,femIntegration
   double detJ = 0.0;
 
   // Get Integration Coords and Weights
-  intCoords = rule->getCoords(numberOfNodes);
-  intWeights = rule->getWeights(numberOfNodes);
+  intCoords = rule->getCoords(numberOfNodes,dims);
+  intWeights = rule->getWeights(numberOfNodes,dims);
 
-  for(int loopA=0;loopA<rule->getTotGP(numberOfNodes);loopA++){
+  for(int loopA=0;loopA<rule->getTotGP(numberOfNodes,dims);loopA++){
 
     // Eval Shape Function At the current GP
     evalShapeFunction(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeFunction);
@@ -930,8 +930,8 @@ void femElement::formPoissonNeumannBC(){
 // ======================================
 double femElement::integrateNodalVector(std::vector<femNode*> nodeList,femIntegrationRule* rule,femDoubleVec nodeVec){
   // Get Gauss Coords and Weightds
-  femDoubleMat intCoords = rule->getCoords(numberOfNodes);
-  femDoubleVec intWeights = rule->getWeights(numberOfNodes);
+  femDoubleMat intCoords = rule->getCoords(numberOfNodes,dims);
+  femDoubleVec intWeights = rule->getWeights(numberOfNodes,dims);
 
   // Eval Shape Functions
   femDoubleVec shapeFunction;
@@ -941,7 +941,7 @@ double femElement::integrateNodalVector(std::vector<femNode*> nodeList,femIntegr
   double detJ = 0.0;
   double currGPValue = 0.0;
   int currNode = 0;
-  for(int loopA=0;loopA<rule->getTotGP(numberOfNodes);loopA++){
+  for(int loopA=0;loopA<rule->getTotGP(numberOfNodes,dims);loopA++){
     // Eval the shape Functions at the current Integration Point
     evalShapeFunction(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeFunction);
     // Eval the Jacobian Determinant at the current location
@@ -1013,13 +1013,13 @@ void femElement::formAdvDiffLHS(std::vector<femNode*> nodeList,femIntegrationRul
   double detJ = 0.0;
 
   // Get Integration Coords and Weights
-  intCoords = rule->getCoords(numberOfNodes);
-  intWeights = rule->getWeights(numberOfNodes);
+  intCoords = rule->getCoords(numberOfNodes,dims);
+  intWeights = rule->getWeights(numberOfNodes,dims);
 
   // printf("Total Gauss Points: %d\n",rule->getTotGP(numberOfNodes));
 
   // Gauss Point Loop
-  for(int loopA=0;loopA<rule->getTotGP(numberOfNodes);loopA++){
+  for(int loopA=0;loopA<rule->getTotGP(numberOfNodes,dims);loopA++){
 
     // Eval Shape Function
     evalShapeFunction(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeFunction);
@@ -1179,10 +1179,10 @@ void femElement::formAdvDiffRHS(std::vector<femNode*> nodeList,femIntegrationRul
     double detJ = 0.0;
 
     // Get Integration Coords and Weights
-    intCoords = rule->getCoords(numberOfNodes);
-    intWeights = rule->getWeights(numberOfNodes);
+    intCoords = rule->getCoords(numberOfNodes,dims);
+    intWeights = rule->getWeights(numberOfNodes,dims);
 
-    for(int loopA=0;loopA<rule->getTotGP(numberOfNodes);loopA++){
+    for(int loopA=0;loopA<rule->getTotGP(numberOfNodes,dims);loopA++){
 
       // Eval Shape Function At the current GP
       evalShapeFunction(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeFunction);

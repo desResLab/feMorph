@@ -302,7 +302,7 @@ void femTestSolver::solve(femOption* options, femModel* model){
   int currElement = 0;
   int numNodes = model->elementList[currElement]->numberOfNodes;
   // Get Gauss Points and Weights
-  femDoubleMat intCoords = rule->getCoords(numNodes);
+  femDoubleMat intCoords = rule->getCoords(numNodes,model->elementList[currElement]->dims);
 
   // Eval Current Shape Derivatives Matrix at the first Gauss Point
   femDoubleMat shapeDeriv;

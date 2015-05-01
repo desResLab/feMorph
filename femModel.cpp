@@ -3586,6 +3586,23 @@ void femModel::ApplyParametricDisplacements(femInputData* data){
 //  }
 //}
 
+// RETURN NUMBER OF NODES FROM ELEMENT TYPE STRING
+int getTotalNodesFromElementString(string elType){
+  if(elType == string("ROD")){
+      return 2;
+  }else if(elType == string("TRI3")){
+      return 3;
+  }else if(elType == string("QUAD4")){
+      return 4;
+  }else if(elType == string("TET4")){
+      return 4;
+  }else if(elType == string("TET10")){
+      return 10;
+  }else if(elType == string("HEXA8")){
+      return 8;
+  }
+}
+
 // =========================
 // Read Model From Text File
 // =========================
@@ -3596,17 +3613,27 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
   infile.open(fileName);
 
   // Declare
-  std::vector<string> tokenizedString;
-  int pointCount = 0;
-  int nodeCount = 0;
-  int currCoordCount = 0;
-  double* fileCoords = nullptr;
+  vector<string> tokenizedString;
   femNode* newNode;
   int currNumber = 0.0;
-  double currX,currY,currZ;
-  int rodConnections[2];
+  int currElNumber = 0.0;
+  double currX = 0.0;
+  double currY = 0.0;
+  double currZ = 0.0;
+  int connections[kMaxConnections];
   int currProp = 0;
   double currArea = 0.0;
+  string elTypeString;
+  int totNodes = 0;
+  double currVelX = 0.0;
+  double currVelY = 0.0;
+  double currVelZ = 0.0;
+  double diffX = 0.0;
+  double diffY = 0.0;
+  double diffZ = 0.0;
+  int bcNode = 0;
+  double bcValue = 0.0;
+  double sourceValue = 0.0;
 
   // Read Data From File
   std::string buffer;
@@ -3620,32 +3647,107 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
       try{
         // Element Number
         currNumber = atoi(tokenizedString[1].c_str());
-        currX = atoi(tokenizedString[2].c_str());
-        currY = atoi(tokenizedString[3].c_str());
-        currZ = atoi(tokenizedString[4].c_str());
+        currX = atof(tokenizedString[2].c_str());
+        currY = atof(tokenizedString[3].c_str());
+        currZ = atof(tokenizedString[4].c_str());
       }catch(...){
         throw femException("ERROR: Invalid Node Format.\n");
       }
       // Create New Node
-      femNode* newNode = new femNode(currNumber,currX,currY,currZ);
+      newNode = new femNode(currNumber,currX,currY,currZ);
       // Add To Node List
       nodeList.push_back(newNode);
-    }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("ROD")){
+    }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("ELEMENT")){
       try{
+        // Element Type
+        boost::trim(tokenizedString[1]);
+        elTypeString = boost::to_upper_copy(tokenizedString[1]);
+        // Get Total Number of Nodes
+        totNodes = getTotalNodesFromElementString(elTypeString);
         // Element Number
-        currNumber = atoi(tokenizedString[1].c_str());
-        currProp = atoi(tokenizedString[2].c_str());
-        // Read Two Element Connections: 1-Based
-        rodConnections[0] = atoi(tokenizedString[3].c_str())-1;
-        rodConnections[1] = atoi(tokenizedString[4].c_str())-1;
-        // Read Area
-        currArea = atof(tokenizedString[5].c_str());
+        currNumber = atoi(tokenizedString[2].c_str());
+        currProp = atoi(tokenizedString[3].c_str());
+        // Read Element Connections: 1-Based
+        for(int loopA=0;loopA<totNodes;loopA++){
+          connections[loopA] = atoi(tokenizedString[4+loopA].c_str())-1;
+        }
+        // Read Area as last parameter
+        if(elTypeString == string("ROD")){
+          currArea = atof(tokenizedString[5].c_str());
+        }
       }catch(...){
-        throw femException("ERROR: Invalid ROD Element Format.\n");
+        throw femException("ERROR: Invalid ELEMENT Format.\n");
       }
       // Create New Element
-      femElement* newElement = new femRod(currNumber,currProp,2,rodConnections,currArea);
+      femElement* newElement;
+      if(elTypeString == string("ROD")){
+        newElement = new femRod(currNumber,currProp,kRodNodes,connections,currArea);
+      }else if(elTypeString == string("TRI3")){
+        newElement = new femTri3(currNumber,currProp,kTri3Nodes,connections);
+      }else if(elTypeString == string("QUAD4")){
+        newElement = new femQuad4(currNumber,currProp,kQuad4Nodes,connections);
+      }else if(elTypeString == string("TET4")){
+        newElement = new femTetra4(currNumber,currProp,kTetra4Nodes,connections);
+      }else if(elTypeString == string("TET10")){
+        newElement = new femTetra10(currNumber,currProp,kTetra10Nodes,connections);
+      }else if(elTypeString == string("HEXA8")){
+        newElement = new femHexa8(currNumber,currProp,kHexa8Nodes,connections);
+      }
       elementList.push_back(newElement);
+    }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("ELVELS")){
+      try{
+        // Read Element Number: 1-Based
+        currNumber = atoi(tokenizedString[1].c_str()) - 1;
+        // Read Velocities
+        currVelX = atof(tokenizedString[2].c_str());
+        currVelY = atof(tokenizedString[3].c_str());
+        currVelZ = atof(tokenizedString[4].c_str());
+      }catch(...){
+        throw femException("ERROR: Invalid Element Velocity Format.\n");
+      }
+      // Assign Velocity
+      elVelocity[currNumber][0] = currVelX;
+      elVelocity[currNumber][1] = currVelY;
+      elVelocity[currNumber][2] = currVelZ;
+    }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("ELDIFF")){
+      try{
+        // Read Element Number: 1-Based
+        currNumber = atoi(tokenizedString[1].c_str())-1;
+        // Read Coordinates
+        diffX = atof(tokenizedString[2].c_str());
+        diffY = atof(tokenizedString[3].c_str());
+        diffZ = atof(tokenizedString[4].c_str());
+      }catch(...){
+        throw femException("ERROR: Invalid Element Diffusivity Format.\n");
+      }
+      // Add to source Nodes and Values
+      elDiffusivity[currElNumber][0] = diffX;
+      elDiffusivity[currElNumber][1] = diffY;
+      elDiffusivity[currElNumber][2] = diffZ;
+    }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("NODEDIRBC")){
+      try{
+        // Read Element Number: 1-Based
+        bcNode = atoi(tokenizedString[1].c_str())-1;
+        // Read Coordinates
+        bcValue = atof(tokenizedString[2].c_str());
+      }catch(...){
+        throw femException("ERROR: Invalid Element Diffusivity Format.\n");
+      }
+      // Add to source Nodes and Values
+      diricheletBCNode.push_back(bcNode);
+      diricheletBCValues.push_back(bcValue);
+    }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("ELSOURCE")){
+      try{
+        // Read Element Number: 1-Based
+        currElNumber = atoi(tokenizedString[1].c_str()) - 1;
+        // Read Coordinates
+        sourceValue = atof(tokenizedString[2].c_str());
+      }catch(...){
+        throw femException("ERROR: Invalid Element Diffusivity Format.\n");
+      }
+      // Add to source Nodes and Values
+      sourceElement.push_back(currElNumber);
+      sourceValues.push_back(sourceValue);
     }
   }
   // Close File

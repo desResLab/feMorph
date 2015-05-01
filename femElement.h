@@ -8,11 +8,6 @@
 #include "femTypes.h"
 #include "femIntegrationRule.h"
 
-// Number of Dimensions fo Entity
-enum elDim {
-  d1,d2,d3
-};
-
 // GENERIC ELEMENT
 class femElement{
   public:

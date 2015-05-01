@@ -499,23 +499,10 @@ int solveSteadyStateAdvectionDiffusionEquation(femProgramOptions* options){
   // Read Model From Text File
   model->ReadFromFEMTextFile(options->inputFileName);
 
-  // Read Advection Velocity From File
-  model->ReadVelocityFromTextFile(options->velocityFileName);
-  // Read Element Connections
-  bool numbersFromZero = false;
-  bool skipFirstRow = false;
-  model->ReadDiffusivityFromFile(options->diffusivityFileName,skipFirstRow,numbersFromZero);
-
-  // Read Dirichelet Variables
-  model->ReadDirBCFromFile(options->diricheletBCFileName,skipFirstRow,numbersFromZero);
-
-  // Read Source Term
-  model->ReadElementSourceFromFile(options->sourceFileName,skipFirstRow,numbersFromZero);
-
-  // CREATE NEW POISSON SOLVER
+  // CREATE NEW STEADY STATE ADVECTION-DIFFUSION SOLVER
   femSteadyStateAdvectionDiffusionSolver* advDiffSolver = new femSteadyStateAdvectionDiffusionSolver();
 
-  // CREATE OPTIONS FOR POISSON SOLVER
+  // CREATE OPTIONS FOR ADVECTION-DIFFUSION SOLVER
   femPoissonSolverOptions* slvOptions = new femPoissonSolverOptions();
 
   // SOLVE PROBLEM
@@ -524,7 +511,6 @@ int solveSteadyStateAdvectionDiffusionEquation(femProgramOptions* options){
   // Return
   return 0;
 }
-
 
 // =========================
 // TEST ELEMENTS FORMULATION

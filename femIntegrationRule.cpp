@@ -9,7 +9,7 @@ femIntegrationRule::femIntegrationRule(intRuleType locType){
 }
 
 // Get total number of Gauss Points
-int femIntegrationRule::getTotGP(int totNodes){
+int femIntegrationRule::getTotGP(int totNodes,elDim dims){
   int result;
   switch(type){
     case irFirstOrder:
@@ -20,7 +20,9 @@ int femIntegrationRule::getTotGP(int totNodes){
         result = 2;
       }else if(totNodes == kTri3Nodes){
         result = 3;
-      }else if(totNodes == kTetra4Nodes){
+      }else if((totNodes == kQuad4Nodes)&&(dims == d2)){
+        result = 4;
+      }else if((totNodes == kTetra4Nodes)&&(dims == d3)){
         result = 4;
       }else if(totNodes == kTetra10Nodes){
         result = 4;
@@ -36,14 +38,14 @@ int femIntegrationRule::getTotGP(int totNodes){
 }
 
 // Get Intergration Rule Coordinates
-femDoubleMat femIntegrationRule::getCoords(int totNodes){
+femDoubleMat femIntegrationRule::getCoords(int totNodes,elDim dims){
   femDoubleVec tempCoords;
   femDoubleMat result;
   switch(type){
     // First Order Integration Rules
     case irFirstOrder:
       if(totNodes == kRodNodes){
-        // First Order Integration for Triangles
+        // First Order Integration for Rods
         tempCoords.push_back(0.0);
         tempCoords.push_back(0.0);
         tempCoords.push_back(0.0);
@@ -54,12 +56,18 @@ femDoubleMat femIntegrationRule::getCoords(int totNodes){
         tempCoords.push_back(1.0/3.0);
         tempCoords.push_back(1.0/3.0);
         result.push_back(tempCoords);
-      }else if(totNodes == kTetra4Nodes){
+      }else if((totNodes == kTetra4Nodes)&&(dims == d3)){
         // First Order Integration for Tetrahedrals
         tempCoords.push_back(1.0/4.0);
         tempCoords.push_back(1.0/4.0);
         tempCoords.push_back(1.0/4.0);
         tempCoords.push_back(1.0/4.0);
+        result.push_back(tempCoords);
+      }else if((totNodes == kQuad4Nodes)&&(dims == d2)){
+        // First Order Integration for Tetrahedrals
+        tempCoords.push_back(0.0);
+        tempCoords.push_back(0.0);
+        tempCoords.push_back(0.0);
         result.push_back(tempCoords);
       }else if(totNodes == kTetra10Nodes){
         tempCoords.push_back(1.0/4.0);
@@ -110,7 +118,7 @@ femDoubleMat femIntegrationRule::getCoords(int totNodes){
         tempCoords.push_back(0.0);
         tempCoords.push_back(0.5);
         result.push_back(tempCoords);
-      }else if(totNodes == kTetra4Nodes){
+      }else if((totNodes == kTetra4Nodes)&&(dims == d3)){
         // Point 1
         tempCoords.clear();
         tempCoords.push_back(0.58541020);
@@ -138,6 +146,31 @@ femDoubleMat femIntegrationRule::getCoords(int totNodes){
         tempCoords.push_back(0.13819660);
         tempCoords.push_back(0.13819660);
         tempCoords.push_back(0.58541020);
+        result.push_back(tempCoords);
+      }else if((totNodes == kQuad4Nodes)&&(dims == d2)){
+        // Point 1
+        tempCoords.clear();
+        tempCoords.push_back(-1.0/sqrt(3.0));
+        tempCoords.push_back(-1.0/sqrt(3.0));
+        tempCoords.push_back(0.0);
+        result.push_back(tempCoords);
+        // Point 2
+        tempCoords.clear();
+        tempCoords.push_back(-1.0/sqrt(3.0));
+        tempCoords.push_back(+1.0/sqrt(3.0));
+        tempCoords.push_back(0.0);
+        result.push_back(tempCoords);
+        // Point 3
+        tempCoords.clear();
+        tempCoords.push_back(+1.0/sqrt(3.0));
+        tempCoords.push_back(+1.0/sqrt(3.0));
+        tempCoords.push_back(0.0);
+        result.push_back(tempCoords);
+        // Point 4
+        tempCoords.clear();
+        tempCoords.push_back(+1.0/sqrt(3.0));
+        tempCoords.push_back(-1.0/sqrt(3.0));
+        tempCoords.push_back(0.0);
         result.push_back(tempCoords);
       }else if(totNodes == kTetra10Nodes){
         // Point 1
@@ -226,7 +259,7 @@ femDoubleMat femIntegrationRule::getCoords(int totNodes){
 }
 
 // Get Integration Rule Weights
-femDoubleVec femIntegrationRule::getWeights(int totNodes){
+femDoubleVec femIntegrationRule::getWeights(int totNodes,elDim dims){
   femDoubleVec result;
   double origVolume = 0.0;
   switch(type){
@@ -239,8 +272,11 @@ femDoubleVec femIntegrationRule::getWeights(int totNodes){
         // Second Order Integration Rule for Triangles
         origVolume = 0.5;
         result.push_back(origVolume*1.0);
-      }else if(totNodes == kTetra4Nodes){
+      }else if((totNodes == kTetra4Nodes)&&(dims == d3)){
         origVolume = 1.0/6.0;
+        result.push_back(origVolume*1.0);
+      }else if((totNodes == kQuad4Nodes)&&(dims == d2)){
+        origVolume = 4.0;
         result.push_back(origVolume*1.0);
       }else if(totNodes == kTetra10Nodes){
         origVolume = 1.0/6.0;
@@ -263,8 +299,14 @@ femDoubleVec femIntegrationRule::getWeights(int totNodes){
         result.push_back(origVolume*(1.0/3.0));
         result.push_back(origVolume*(1.0/3.0));
         result.push_back(origVolume*(1.0/3.0));
-      }else if(totNodes == kTetra4Nodes){
+      }else if((totNodes == kTetra4Nodes)&&(dims == d3)){
         origVolume = 1.0/6.0;
+        result.push_back(origVolume*(1.0/4.0));
+        result.push_back(origVolume*(1.0/4.0));
+        result.push_back(origVolume*(1.0/4.0));
+        result.push_back(origVolume*(1.0/4.0));
+      }else if((totNodes == kQuad4Nodes)&&(dims == d2)){
+        origVolume = 4.0;
         result.push_back(origVolume*(1.0/4.0));
         result.push_back(origVolume*(1.0/4.0));
         result.push_back(origVolume*(1.0/4.0));

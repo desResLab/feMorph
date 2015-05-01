@@ -28,6 +28,8 @@ const int kRodNodes = 2;
 const int kTri3Nodes = 3;
 // Number of face in tetrahedra 4
 const int kTetra4Nodes = 4;
+// Number of face in quad 4
+const int kQuad4Nodes = 4;
 // Number of face in tetrahedra 10
 const int kTetra10Nodes = 10;
 // Number of face in tetrahedra
@@ -35,6 +37,8 @@ const int kTetraFaces = 4;
 // Number of face in hexa 8
 const int kHexa8Nodes = 8;
 
+// Maximum Number of Connections
+const int kMaxConnections = 20;
 
 // Constants: Model Quality
 // Volume

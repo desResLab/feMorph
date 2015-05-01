@@ -6,6 +6,9 @@
 // TYPE OF RESULT
 enum femResultType{frNode,frElement};
 
+// ENTITY DIMENSION
+enum elDim{d1,d2,d3};
+
 // TYPE OF INTEGRATION RULES
 enum intRuleType{irFirstOrder,irSecondOrder};
 
