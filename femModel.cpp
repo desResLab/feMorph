@@ -246,7 +246,7 @@ void femModel::ReadNeumannBCFromFile(std::string fileName, bool skipFirstRow, bo
 
       // Read BC Face
       temp.clear();
-      for(int loopA=1;loopA<(tokenizedString.size()-1);loopA++){
+      for(size_t loopA=1;loopA<(tokenizedString.size()-1);loopA++){
         temp.push_back(atoi(tokenizedString[loopA].c_str()));
       }
       neumannBCFaceNodes.push_back(temp);
@@ -337,7 +337,7 @@ void femModel::ReadDiffusivityFromFile(std::string fileName, bool skipFirstRow, 
   // Initialize Diffusivities to zero
   femDoubleVec tempDiff;
   elDiffusivity.clear();
-  for(int loopA=0;loopA<elementList.size();loopA++){
+  for(size_t loopA=0;loopA<elementList.size();loopA++){
     tempDiff.clear();
     tempDiff.push_back(0.0);
     tempDiff.push_back(0.0);
@@ -1333,8 +1333,10 @@ void femModel::ExportToVTKLegacy(std::string fileName){
   // Write Cells Type Header
   fprintf(outFile,"CELL_TYPES %d\n",int(elementList.size()));
   for(unsigned int loopA=0;loopA<elementList.size();loopA++){
-    if(elementList[loopA]->elementConnections.size() == 4){
+    if((elementList[loopA]->elementConnections.size() == 4)&&(elementList[loopA]->dims == d3)){
       fprintf(outFile,"%d\n",10);
+    }else if((elementList[loopA]->elementConnections.size() == 4)&&(elementList[loopA]->dims == d2)){
+      fprintf(outFile,"%d\n",9);
     }else if(elementList[loopA]->elementConnections.size() == 10){
       fprintf(outFile,"%d\n",24);
     }else if(elementList[loopA]->elementConnections.size() == 3){
@@ -1372,10 +1374,10 @@ void femModel::ExportToVTKLegacy(std::string fileName){
   // Print Dirichelet Boundary Conditions
   femDoubleVec dirBC;
   dirBC.resize(nodeList.size());
-  for(int loopA=0;loopA<nodeList.size();loopA++){
+  for(size_t loopA=0;loopA<nodeList.size();loopA++){
     dirBC[loopA] = 0.0;
   }
-  for(int loopA=0;loopA<diricheletBCNode.size();loopA++){
+  for(size_t loopA=0;loopA<diricheletBCNode.size();loopA++){
     dirBC[diricheletBCNode[loopA]] = diricheletBCValues[loopA];
   }
   fprintf(outFile,"SCALARS dirBC double 1\n");
@@ -1387,11 +1389,11 @@ void femModel::ExportToVTKLegacy(std::string fileName){
   // PRINT NEUMANN BOUNDARY CONDITIONS ON FILE
   femDoubleVec newBC;
   newBC.resize(nodeList.size());
-  for(int loopA=0;loopA<nodeList.size();loopA++){
+  for(size_t loopA=0;loopA<nodeList.size();loopA++){
     newBC[loopA] = 0.0;
   }
-  for(int loopA=0;loopA<neumannBCElement.size();loopA++){
-    for(int loopB=0;loopB<neumannBCFaceNodes[loopA].size();loopB++){
+  for(size_t loopA=0;loopA<neumannBCElement.size();loopA++){
+    for(size_t loopB=0;loopB<neumannBCFaceNodes[loopA].size();loopB++){
       newBC[neumannBCFaceNodes[loopA][loopB]] = 1.0;
     }
   }
@@ -1445,10 +1447,10 @@ void femModel::ExportToVTKLegacy(std::string fileName){
   // Print Source Array
   femDoubleVec elSource;
   elSource.resize(elementList.size());
-  for(int loopA=0;loopA<elementList.size();loopA++){
+  for(size_t loopA=0;loopA<elementList.size();loopA++){
     elSource[loopA] = 0.0;
   }
-  for(int loopA=0;loopA<sourceElement.size();loopA++){
+  for(size_t loopA=0;loopA<sourceElement.size();loopA++){
     elSource[sourceElement[loopA]] = sourceValues[loopA];
   }
   fprintf(outFile,"SCALARS source double 1\n");
@@ -2141,7 +2143,7 @@ void femModel::ExportBoundaryNodeFiles(int totalFaceGroups, std::string pathName
   std::string currFileName = pathName + std::string("/all_exterior_nodes.nbc");
   ExportNodeFaceGroupToFile(currFileName,-1);
   linuxCommand = std::string("gzip ") + currFileName;
-  system(linuxCommand.c_str());
+  int out = system(linuxCommand.c_str());
 
   // Loop through all groups and export
   for(int loopA=0;loopA<totalFaceGroups;loopA++){
@@ -2149,7 +2151,7 @@ void femModel::ExportBoundaryNodeFiles(int totalFaceGroups, std::string pathName
     currFileName = pathName + std::string("/exterior_faces_group_") + boost::lexical_cast<std::string>(loopA) + std::string(".nbc");
     ExportNodeFaceGroupToFile(currFileName,loopA);
     linuxCommand = std::string("gzip ") + currFileName;
-    system(linuxCommand.c_str());
+    int out = system(linuxCommand.c_str());
   }
 }
 
@@ -3634,6 +3636,7 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
   int bcNode = 0;
   double bcValue = 0.0;
   double sourceValue = 0.0;
+  femDoubleVec tmp;
 
   // Read Data From File
   std::string buffer;
@@ -3656,7 +3659,7 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
       // Create New Node
       newNode = new femNode(currNumber,currX,currY,currZ);
       // Add To Node List
-      nodeList.push_back(newNode);
+      nodeList.push_back(newNode);      
     }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("ELEMENT")){
       try{
         // Element Type
@@ -3693,7 +3696,7 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
       }else if(elTypeString == string("HEXA8")){
         newElement = new femHexa8(currNumber,currProp,kHexa8Nodes,connections);
       }
-      elementList.push_back(newElement);
+      elementList.push_back(newElement);      
     }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("ELVELS")){
       try{
         // Read Element Number: 1-Based
@@ -3706,9 +3709,11 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
         throw femException("ERROR: Invalid Element Velocity Format.\n");
       }
       // Assign Velocity
-      elVelocity[currNumber][0] = currVelX;
-      elVelocity[currNumber][1] = currVelY;
-      elVelocity[currNumber][2] = currVelZ;
+      tmp.clear();
+      tmp.push_back(currVelX);
+      tmp.push_back(currVelY);
+      tmp.push_back(currVelZ);
+      elVelocity.push_back(tmp);
     }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("ELDIFF")){
       try{
         // Read Element Number: 1-Based
@@ -3721,9 +3726,11 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
         throw femException("ERROR: Invalid Element Diffusivity Format.\n");
       }
       // Add to source Nodes and Values
-      elDiffusivity[currElNumber][0] = diffX;
-      elDiffusivity[currElNumber][1] = diffY;
-      elDiffusivity[currElNumber][2] = diffZ;
+      tmp.clear();
+      tmp.push_back(diffX);
+      tmp.push_back(diffY);
+      tmp.push_back(diffZ);
+      elDiffusivity.push_back(tmp);
     }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("NODEDIRBC")){
       try{
         // Read Element Number: 1-Based
@@ -3753,55 +3760,4 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
   // Close File
   infile.close();
 }
-
-// =================================
-// Read Advection Velocity From File
-// =================================
-void femModel::ReadVelocityFromTextFile(std::string fileName){
-  // Declare input File
-  std::ifstream infile;
-  infile.open(fileName);
-
-  // Initialize Velocity List
-  femDoubleVec tempVel;
-  for(int loopA=0;loopA<nodeList.size();loopA++){
-    tempVel.clear();
-    tempVel.push_back(0.0);
-    tempVel.push_back(0.0);
-    tempVel.push_back(0.0);
-    elVelocity.push_back(tempVel);
-  }
-
-  // Declare
-  std::vector<string> tokenizedString;
-  int currNumber = 0.0;
-  double currVelX,currVelY,currVelZ;
-
-  // Read Data From File
-  std::string buffer;
-  while (std::getline(infile,buffer)){
-    // Trim String
-    boost::trim(buffer);
-    // Tokenize String
-    boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
-    try{
-      // Read Element Number: 1-Based
-      currNumber = atoi(tokenizedString[0].c_str());
-      // Read Velocities
-      currVelX = atoi(tokenizedString[1].c_str());
-      currVelY = atoi(tokenizedString[2].c_str());
-      currVelZ = atoi(tokenizedString[3].c_str());
-    }catch(...){
-      throw femException("ERROR: Invalid Element Velocity Format.\n");
-    }
-    // Assign Velocity
-    elVelocity[currNumber-1][0] = currVelX;
-    elVelocity[currNumber-1][1] = currVelY;
-    elVelocity[currNumber-1][2] = currVelZ;
-  }
-  // Close File
-  infile.close();
-}
-
-
 

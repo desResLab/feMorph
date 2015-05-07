@@ -17,8 +17,9 @@ public:
   // Data Members
   int advDiffScheme;
   string outputFileName;
+  bool useWeakBC;
   // Constructor
-  femAdvectionDiffusionOptions(int scheme, string fileName);
+  femAdvectionDiffusionOptions(int scheme, string fileName, bool useWeakBC);
 };
 
 // POISSON SOLVER OPTIONS

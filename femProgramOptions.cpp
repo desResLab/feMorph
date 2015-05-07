@@ -27,7 +27,7 @@ int femProgramOptions::getCommadLineOptions(int argc, char **argv){
   echoFile = fopen("options.echo","w");
 
   // Loop Through the Parameters
-  while ((c = getopt (argc, argv, "f:a:t:o:u:ncmelsxbdhrvzg")) != -1){
+  while ((c = getopt (argc, argv, "f:a:t:o:uncmelsxbdhrvzg")) != -1){
     switch (c){
       case 'f':
         inputFileName = std::string(optarg);

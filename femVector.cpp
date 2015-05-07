@@ -30,7 +30,7 @@ void femVector::writeToFile(string fileName){
   //Create File
   FILE* f;
   f = fopen(fileName.c_str(),"w");
-  for(int loopA=0;loopA<values.size();loopA++){
+  for(size_t loopA=0;loopA<values.size();loopA++){
     fprintf(f,"%e \n",values[loopA]);
   }
   // Close File

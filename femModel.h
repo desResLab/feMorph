@@ -91,8 +91,6 @@ class femModel
     void ReadDiffusivityFromFile(std::string fileName, bool skipFirstRow, bool numbersFromZero);
     // Read Model From Text File
     void ReadFromFEMTextFile(std::string fileName);
-    // Read Advection Velocity From File
-    void ReadVelocityFromTextFile(std::string fileName);
 
 
     // =====================

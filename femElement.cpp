@@ -201,6 +201,86 @@ double femElement::evalJacobian(std::vector<femNode*> nodeList, double coord1, d
   return detJ;
 }
 
+// =============================
+// EVAL GEOMETRIC ELEMENT MATRIX
+// =============================
+void femElement::evalGeometricMatrix(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3,femDoubleMat& elGeomMat){
+  // Compute Node Coordinate Vector
+  int currNode = 0;
+  femDoubleMat elNodeCoords;
+  elNodeCoords.resize(numberOfNodes);
+  for(int loopA=0;loopA<numberOfNodes;loopA++){
+    elNodeCoords[loopA].resize(kDims);
+  }
+  for(int loopA=0;loopA<numberOfNodes;loopA++){
+    currNode = elementConnections[loopA];
+    for(int loopB=0;loopB<kDims;loopB++){
+      elNodeCoords[loopA][loopB] = nodeList[currNode]->coords[loopB];
+    }
+  }
+
+  // Compute Local Derivatives
+  femDoubleMat shLocalDerivs;
+  evalLocalShapeFunctionDerivative(nodeList,coord1,coord2,coord3,shLocalDerivs);
+
+  // Compute Jacobian Matrix
+  femDoubleMat jacMat;
+  evalJacobianMatrixLocal(numberOfNodes,elNodeCoords,shLocalDerivs,dims,jacMat);
+
+  // Invert Jacobian Matrix
+  femDoubleMat invJacMat;
+  double detJ;
+  femUtils::invert3x3Matrix(jacMat,invJacMat,detJ);
+
+  // Allocate Geometric Matrix
+  elGeomMat.resize(kDims);
+  for(int loopA=0;loopA<kDims;loopA++){
+    elGeomMat[loopA].resize(kDims);
+  }
+
+  // Compute Geometric Matrix
+  for(int loopA=0;loopA<kDims;loopA++){
+    for(int loopB=0;loopB<kDims;loopB++){
+      elGeomMat[loopA][loopB] = 0.0;
+      for(int loopC=0;loopC<kDims;loopC++){
+        // CAREFULL !!!
+        elGeomMat[loopA][loopB] += invJacMat[loopC][loopA] * invJacMat[loopC][loopB];
+      }
+    }
+  }
+}
+
+// ==========================
+// EVAL QUADRATIC FORM OF TAU
+// ==========================
+double evalQuadraticTau(femDoubleMat elGeomMat,femDoubleVec velocity,femDoubleVec diffusivity){
+  // Select Constant
+  double cConst = 1.0;
+  double isoDiff = sqrt(diffusivity[0]*diffusivity[0] + diffusivity[1]*diffusivity[1] + diffusivity[2]*diffusivity[2]);
+
+  // Contribution from Advection
+  double firstTau = 0.0;
+  for(int loopA=0;loopA<kDims;loopA++){
+    for(int loopB=0;loopB<kDims;loopB++){
+      firstTau += velocity[loopA] * elGeomMat[loopA][loopB] * velocity[loopB];
+    }
+  }
+
+  // Contribution from Diffusion
+  double secondTau = 0.0;
+  for(int loopA=0;loopA<kDims;loopA++){
+    for(int loopB=0;loopB<kDims;loopB++){
+      secondTau += elGeomMat[loopA][loopB] * elGeomMat[loopA][loopB];
+    }
+  }
+  secondTau *= cConst * cConst * isoDiff * isoDiff;
+
+  //printf("Tau 1 %f, Tau 2 %f\n",firstTau,secondTau);
+
+  // Return the norm
+  return 1.0/sqrt(firstTau + secondTau);
+}
+
 // ======================================
 // EVAL GLOBAL SHAPE FUNCTION DERIVATIVES
 // ======================================
@@ -971,30 +1051,6 @@ void femElement::formAdvDiffLHS(std::vector<femNode*> nodeList,
                                 int schemeType,
                                 femDoubleMat &elMat){
 
-  // GET SCALAR Diffusivity and Velocity
-  double scalarDiff = diffusivity[0];
-  double scalarVel = velocity[0];
-
-  // Eval Element Length
-  double elSize = EvalVolume(1.0,nodeList);
-
-  // Eval Factor
-  double alpha = (scalarVel*elSize)/(2.0*scalarDiff);
-  double tauFactor = femUtils::coth(alpha) - 1.0/alpha;
-
-  // CHOOSE ARTIFICIAL DIFFUSION MODEL
-  //scheme: // 0-SUPG, 1-GALERKIN, 2-UD, 3-GALERKIN + EAD
-  double artDiff = 0.0;
-  if(schemeType == 0){
-    artDiff = 0.0;
-  }else if(schemeType == 1){
-    artDiff = 0.0;
-  }else if(schemeType == 2){
-    artDiff = 0.5 * elSize * scalarVel;
-  }else if(schemeType == 3){
-    artDiff = 0.5 * elSize * scalarVel * tauFactor;
-  }
-
   // CLEAR AND ALLOCATE MATRIX
   elMat.clear();
   elMat.resize(numberOfNodes);
@@ -1010,11 +1066,13 @@ void femElement::formAdvDiffLHS(std::vector<femNode*> nodeList,
   // INIT SHAPE DERIVATIVE MATRIX
   femDoubleMat shapeDeriv;
   femDoubleVec shapeFunction;
+  femDoubleMat elGeomMat;
 
   // GAUSS POINTS LOOP
   femDoubleMat intCoords;
   femDoubleVec intWeights;
   double detJ = 0.0;
+  double currTau = 0.0;
 
   // Get Integration Coords and Weights
   intCoords = rule->getCoords(numberOfNodes,dims);
@@ -1034,6 +1092,12 @@ void femElement::formAdvDiffLHS(std::vector<femNode*> nodeList,
     // Eval Current Shape Derivatives Matrix
     evalGlobalShapeFunctionDerivative(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeDeriv);
 
+    // Eval Geometric Element Matrix
+    evalGeometricMatrix(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],elGeomMat);
+
+    // Eval Quadratic Tau
+    currTau = evalQuadraticTau(elGeomMat,velocity,diffusivity);
+
     //printf("dN1/dx %f, dN1/dy %f, dN1/dz %f\n",shapeDeriv[0][0],shapeDeriv[0][1],shapeDeriv[0][2]);
     //printf("dN2/dx %f, dN2/dy %f, dN2/dz %f\n",shapeDeriv[1][0],shapeDeriv[1][1],shapeDeriv[1][2]);
 
@@ -1046,23 +1110,15 @@ void femElement::formAdvDiffLHS(std::vector<femNode*> nodeList,
     double currStiff = 0.0;
     double diffTerm = 0.0;
     double advTerm = 0.0;
-    double currSign = 0.0;
     for(int loopB=0;loopB<numberOfNodes;loopB++){
       for(int loopC=0;loopC<numberOfNodes;loopC++){
         currStiff = 0.0;
         for(int loopD=0;loopD<kDims;loopD++){          
-          // Check if SUPG
-          if(schemeType == 0){
-            // SUPG Diffusion
-            diffTerm = scalarDiff * shapeDeriv[loopB][loopD] * shapeDeriv[loopC][loopD];
-            // SUPG Advection: SHOULD YOU USE THE LOCAL OR GLOBAL SHAPE DERIV??
-            advTerm = scalarVel * (shapeFunction[loopB] + (0.5*elSize*tauFactor)*shapeDeriv[loopB][loopD]) * shapeDeriv[loopC][loopD];
-          }else{
-            // Diffusion
-            diffTerm = (scalarDiff + artDiff) * shapeDeriv[loopB][loopD] * shapeDeriv[loopC][loopD];
-            // Advection
-            advTerm = scalarVel * shapeFunction[loopB] * shapeDeriv[loopC][loopD];
-          }
+          // SUPG
+          // SUPG Diffusion: CHECK !!!
+          diffTerm = diffusivity[loopD] * shapeDeriv[loopB][loopD] * shapeDeriv[loopC][loopD];
+          // SUPG Advection: CHECK !!!
+          advTerm = velocity[loopD] * (shapeFunction[loopB] + currTau*shapeDeriv[loopB][loopD]) * shapeDeriv[loopC][loopD];
           // Combine the two
           currStiff += diffTerm + advTerm;
         }
@@ -1093,7 +1149,7 @@ void femElement::formAdvDiffRHS(std::vector<femNode*> nodeList,
                                 femIntegrationRule* rule,
                                 double sourceValue,
                                 femDoubleVec diffusivity,femDoubleVec velocity,
-                                int schemeType, int sourceType,
+                                int schemeType,
                                 femDoubleVec &elSourceVec){
 
   // CHOOSE ARTIFICIAL DIFFUSION MODEL
@@ -1125,12 +1181,7 @@ void femElement::formAdvDiffRHS(std::vector<femNode*> nodeList,
   }
 
   // Determine Type of Forcing
-  bool exactForcing;
-  if (sourceType == 0){
-    exactForcing = false;
-  }else{
-    exactForcing = true;
-  }
+  bool exactForcing = false;
 
   if(exactForcing){
     // Use the Trapeziodal rule

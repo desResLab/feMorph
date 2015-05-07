@@ -502,14 +502,18 @@ int solveSteadyStateAdvectionDiffusionEquation(femProgramOptions* options){
   // CREATE NEW STEADY STATE ADVECTION-DIFFUSION SOLVER
   femSteadyStateAdvectionDiffusionSolver* advDiffSolver = new femSteadyStateAdvectionDiffusionSolver();
 
-  // CREATE OPTIONS FOR ADVECTION-DIFFUSION SOLVER
-  femPoissonSolverOptions* slvOptions = new femPoissonSolverOptions();
-
   // CREATE OPTIONS FOR POISSON SOLVER
-  femOption* slvOptions = new femAdvectionDiffusionOptions();
+
+  int advDiffScheme = 0;
+  bool useWeakBC = 0;
+  string outFileName("outFile.txt");
+  femOption* slvOptions = new femAdvectionDiffusionOptions(advDiffScheme,outFileName,useWeakBC);
 
   // SOLVE PROBLEM
   advDiffSolver->solve(slvOptions,model);
+
+  // Export Model to Check
+  model->ExportToVTKLegacy(string("out.vtk"));
 
   // Return
   return 0;

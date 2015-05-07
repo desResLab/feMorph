@@ -1,8 +1,15 @@
-project(feMorph)
-cmake_minimum_required(VERSION 2.8)
-aux_source_directory(. SRC_LIST)
-include_directories(".")
-add_definitions("-g -Wall -O3 -std=c++0x")
-add_executable(${PROJECT_NAME} ${SRC_LIST})
-TARGET_LINK_LIBRARIES(${PROJECT_NAME} armadillo)
+PROJECT(feMorph)
 
+CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
+
+AUX_SOURCE_DIRECTORY(. SRC_LIST)
+
+INCLUDE_DIRECTORIES(".")
+
+SET( SCH_FLAGS "-pg -O3 -std=c++0x" )
+SET( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${SCH_FLAGS}" )
+SET( CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${SCH_FLAGS}" )
+
+ADD_EXECUTABLE(${PROJECT_NAME} ${SRC_LIST})
+
+TARGET_LINK_LIBRARIES(${PROJECT_NAME} armadillo csparse)

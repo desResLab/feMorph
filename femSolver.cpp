@@ -6,7 +6,56 @@
 # include "femVector.h"
 # include "femException.h"
 
+# include "cs.h"
+
 using namespace std;
+
+// =============================================
+// SOLVE SPARSE LINEAR SYSTEM WITH DIRECT METHOD
+// =============================================
+femDoubleVec solveLinearSystem(femSparseMatrix* lhs,femVector* rhs){
+ if(lhs->totRows != lhs->totRows){
+   throw femException("ERROR in solveLinearSystem: LHS Matrix not squared!");
+ }
+ csi order = lhs->totRows;
+ const cs *A;
+ double *b;
+ double tol;
+
+ // Matrix Values
+ femIntVec diagPtr; // Pointer to Columns
+ femIntVec rowPtr; // Row indices
+ femDoubleVec values; // Numerical Values
+
+ A->nzmax = lhs->values.size();     /* maximum number of entries */
+ A->m ;         /* number of rows */
+ A->n ;         /* number of columns */
+ A->p ;        /* column pointers (size n+1) or col indices (size nzmax) */
+ A->i ;        /* row indices, size nzmax */
+ A->x ;     /* numerical values, size nzmax */
+ A->nz = -1;        /* # of entries in triplet matrix, -1 for compressed-col */
+
+ typedef struct cs_sparse    /* matrix in compressed-column or triplet form */
+ {
+     csi nzmax ;     /* maximum number of entries */
+     csi m ;         /* number of rows */
+     csi n ;         /* number of columns */
+     csi *p ;        /* column pointers (size n+1) or col indices (size nzmax) */
+     csi *i ;        /* row indices, size nzmax */
+     double *x ;     /* numerical values, size nzmax */
+     csi nz ;        /* # of entries in triplet matrix, -1 for compressed-col */
+ } cs ;
+
+
+
+
+
+ csi error = cs_lusol (order,A,b,tol);
+
+ // Copy b Back
+ totRows;
+     int totCols;
+}
 
 // ======================================
 // SOLVE LINEAR SYSTEM WITH DIRECT METHOD
@@ -79,12 +128,13 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
     femIntVec currIdxList;
 
     // ASSEMBLE LHS MATRIX
-    printf("Assembling RHS Matrix...\n");
+    printf("Assembling LHS Matrix...\n");
     for(size_t loopElement=0;loopElement<model->elementList.size();loopElement++){
       // Assemble Advection-Diffusion Matrix
       model->elementList[loopElement]->formAdvDiffLHS(model->nodeList,
-                                                      rule,(
-                                                      femDoubleVec)model->elDiffusivity[loopElement],(femDoubleVec)model->elVelocity[loopElement],
+                                                      rule,
+                                                      (femDoubleVec)model->elDiffusivity[loopElement],
+                                                      (femDoubleVec)model->elVelocity[loopElement],
                                                       ((femAdvectionDiffusionOptions*)options)->advDiffScheme,
                                                       elMat);
       // Assemble Sparse Matrix
@@ -92,7 +142,7 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
     }
 
     // PRINT LHS MATRIX
-    advDiffMat->writeToFile(string("lhsMatrix.txt"));
+    //advDiffMat->writeToFile(string("lhsMatrix.txt"));
 
     // ASSEMBLE RHS TERM
     printf("Assembling RHS Vector...\n");
@@ -112,45 +162,41 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
       model->elementList[currEl]->formAdvDiffRHS(model->nodeList,
                                                  rule,
                                                  model->sourceValues[loopSource],(femDoubleVec)model->elDiffusivity[loopSource],(femDoubleVec)model->elVelocity[loopSource],
-                                                 ((femAdvectionDiffusionOptions*)options)->advDiffScheme,((femAdvectionDiffusionOptions*)options)->advDiffSourceType,
+                                                 ((femAdvectionDiffusionOptions*)options)->advDiffScheme,
                                                  elRhs);
       // Assemble Source Vector
       advDiffVec->assemble(elRhs,model->elementList[currEl]->elementConnections);
     }
 
     // PRINT RHS VECTOR
-    advDiffVec->writeToFile(string("rhsVector.txt"));
+    //advDiffVec->writeToFile(string("rhsVector.txt"));
 
-    // APPLY DIRICHELET BOUNDARY CONDITIONS
+    // APPLY DIRICHELET/ESSENTIAL BOUNDARY CONDITIONS
     printf("Assembling Dirichelet BCs...\n");
-    // Sparse Matrix
-    advDiffMat->applyDirichelet(model->diricheletBCNode);
-    // RHS Vector
-    advDiffVec->applyDirichelet(model->diricheletBCNode,model->diricheletBCValues);
+    if(((femAdvectionDiffusionOptions*)options)->useWeakBC){
+      // USE WEAK BOUNDARY CONDITIONS
+    }else{
+      // USE STRONG BOUNDARY CONDITIONS
+      // Sparse Matrix
+      advDiffMat->applyDirichelet(model->diricheletBCNode);
+      // RHS Vector
+      advDiffVec->applyDirichelet(model->diricheletBCNode,model->diricheletBCValues);
+    }
 
     // SOLVE LINEAR SYSTEM OF EQUATIONS
     femDoubleVec solution;
     solution = solveLinearSystem((femDenseMatrix*)advDiffMat,advDiffVec);
 
     // ADD SOLUTION TO MODEL RESULTS
-    FILE* outFile;
-    outFile = fopen(((femAdvectionDiffusionOptions*)options)->outputFileName.c_str(),"w");
     femResult* res = new femResult();
-
     res->label = string("AdvDiffResult");
     res->type = frNode;
     // Assign to values
     for(size_t loopA=0;loopA<solution.size();loopA++){
-      fprintf(outFile,"%f %f\n",model->nodeList[loopA]->coords[0],solution[loopA]);
-      printf("Solution %f %f\n",model->nodeList[loopA]->coords[0],solution[loopA]);
+      //printf("Solution %d %f\n",loopA,solution[loopA]);
       res->values.push_back(solution[loopA]);
     }
     model->resultList.push_back(res);
-    fclose(outFile);
-
-    // Free Memory
-    //delete poissonMat;
-    //delete poissonVec;
 }
 
 // ======================
@@ -216,7 +262,7 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
   printf("Assembling Neumann...\n");
   int currNode = 0;
   elBCVec.resize(model->nodeList.size());
-  for(int loopA=0;loopA<model->nodeList.size();loopA++){
+  for(size_t loopA=0;loopA<model->nodeList.size();loopA++){
     elBCVec[loopA] = 0.0;
   }
   for(size_t loopBC=0;loopBC<model->neumannBCElement.size();loopBC++){
@@ -225,14 +271,14 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
     // Get Value
     currValue = model->neumannBCValues[loopBC];
     // Get Global Face Nodes
-    for(int loopA=0;loopA<model->neumannBCFaceNodes[loopBC].size();loopA++){
+    for(size_t loopA=0;loopA<model->neumannBCFaceNodes[loopBC].size();loopA++){
       currNode = model->neumannBCFaceNodes[loopBC][loopA];
       currDiff = model->elDiffusivity[currEl][0];
       elBCVec[currNode] += (currDiff * currValue)/(double)model->neumannBCFaceNodes[loopBC].size();
     }
   }
   // Assemble in RHS
-  for(int loopA=0;loopA<poissonVec->getSize();loopA++){
+  for(size_t loopA=0;loopA<poissonVec->getSize();loopA++){
     poissonVec->values[loopA] += elBCVec[loopA];
   }
 
@@ -286,7 +332,7 @@ void femTestSolver::solve(femOption* options, femModel* model){
   femDoubleVec unitNodalFunction;
   unitNodalFunction.resize(model->nodeList.size());
   double xCoord,yCoord,zCoord;
-  for(int loopA=0;loopA<model->nodeList.size();loopA++){
+  for(size_t loopA=0;loopA<model->nodeList.size();loopA++){
     // Get Coordinates for the current Node
     xCoord = model->nodeList[loopA]->coords[0];
     yCoord = model->nodeList[loopA]->coords[1];

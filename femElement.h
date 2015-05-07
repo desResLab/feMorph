@@ -40,6 +40,7 @@ class femElement{
     void   evalJacobianMatrix(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, elDim dims, femDoubleMat &jacMat);
     double evalJacobian(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3);
     void   evalGlobalShapeFunctionDerivative(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &globShDeriv);
+    void   evalGeometricMatrix(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3,femDoubleMat& elGeomMat);
 
     // Not Virtual
     void   evalElementCentroid(std::vector<femNode*> &nodeList, double* centroid);
@@ -61,7 +62,7 @@ class femElement{
 
     // ADVECTION DIFFUSION
     void formAdvDiffLHS(std::vector<femNode*> nodeList,femIntegrationRule* rule,femDoubleVec diffusivity, femDoubleVec velocity,int schemeType,femDoubleMat &elMat);
-    void formAdvDiffRHS(std::vector<femNode*> nodeList,femIntegrationRule* rule,double sourceValue,femDoubleVec diffusivity,femDoubleVec velocity,int schemeType, int sourceType,femDoubleVec &elRhs);
+    void formAdvDiffRHS(std::vector<femNode*> nodeList,femIntegrationRule* rule,double sourceValue,femDoubleVec diffusivity,femDoubleVec velocity,int schemeType,femDoubleVec &elRhs);
     void assembleMass(femDoubleMat &nodeVelocities, std::vector<femNode*> nodeList, std::vector<double> tauSUPG, femIntegrationRule rule, double** massMat);
     void assembleStiffness(femDoubleMat &nodeVelocities, std::vector<femNode*> nodeList, std::vector<double> tauSUPG, femIntegrationRule rule, double diffusivity, femDoubleMat &stiffnessMat);
 
@@ -145,7 +146,7 @@ class femTri3: public femElement{
 // QUAD4 ELEMENT
 class femQuad4: public femElement{
   public:
-    femQuad4(int number, int prop, int totalNodes, int* connections):femElement(number,prop,totalNodes,connections){numberOfNodes = 4;}
+    femQuad4(int number, int prop, int totalNodes, int* connections);
     virtual ~femQuad4(){}
 
     // Member Functions

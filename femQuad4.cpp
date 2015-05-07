@@ -1,6 +1,12 @@
 # include "femElement.h"
 # include "femException.h"
 
+// CONSTRUCTOR
+femQuad4::femQuad4(int number, int prop, int totalNodes, int* connections):femElement(number,prop,totalNodes,connections){
+  numberOfNodes = 4;
+  dims = d2;
+}
+
 void femQuad4::fixConnectivities(std::vector<femNode*> &nodeList){
   // Invert local Node 1 and 2
   int temp = elementConnections[1];
