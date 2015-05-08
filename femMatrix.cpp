@@ -20,9 +20,89 @@ femDenseMatrix::femDenseMatrix(femModel* model){
   }
 }
 
+// =============================
 // CONSTRUCTOR FOR SPARSE MATRIX
+// =============================
 femSparseMatrix::femSparseMatrix(femModel* model){
-  throw femException("Not Implemented.\n");
+
+    // Get Total Number of Equations
+  int totDof = model->nodeList.size();
+
+  // Assign Rows and Columns
+  totRows = totDof;
+  totCols = totDof;
+
+  // Form Column Pointer
+  // Initialize
+  diagPtr.resize(totDof+1);
+  for(int loopA=0;loopA<(totDof+1);loopA++){
+    diagPtr[loopA] = 0;
+  }
+  // Fill node Counter
+  int nodeCounter[totDof];
+  for(int loopA=0;loopA<totDof;loopA++){
+    nodeCounter[loopA] = 1;
+  }
+  int currSize = 0.0;
+  int currNode = 0;
+  for(size_t loopA=0;loopA<model->elementList.size();loopA++){
+    currSize = model->elementList[loopA]->elementConnections.size();
+    for(size_t loopB=0;loopB<currSize;loopB++){
+      currNode = model->elementList[loopA]->elementConnections[loopB];
+      nodeCounter[currNode] += currSize - 1;
+    }
+  }
+
+  // Form Column Pointer
+  int totNoZero = 0;
+  for(int loopA=1;loopA<totDof;loopA++){
+    diagPtr[loopA] = diagPtr[loopA-1] + nodeCounter[loopA];
+    totNoZero += nodeCounter[loopA];
+  }
+  diagPtr[totDof] = totNoZero;
+
+  // Initialize Values
+  values.resize(totNoZero);
+  for(int loopA=0;loopA<totNoZero;loopA++){
+    values[loopA] = 0.0;
+  }
+
+  // Form Pointer to Row Elements
+  femDoubleMat tempRowPtrMat;
+  tempRowPtrMat.resize(totDof);
+  // Fill with Diagonal Elements
+  for(int loopA=0;loopA<totDof;loopA++){
+    tempRowPtrMat[loopA].push_back(loopA);
+  }
+  // Fill with extra diagonal elements
+  int currNode1 = 0;
+  int currNode2 = 0;
+  for(size_t loopA=0;loopA<model->elementList.size();loopA++){
+    for(size_t loopB=0;loopB<model->elementList[loopA]->elementConnections.size();loopB++){
+      currNode1 = model->elementList[loopA]->elementConnections[loopB];
+      for(size_t loopC=0;loopC<model->elementList[loopA]->elementConnections.size();loopC++){
+        currNode2 = model->elementList[loopA]->elementConnections[loopC];
+        if(currNode1 != currNode2){
+          tempRowPtrMat[currNode1].push_back(currNode2);
+        }
+      }
+    }
+  }
+  // Sort All Entries
+  for(int loopA=0;loopA<totDof;loopA++){
+    std::sort(tempRowPtrMat[loopA].begin(), tempRowPtrMat[loopA].end());
+  }
+
+  // Copy to Row Pointer
+  rowPtr.resize(totNoZero);
+  int count = 0;
+  for(int loopA=0;loopA<totDof;loopA++){
+    for(int loopB=0;loopB<tempRowPtrMat[loopA].size();loopB++){
+      rowPtr[count] = tempRowPtrMat[loopA][loopB];
+      count++;
+    }
+  }
+
 }
 
 // FEM MATRIX ASSEMBLE: NOT IMPLEMENTED
@@ -58,7 +138,7 @@ void femSparseMatrix::assemble(femDoubleMat elMat,femIntVec connections){
       // Find the Start of the column
       counter = diagPtr[colIndex];
       found = false;
-      while((!found)&&(counter<diagPtr[colIndex+1]-1)){
+      while((!found)&&(counter<diagPtr[colIndex+1])){
         found = (rowIndex == rowPtr[counter]);
         // Update Counter
         if(!found){
@@ -66,6 +146,7 @@ void femSparseMatrix::assemble(femDoubleMat elMat,femIntVec connections){
         }
       }
       if(!found){
+        printf("RowIndex %d, ColIndex %d\n",rowIndex,colIndex);
         throw femException("ERROR: femSparseMatrix::assemble NOT FOUND.\n");
       }else{
         values[counter] += elMat[loopA][loopB];

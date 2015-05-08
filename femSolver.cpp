@@ -17,44 +17,45 @@ femDoubleVec solveLinearSystem(femSparseMatrix* lhs,femVector* rhs){
  if(lhs->totRows != lhs->totRows){
    throw femException("ERROR in solveLinearSystem: LHS Matrix not squared!");
  }
+
+ // Declare Variables
  csi order = lhs->totRows;
- const cs *A;
- double *b;
- double tol;
+ cs *A;
+ double tol = 1.0e-6;
 
  // Matrix Values
- femIntVec diagPtr; // Pointer to Columns
- femIntVec rowPtr; // Row indices
+ femIntVec diagPtr;   // Pointer to Columns
+ femIntVec rowPtr;    // Row indices
  femDoubleVec values; // Numerical Values
 
- A->nzmax = lhs->values.size();     /* maximum number of entries */
- A->m ;         /* number of rows */
- A->n ;         /* number of columns */
- A->p ;        /* column pointers (size n+1) or col indices (size nzmax) */
- A->i ;        /* row indices, size nzmax */
- A->x ;     /* numerical values, size nzmax */
- A->nz = -1;        /* # of entries in triplet matrix, -1 for compressed-col */
+ // Copy Arrays
+ long currDiagPrt[lhs->totRows];
+ long currRowPtr[lhs->values.size()];
+ double currVals[lhs->values.size()];
+ double b[rhs->values.size()];
+ for(size_t loopA=0;loopA<lhs->totRows;loopA++){
+   currDiagPrt[loopA] = lhs->diagPtr[loopA];
+ }
+ for(size_t loopA=0;loopA<lhs->values.size();loopA++){
+   currRowPtr[loopA] = lhs->rowPtr[loopA];
+   currVals[loopA] = lhs->values[loopA];
+ }
+ for(size_t loopA=0;loopA<lhs->totRows;loopA++){
+   currDiagPrt[loopA] = lhs->diagPtr[loopA];
+ }
 
- typedef struct cs_sparse    /* matrix in compressed-column or triplet form */
- {
-     csi nzmax ;     /* maximum number of entries */
-     csi m ;         /* number of rows */
-     csi n ;         /* number of columns */
-     csi *p ;        /* column pointers (size n+1) or col indices (size nzmax) */
-     csi *i ;        /* row indices, size nzmax */
-     double *x ;     /* numerical values, size nzmax */
-     csi nz ;        /* # of entries in triplet matrix, -1 for compressed-col */
- } cs ;
+ // Assign Arrays To
+ A->nzmax = lhs->values.size(); // maximum number of entries
+ A->m = lhs->totRows;           // number of rows
+ A->n = lhs->totCols;           // number of columns
+ A->p = currDiagPrt;            // column pointers (size n+1) or col indices (size nzmax)
+ A->i = currRowPtr;             // row indices, size nzmax
+ A->x = currVals;               // numerical values, size nzmax
+ A->nz = -1;                    // # of entries in triplet matrix, -1 for compressed-col
 
-
-
-
-
+ // Solve System
  csi error = cs_lusol (order,A,b,tol);
 
- // Copy b Back
- totRows;
-     int totCols;
 }
 
 // ======================================
@@ -118,7 +119,8 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
 
     // Init Sparse Matrix and Dense Vector
     femMatrix* advDiffMat;
-    advDiffMat = new femDenseMatrix(model);
+    advDiffMat = new femSparseMatrix(model);
+      printf("Eccolo\n");
     femVector* advDiffVec = new femVector((int)model->nodeList.size());
 
     // Local Element Matrix
