@@ -267,7 +267,6 @@ void femModel::ReadNeumannBCFromFile(std::string fileName, bool skipFirstRow, bo
   femUtils::WriteMessage("Done.\n");
 }
 
-
 // =============================
 // READ ELEMENT SOURCE FROM FILE
 // =============================
@@ -2644,9 +2643,10 @@ void femModel::ExportSkinFaceGroupToVTK(std::string fileName, double dispFactor,
                       inverseFaceNodes[currNode2],
                       inverseFaceNodes[currNode3]);
     }else{
+      // Close File
+      fclose(outFile);
       throw femException("Internal: Invalid Face Number.\n");
     }
-
   }
 
   // Write Node Maps to original model as scalars
@@ -3697,7 +3697,39 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
         newElement = new femHexa8(currNumber,currProp,kHexa8Nodes,connections);
       }
       elementList.push_back(newElement);      
-    }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("ELVELS")){
+    }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("BCELEMENT")){
+        try{
+          // Element Type
+          boost::trim(tokenizedString[1]);
+          elTypeString = boost::to_upper_copy(tokenizedString[1]);
+          // Get Total Number of Nodes
+          totNodes = getTotalNodesFromElementString(elTypeString);
+          // Element Number
+          currNumber = atoi(tokenizedString[2].c_str());
+          // Read Element Connections: 1-Based
+          for(int loopA=0;loopA<totNodes;loopA++){
+            connections[loopA] = atoi(tokenizedString[4+loopA].c_str())-1;
+          }
+        }catch(...){
+          throw femException("ERROR: Invalid BOUNDARY ELEMENT Format.\n");
+        }
+        // Create New Element
+        femElement* newElement;
+        if(elTypeString == string("ROD")){
+          newElement = new femRod(currNumber,currProp,kRodNodes,connections,currArea);
+        }else if(elTypeString == string("TRI3")){
+          newElement = new femTri3(currNumber,currProp,kTri3Nodes,connections);
+        }else if(elTypeString == string("QUAD4")){
+          newElement = new femQuad4(currNumber,currProp,kQuad4Nodes,connections);
+        }else if(elTypeString == string("TET4")){
+          newElement = new femTetra4(currNumber,currProp,kTetra4Nodes,connections);
+        }else if(elTypeString == string("TET10")){
+          newElement = new femTetra10(currNumber,currProp,kTetra10Nodes,connections);
+        }else if(elTypeString == string("HEXA8")){
+          newElement = new femHexa8(currNumber,currProp,kHexa8Nodes,connections);
+        }
+        bcElementList.push_back(newElement);
+      }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("ELVELS")){
       try{
         // Read Element Number: 1-Based
         currNumber = atoi(tokenizedString[1].c_str()) - 1;
@@ -3761,3 +3793,9 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
   infile.close();
 }
 
+// ======================================
+// SUBDIVIDE THE MODEL INTO VARIOUS PARTS
+// ======================================
+vector<femModel*> femModel::PartitionProblem(int numPartitions){
+  throw femException("Not Implemented.\n");
+}

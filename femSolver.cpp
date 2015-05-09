@@ -6,7 +6,10 @@
 # include "femVector.h"
 # include "femException.h"
 
-# include "cs.h"
+
+extern "C" {
+#include "cs.h"
+}
 
 using namespace std;
 
@@ -14,48 +17,62 @@ using namespace std;
 // SOLVE SPARSE LINEAR SYSTEM WITH DIRECT METHOD
 // =============================================
 femDoubleVec solveLinearSystem(femSparseMatrix* lhs,femVector* rhs){
- if(lhs->totRows != lhs->totRows){
-   throw femException("ERROR in solveLinearSystem: LHS Matrix not squared!");
- }
+  // Set Tolerance
+  double tol = 1.0e-12;
+  // Set Sparse Ordering AMD
+  int sparseOrdering = 1;
+  // Init Matrix
+  cs A;
+  // Fill Matrix in Compressed Column Mode
+  int totDofs = lhs->totCols;
+  int totNonZeros = lhs->rowPtr.size();
+  A.nzmax = totNonZeros;
+  A.m = lhs->totCols;
+  A.n = lhs->totCols;
 
- // Declare Variables
- csi order = lhs->totRows;
- cs *A;
- double tol = 1.0e-6;
+  // Assign Matrix Structure
+  A.p = new long int[totDofs+1];
+  double* b = new double[totDofs];
+  A.i = new long int[totNonZeros];
+  A.x = new double[totNonZeros];
+  for(int loopA=0;loopA<totDofs+1;loopA++){
+    A.p[loopA] = lhs->diagPtr[loopA];
+  }
+  for(int loopA=0;loopA<totNonZeros;loopA++){
+    A.i[loopA] = lhs->rowPtr[loopA];
+    A.x[loopA] = lhs->values[loopA];
+  }
+  A.nz = -1;
+  // Copy rhs in PCorr
+  for(int loopA=0;loopA<totDofs;loopA++){
+    b[loopA] = rhs->values[loopA];
+  }
+  // Print RHS
+  // printf("RHS Before Solution\n");
+  // for(int loopA=0;loopA<totalNodes;loopA++){
+  //   printf("%d %e\n",loopA,pCorr[loopA]);
+  // }
 
- // Matrix Values
- femIntVec diagPtr;   // Pointer to Columns
- femIntVec rowPtr;    // Row indices
- femDoubleVec values; // Numerical Values
+  // Solve system
+  int ok = cs_lusol(sparseOrdering,&A,b,tol);
+  if (ok == 0){
+    std::string errorMsg("Error: Cannot Solve Linear System\n");
+    throw femException(errorMsg.c_str());
+  }
+  // Print Solution
+  // Copy rhs in PCorr
+  // printf("Pressure Corrections\n");
+  // for(int loopA=0;loopA<totalNodes;loopA++){
+  //   printf("%d %e\n",loopA,pCorr[loopA]);
+  // }
 
- // Copy Arrays
- long currDiagPrt[lhs->totRows];
- long currRowPtr[lhs->values.size()];
- double currVals[lhs->values.size()];
- double b[rhs->values.size()];
- for(size_t loopA=0;loopA<lhs->totRows;loopA++){
-   currDiagPrt[loopA] = lhs->diagPtr[loopA];
- }
- for(size_t loopA=0;loopA<lhs->values.size();loopA++){
-   currRowPtr[loopA] = lhs->rowPtr[loopA];
-   currVals[loopA] = lhs->values[loopA];
- }
- for(size_t loopA=0;loopA<lhs->totRows;loopA++){
-   currDiagPrt[loopA] = lhs->diagPtr[loopA];
- }
-
- // Assign Arrays To
- A->nzmax = lhs->values.size(); // maximum number of entries
- A->m = lhs->totRows;           // number of rows
- A->n = lhs->totCols;           // number of columns
- A->p = currDiagPrt;            // column pointers (size n+1) or col indices (size nzmax)
- A->i = currRowPtr;             // row indices, size nzmax
- A->x = currVals;               // numerical values, size nzmax
- A->nz = -1;                    // # of entries in triplet matrix, -1 for compressed-col
-
- // Solve System
- csi error = cs_lusol (order,A,b,tol);
-
+  // Copy Solution Back
+  femDoubleVec result;
+  for(int loopA=0;loopA<totDofs;loopA++){
+    result.push_back(b[loopA]);
+  }
+  // Return Result
+  return result;
 }
 
 // ======================================
@@ -120,7 +137,8 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
     // Init Sparse Matrix and Dense Vector
     femMatrix* advDiffMat;
     advDiffMat = new femSparseMatrix(model);
-      printf("Eccolo\n");
+    std::string tempMatFile("matFile.dat");
+    advDiffMat->writeToFile(tempMatFile);
     femVector* advDiffVec = new femVector((int)model->nodeList.size());
 
     // Local Element Matrix
@@ -144,7 +162,7 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
     }
 
     // PRINT LHS MATRIX
-    //advDiffMat->writeToFile(string("lhsMatrix.txt"));
+    advDiffMat->writeToFile(string("lhsMatrix.txt"));
 
     // ASSEMBLE RHS TERM
     printf("Assembling RHS Vector...\n");
@@ -171,7 +189,7 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
     }
 
     // PRINT RHS VECTOR
-    //advDiffVec->writeToFile(string("rhsVector.txt"));
+    advDiffVec->writeToFile(string("rhsVector.txt"));
 
     // APPLY DIRICHELET/ESSENTIAL BOUNDARY CONDITIONS
     printf("Assembling Dirichelet BCs...\n");
@@ -187,7 +205,7 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
 
     // SOLVE LINEAR SYSTEM OF EQUATIONS
     femDoubleVec solution;
-    solution = solveLinearSystem((femDenseMatrix*)advDiffMat,advDiffVec);
+    solution = solveLinearSystem((femSparseMatrix*)advDiffMat,advDiffVec);
 
     // ADD SOLUTION TO MODEL RESULTS
     femResult* res = new femResult();
@@ -389,3 +407,90 @@ void femTestSolver::solve(femOption* options, femModel* model){
   printf("Gradient Z: %f\n",grad[2]);
 }
 
+void femSteadyStateAdvectionDiffusionSolver::assembleLHS(femOption* options, femModel* model,Epetra_FECrsMatrix &lhs){
+  printf("Assembling Advection-Diffusion LHS...\n");
+
+  // Get Integration Rule
+  femIntegrationRule* rule = new femIntegrationRule(irSecondOrder);
+
+  // Init Sparse Matrix and Dense Vector
+  femMatrix* advDiffMat;
+  advDiffMat = new femSparseMatrix(model);
+  femVector* advDiffVec = new femVector((int)model->nodeList.size());
+
+  // Local Element Matrix
+  femDoubleMat elMat;
+  femDoubleVec elRhs;
+
+  // ASSEMBLE LHS MATRIX
+  int totNodes = 0;
+  printf("Assembling LHS Matrix...\n");
+  for(size_t loopElement=0;loopElement<model->elementList.size();loopElement++){
+    // Get Total Number of Nodes
+    totNodes = model->elementList[loopElement]->elementConnections.size();
+    // Assemble Advection-Diffusion Matrix
+    model->elementList[loopElement]->formAdvDiffLHS(model->nodeList,
+                                                    rule,
+                                                    (femDoubleVec)model->elDiffusivity[loopElement],
+                                                    (femDoubleVec)model->elVelocity[loopElement],
+                                                    ((femAdvectionDiffusionOptions*)options)->advDiffScheme,
+                                                    elMat);
+    // Fill Trilinos LHS
+    // Store the Dense Matrix
+    Epetra_SerialDenseMatrix k(totNodes,totNodes);
+    for(int loopA=0;loopA<totNodes;loopA++){
+      for(int loopB=0;loopB<totNodes;loopB++){
+        k[loopA][loopB] = elMat[loopA][loopB];
+      }
+    }
+    Epetra_IntSerialDenseVector indices(totNodes);
+    for(int loopA=0;loopA<totNodes;loopA++){
+      indices[loopA] = model->elementList[loopElement]->elementConnections[loopA];
+    }
+    lhs.SumIntoGlobalValues(indices,k);
+  }
+}
+void femSteadyStateAdvectionDiffusionSolver::assembleRHS(femOption* options, femModel* model,Epetra_FEVector &rhs){
+  // Local Element Matrix
+  femDoubleVec elRhs;
+
+  // Get Integration Rule
+  femIntegrationRule* rule = new femIntegrationRule(irSecondOrder);
+
+  // ASSEMBLE RHS TERM
+  printf("Assembling RHS Vector...\n");
+  int currEl = 0;
+  int totNodes = 0;
+  double currDiff = 0.0;
+  double currValue = 0.0;
+  for(size_t loopSource=0;loopSource<model->sourceElement.size();loopSource++){
+    // Get Current Element
+    currEl = model->sourceElement[loopSource];
+
+    // Get Total Nodes
+    totNodes = model->elementList[currEl]->elementConnections.size();
+
+    model->sourceValues[loopSource],
+    (femDoubleVec)model->elDiffusivity[loopSource],
+    (femDoubleVec)model->elVelocity[loopSource],
+    ((femAdvectionDiffusionOptions*)options)->advDiffScheme,
+
+    // Eval Source Vector
+    model->elementList[currEl]->formAdvDiffRHS(model->nodeList,
+                                               rule,
+                                               model->sourceValues[loopSource],(femDoubleVec)model->elDiffusivity[loopSource],(femDoubleVec)model->elVelocity[loopSource],
+                                               ((femAdvectionDiffusionOptions*)options)->advDiffScheme,
+                                               elRhs);
+    // Fill Trilinos LHS
+    // Store the Dense Matrix
+    Epetra_SerialDenseVector k(totNodes);
+    for(int loopA=0;loopA<totNodes;loopA++){
+      k[loopA] = elRhs[loopA];
+    }
+    Epetra_IntSerialDenseVector indices(totNodes);
+    for(int loopA=0;loopA<totNodes;loopA++){
+      indices[loopA] = model->elementList[currEl]->elementConnections[loopA];
+    }
+    rhs.SumIntoGlobalValues(indices,k);
+  }
+}

@@ -7,21 +7,13 @@
 #include "femModel.h"
 #include "femTypes.h"
 
-
-// Label Counter Struct
-struct labelCounter{
-  std::string label = "";
-  int count = 0;
-  femResultType type;
-};
-
 // SEQUENCE OF FEM MODELS
 class femModelSequence{
   public:
     // CONSTRUCTOR
     femModelSequence();
     // DATA MEMBERS
-    std::vector<femModel*> models;
+    std::vector<femModel* > models;
     // MEMBER FUNCTIONS
     // IO
     void ReadFromWeightedListFile(std::string fileName);
@@ -31,6 +23,13 @@ class femModelSequence{
     void ComputeResultStatistics(bool computeSD);
     void FixedElementConnectivities();
     void FormElementFaceList();
+};
+
+// Label Counter Struct
+struct labelCounter{
+  std::string label = "";
+  int count = 0;
+  femResultType type;
 };
 
 #endif // FEMMODELSEQUENCE_H

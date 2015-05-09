@@ -52,7 +52,9 @@ void femModelSequence::ReadFromWeightedListFile(std::string fileName){
   }
 }
 
+// =========================================================
 // FIND INDEX IN LABEL VECTOR IF LABEL AND TYPE ARE THE SAME
+// =========================================================
 int isInLabelVector(std::string currLabel,femResultType currType,std::vector<labelCounter*> labelCount){
   bool found = false;
   int count = 0;

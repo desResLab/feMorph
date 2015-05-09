@@ -16,10 +16,9 @@ class femAdvectionDiffusionOptions: public femOption{
 public:
   // Data Members
   int advDiffScheme;
-  string outputFileName;
   bool useWeakBC;
   // Constructor
-  femAdvectionDiffusionOptions(int scheme, string fileName, bool useWeakBC);
+  femAdvectionDiffusionOptions(int scheme, bool useWeakBC);
 };
 
 // POISSON SOLVER OPTIONS

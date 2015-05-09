@@ -3,6 +3,10 @@
 
 # include "femModel.h"
 # include "femOption.h"
+# include "Epetra_FEVector.h"
+# include "Epetra_SerialDenseVector.h"
+# include "Epetra_FECrsMatrix.h"
+
 
 // GENERIC SOLVER
 class femSolver{
@@ -18,6 +22,10 @@ class femSteadyStateAdvectionDiffusionSolver: public femSolver{
     femSteadyStateAdvectionDiffusionSolver();
     // SOLVE PROBLEM
     virtual void solve(femOption* options, femModel* model);
+    // Additional Routines
+    void assembleLHS(femOption* options, femModel* model,Epetra_FECrsMatrix &lhs);
+    void assembleRHS(femOption* options, femModel* model,Epetra_FEVector &rhs);
+
 };
 
 // POISSON SOLVER

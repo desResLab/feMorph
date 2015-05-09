@@ -3,9 +3,8 @@
 femOption::femOption(){
 }
 
-femAdvectionDiffusionOptions::femAdvectionDiffusionOptions(int scheme, string fileName, bool locUseWeakBC){
+femAdvectionDiffusionOptions::femAdvectionDiffusionOptions(int scheme, bool locUseWeakBC){
   advDiffScheme = scheme;
-  outputFileName = fileName;
   useWeakBC = locUseWeakBC;
 }
 

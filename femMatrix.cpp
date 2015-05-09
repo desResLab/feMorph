@@ -1,10 +1,15 @@
+# include <algorithm>
+
 # include "femMatrix.h"
 # include "femException.h"
+
 
 femMatrix::femMatrix(){
 }
 
+// ============================
 // CONSTRUCTOR FOR DENSE MATRIX
+// ============================
 femDenseMatrix::femDenseMatrix(femModel* model){
   int totDof = model->nodeList.size();
   totRows = totDof;
@@ -25,50 +30,14 @@ femDenseMatrix::femDenseMatrix(femModel* model){
 // =============================
 femSparseMatrix::femSparseMatrix(femModel* model){
 
-    // Get Total Number of Equations
+  // Get Total Number of Equations
   int totDof = model->nodeList.size();
 
   // Assign Rows and Columns
-  totRows = totDof;
   totCols = totDof;
 
-  // Form Column Pointer
-  // Initialize
-  diagPtr.resize(totDof+1);
-  for(int loopA=0;loopA<(totDof+1);loopA++){
-    diagPtr[loopA] = 0;
-  }
-  // Fill node Counter
-  int nodeCounter[totDof];
-  for(int loopA=0;loopA<totDof;loopA++){
-    nodeCounter[loopA] = 1;
-  }
-  int currSize = 0.0;
-  int currNode = 0;
-  for(size_t loopA=0;loopA<model->elementList.size();loopA++){
-    currSize = model->elementList[loopA]->elementConnections.size();
-    for(size_t loopB=0;loopB<currSize;loopB++){
-      currNode = model->elementList[loopA]->elementConnections[loopB];
-      nodeCounter[currNode] += currSize - 1;
-    }
-  }
-
-  // Form Column Pointer
-  int totNoZero = 0;
-  for(int loopA=1;loopA<totDof;loopA++){
-    diagPtr[loopA] = diagPtr[loopA-1] + nodeCounter[loopA];
-    totNoZero += nodeCounter[loopA];
-  }
-  diagPtr[totDof] = totNoZero;
-
-  // Initialize Values
-  values.resize(totNoZero);
-  for(int loopA=0;loopA<totNoZero;loopA++){
-    values[loopA] = 0.0;
-  }
-
   // Form Pointer to Row Elements
-  femDoubleMat tempRowPtrMat;
+  femIntMat tempRowPtrMat;
   tempRowPtrMat.resize(totDof);
   // Fill with Diagonal Elements
   for(int loopA=0;loopA<totDof;loopA++){
@@ -83,7 +52,9 @@ femSparseMatrix::femSparseMatrix(femModel* model){
       for(size_t loopC=0;loopC<model->elementList[loopA]->elementConnections.size();loopC++){
         currNode2 = model->elementList[loopA]->elementConnections[loopC];
         if(currNode1 != currNode2){
-          tempRowPtrMat[currNode1].push_back(currNode2);
+          if(find(tempRowPtrMat[currNode1].begin(), tempRowPtrMat[currNode1].end(), currNode2) == tempRowPtrMat[currNode1].end()){
+            tempRowPtrMat[currNode1].push_back(currNode2);
+          }
         }
       }
     }
@@ -92,6 +63,35 @@ femSparseMatrix::femSparseMatrix(femModel* model){
   for(int loopA=0;loopA<totDof;loopA++){
     std::sort(tempRowPtrMat[loopA].begin(), tempRowPtrMat[loopA].end());
   }
+  // Print Index Array
+  //printf("INDEX ARRAY\n");
+  //for(int loopA=0;loopA<totDof;loopA++){
+  //  for(int loopB=0;loopB<tempRowPtrMat[loopA].size();loopB++){
+  //    printf("%d ",tempRowPtrMat[loopA][loopB]);
+  //  }
+  //  printf("\n");
+  //}
+
+  // Form Column Pointer
+  // Initialize
+  diagPtr.resize(totDof+1);
+  for(int loopA=0;loopA<(totDof+1);loopA++){
+    diagPtr[loopA] = 0;
+  }
+
+  // Form Column Pointer
+  int totNoZero = tempRowPtrMat[0].size();
+  for(int loopA=1;loopA<totDof;loopA++){
+    diagPtr[loopA] = diagPtr[loopA-1] + tempRowPtrMat[loopA-1].size();
+    totNoZero += tempRowPtrMat[loopA].size();
+  }
+  diagPtr[totDof] = totNoZero;
+
+  // Initialize Values
+  values.resize(totNoZero);
+  for(int loopA=0;loopA<totNoZero;loopA++){
+    values[loopA] = 0.0;
+  }  
 
   // Copy to Row Pointer
   rowPtr.resize(totNoZero);
@@ -186,15 +186,11 @@ void femSparseMatrix::applyDirichelet(femIntVec dofs){
     currIndex = dofs[loopA];
     // Transverse the matrix and set to zero the elements
     for(int loopB=0;loopB<totCols;loopB++){
-      // If Current Column, delete all value except diagonal
-      if(loopB == currIndex){
-        values[diagPtr[loopB]] = 1.0;
-        for(int loopC=diagPtr[loopB]+1;loopC<diagPtr[loopB+1];loopC++){
-          values[loopC] = 0.0;
-        }
-      }else{
-        for(int loopC=diagPtr[loopB];loopC<diagPtr[loopB+1];loopC++){
-          if(rowPtr[loopC] == currIndex){
+      for(int loopC=diagPtr[loopB];loopC<diagPtr[loopB+1];loopC++){
+        if(rowPtr[loopC] == currIndex){
+          if(currIndex == loopB){
+            values[loopC] = 1.0;
+          }else{
             values[loopC] = 0.0;
           }
         }
@@ -222,8 +218,37 @@ void femDenseMatrix::writeToFile(string fileName){
   fclose(f);
 }
 
-void femSparseMatrix::writeToFile(string fileName){
-  throw femException("Not Implemented.\n");
+// PLOT SPARSE MATRIX TO FILE
+void femSparseMatrix::writeToFile(std::string fileName){
+  //Create File
+  FILE* f;
+  f = fopen(fileName.c_str(),"w");
+
+  int totDof = totCols;
+
+  // Plot Diagonal Pointer
+  fprintf(f,"# Column Pointer\n");
+  for(int loopA=0;loopA<diagPtr.size();loopA++){
+    fprintf(f,"%d \n",diagPtr[loopA]);
+  }
+
+  // Plot Row Index Pointer
+  fprintf(f,"# Row Index Pointer\n");
+  for(int loopA=0;loopA<totDof;loopA++){
+    for(int loopB=diagPtr[loopA];loopB<diagPtr[loopA+1];loopB++){
+      fprintf(f,"%d ",rowPtr[loopB]);
+    }
+    fprintf(f,"\n");
+  }
+
+  // Plot Matrix Values
+  fprintf(f,"# Matrix Values\n");
+  for(int loopA=0;loopA<values.size();loopA++){
+    fprintf(f,"%f \n",values[loopA]);
+  }
+
+  // Close File
+  fclose(f);
 }
 
 double femMatrix::getRowSum(int loopA){

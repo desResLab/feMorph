@@ -9,6 +9,22 @@
 #include "femProgramOptions.h"
 #include "femSolver.h"
 
+
+#include "AztecOO_config.h"
+
+#ifdef HAVE_MPI
+  #include "mpi.h"
+  #include "Epetra_MpiComm.h"
+#else
+  #include "Epetra_SerialComm.h"
+#endif
+#include "Epetra_Map.h"
+#include "Epetra_FEVector.h"
+#include "Epetra_FECrsMatrix.h"
+#include "AztecOO.h"
+
+
+
 // ====================
 // Normal Model Running
 // ====================
@@ -492,6 +508,130 @@ int solvePoissonEquation(femProgramOptions* options){
 // ===============================================
 // SOLVE STEADY-STATE ADVECTION-DIFFUSION EQUATION
 // ===============================================
+int solveMPISteadyStateAdvectionDiffusionEquation(femProgramOptions* options){
+
+  // INIT MPI
+  #ifdef HAVE_MPI
+    int *argc = NULL;
+    char ***argv = NULL;
+    MPI_Init(argc,argv);
+    Epetra_MpiComm Comm( MPI_COMM_WORLD );
+  #else
+    Epetra_SerialComm Comm;
+  #endif
+  // Print Communicator
+  cout << Comm <<endl;
+
+  // Main Node Reads Mesh and Makes Partition
+  vector<femModel*> partitions;
+  femModel* model;
+  if(Comm.MyPID() == 0){
+
+    // Create New Model
+    model = new femModel();
+
+    // Read Model From Text File
+    model->ReadFromFEMTextFile(options->inputFileName);
+
+    // Make Partitions    
+    //partitions = model->PartitionProblem(Comm.NumProc());
+
+    // Communicate the Models to all partitions
+
+  }
+
+  // Start on Current Processor
+  femModel* currProcModel = model;//partitions[Comm.MyPID()];
+  int NumMyElements = currProcModel->elementList.size();
+
+  // Construct a Map that puts same number of equations on each processor
+  Epetra_Map Map(NumMyElements, 0, Comm);
+  int NumGlobalElements = Map.NumGlobalElements();
+
+  // Create a Epetra_Matrix for Finite Elements
+  int rowNonZeroEst = NumGlobalElements;
+  Epetra_FECrsMatrix lhs(Copy,Map,rowNonZeroEst);
+  // RHS Vector
+  Epetra_FEVector rhs(Map);
+  // Solution Vector
+  Epetra_FEVector sol(Map);
+
+  // CREATE NEW STEADY STATE ADVECTION-DIFFUSION SOLVER
+  femSteadyStateAdvectionDiffusionSolver* advDiffSolver = new femSteadyStateAdvectionDiffusionSolver();
+
+  // CREATE OPTIONS FOR STEADY STATE ADVECTION-DIFFUSION SOLVER
+  int advDiffScheme = 0;
+  bool useWeakBC = 0;
+  femOption* slvOptions = new femAdvectionDiffusionOptions(advDiffScheme,useWeakBC);
+
+  // SOLVE PROBLEM
+  // Assemble LHS
+  advDiffSolver->assembleLHS(slvOptions,currProcModel,lhs);
+  // Assemble RHS
+  advDiffSolver->assembleRHS(slvOptions,currProcModel,rhs);
+
+  // Finish up
+  lhs.GlobalAssemble();
+  rhs.GlobalAssemble();
+
+  // Add Boundary Conditions
+  int NumEntries = 0;
+  double* Values;
+  int* Indices;
+  int currNode;
+  double currValue;
+  for(int loopA=0;loopA<model->diricheletBCNode.size();loopA++){
+    currNode = model->diricheletBCNode[loopA];
+    currValue = model->diricheletBCValues[loopA];
+    lhs.ExtractGlobalRowCopy(currNode,0,NumEntries,Values,Indices);
+    for(int loopB=0;loopB<NumEntries;loopB++){
+      if(Indices[loopB] == currNode){
+        Values[loopB] = 1.0;
+      }else{
+        Values[loopB] = 0.0;
+      }
+    }
+    lhs.ReplaceGlobalValues(currNode,NumEntries,Values,Indices);
+  }
+
+  // Apply Essential BCs to RHS
+  int totDirBC = model->diricheletBCNode.size();
+  int GIDs[totDirBC];
+  double GIDVal[totDirBC];
+  for(int loopA=0;loopA<totDirBC;loopA++){
+    GIDs[loopA] = model->diricheletBCNode[loopA];
+    GIDVal[loopA] = model->diricheletBCValues[loopA];
+  }
+  rhs.ReplaceGlobalValues(totDirBC,GIDs,GIDVal);
+
+  // Create Linear Problem
+  Epetra_LinearProblem problem(&lhs, &sol, &rhs);
+   // Create AztecOO instance
+  AztecOO solver(problem);
+
+  solver.SetAztecOption(AZ_precond, AZ_Jacobi);
+  solver.Iterate(1000, 1.0E-8);
+
+  cout << "Solver performed " << solver.NumIters() << " iterations." << endl
+       << "Norm of true residual = " << solver.TrueResidual() << endl;
+
+  double theNorm = 0.0;
+  (void) rhs.Norm2 (&theNorm);
+  cout << "Norm of sol (all entries are 42.0): " << theNorm << endl;
+
+  #ifdef HAVE_MPI
+    MPI_Finalize() ;
+  #endif
+return 0;
+
+
+
+
+}
+
+// ===============================================
+// SOLVE STEADY-STATE ADVECTION-DIFFUSION EQUATION
+// ===============================================
 int solveSteadyStateAdvectionDiffusionEquation(femProgramOptions* options){
   // Create New Model
   femModel* model = new femModel();
@@ -506,8 +646,7 @@ int solveSteadyStateAdvectionDiffusionEquation(femProgramOptions* options){
 
   int advDiffScheme = 0;
   bool useWeakBC = 0;
-  string outFileName("outFile.txt");
-  femOption* slvOptions = new femAdvectionDiffusionOptions(advDiffScheme,outFileName,useWeakBC);
+  femOption* slvOptions = new femAdvectionDiffusionOptions(advDiffScheme,useWeakBC);
 
   // SOLVE PROBLEM
   advDiffSolver->solve(slvOptions,model);
@@ -602,7 +741,8 @@ int main(int argc, char **argv){
         val = solvePoissonEquation(options);
         break;
       case rmSOLVESTEADYSTATEADVECTIONDIFFUSION:
-        val = solveSteadyStateAdvectionDiffusionEquation(options);
+        //val = solveSteadyStateAdvectionDiffusionEquation(options);
+        val = solveMPISteadyStateAdvectionDiffusionEquation(options);
         break;
       case rmTESTELEMENTS:
         val = testElementFormulation(options);

@@ -7,9 +7,6 @@
 // MAIN MATRIX CLASS
 class femMatrix{
   public:
-    int totRows;
-    int totCols;
-
     // CONSTRUCTOR
     femMatrix();
 
@@ -24,6 +21,10 @@ class femMatrix{
 // DERIVED DENSE MATRIX CLASS
 class femDenseMatrix: public femMatrix{
   public:
+    // Store Rows and Columns
+    int totRows;
+    int totCols;
+
     // Matrix Values
     femDoubleMat values;
 
@@ -43,6 +44,9 @@ class femDenseMatrix: public femMatrix{
 // DERIVED SPARSE MATRIX CLASS
 class femSparseMatrix: public femMatrix{
   public:
+    // Store Columns Only
+    int totCols;
+
     // Matrix Values
     femIntVec diagPtr; // Pointer to Columns
     femIntVec rowPtr; // Row indices

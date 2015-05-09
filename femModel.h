@@ -16,11 +16,11 @@
 
 using namespace std;
 
-class femModel
-{
+class femModel{
   public:
     vector<femNode*> nodeList;
     vector<femElement*> elementList;
+    vector<femElement*> bcElementList;
     vector<femFace*> faceList;
     vector<femEdge*> edgeList;
     vector<femProperty*> propList;
@@ -49,6 +49,7 @@ class femModel
     // Constructor and Destructor
     femModel();
     ~femModel();
+
     // Other Member Functions
     void EvalModelBox();
     void EvalModelCentre();
@@ -91,7 +92,6 @@ class femModel
     void ReadDiffusivityFromFile(std::string fileName, bool skipFirstRow, bool numbersFromZero);
     // Read Model From Text File
     void ReadFromFEMTextFile(std::string fileName);
-
 
     // =====================
     // WRITE FUNCTIONALITIES
@@ -137,7 +137,12 @@ class femModel
     // ===============
     double CheckMinimumElementVolume(double dispFactor);
     double CheckMinimumElementMixProduct(double dispFactor);
-    void EvalModelQualityDistributions(std::string fileName, double* limitBox);
+    void   EvalModelQualityDistributions(std::string fileName, double* limitBox);
+
+    // ==================
+    // MODEL PARTITIONING
+    // ==================
+    vector<femModel*> PartitionProblem(int numPartitions);
 
     // ====================
     // MODEL MANIPULATUIONS
