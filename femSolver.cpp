@@ -192,11 +192,31 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
     advDiffVec->writeToFile(string("rhsVector.txt"));
 
     // APPLY DIRICHELET/ESSENTIAL BOUNDARY CONDITIONS
-    printf("Assembling Dirichelet BCs...\n");
+
     if(((femAdvectionDiffusionOptions*)options)->useWeakBC){
       // USE WEAK BOUNDARY CONDITIONS
+      printf("Assembling Weak Boundary Conditions...\n");
+
+      // REMEMBER TO CLEAN ROWS AND COLUMNS FOR THE BOUNDARY ELEMENTS !!!
+
+      for(size_t loopElement=0;loopElement<model->bcElementList.size();loopElement++){
+        // Assemble Advection-Diffusion Matrix
+        model->bcElementList[loopElement]->formWeakBC(model->nodeList,
+                                                      rule,
+                                                      (femDoubleVec)model->elDiffusivity[loopElement],
+                                                      (femDoubleVec)model->elVelocity[loopElement],
+                                                      (femDoubleVec)model->bcElementNormal[loopElement],
+                                                      model->bcElementValue[loopElement],
+                                                      elMat,elRhs);
+        // Assemble both LHS and RHS Contributions
+        // Assemble Sparse Matrix
+        advDiffMat->assemble(elMat,model->bcElementList[loopElement]->elementConnections);
+        // Assemble Source Vector
+        advDiffVec->assemble(elRhs,model->elementList[currEl]->elementConnections);
+      }
     }else{
       // USE STRONG BOUNDARY CONDITIONS
+      printf("Assembling Strong Boundary Conditions...\n");
       // Sparse Matrix
       advDiffMat->applyDirichelet(model->diricheletBCNode);
       // RHS Vector
@@ -421,6 +441,7 @@ void femSteadyStateAdvectionDiffusionSolver::assembleLHS(femOption* options, fem
   // Local Element Matrix
   femDoubleMat elMat;
   femDoubleVec elRhs;
+  int lcErr;
 
   // ASSEMBLE LHS MATRIX
   int totNodes = 0;
@@ -440,14 +461,15 @@ void femSteadyStateAdvectionDiffusionSolver::assembleLHS(femOption* options, fem
     Epetra_SerialDenseMatrix k(totNodes,totNodes);
     for(int loopA=0;loopA<totNodes;loopA++){
       for(int loopB=0;loopB<totNodes;loopB++){
-        k[loopA][loopB] = elMat[loopA][loopB];
+        k(loopA,loopB) = elMat[loopA][loopB];
       }
     }
     Epetra_IntSerialDenseVector indices(totNodes);
     for(int loopA=0;loopA<totNodes;loopA++){
-      indices[loopA] = model->elementList[loopElement]->elementConnections[loopA];
+      indices(loopA) = model->elementList[loopElement]->elementConnections[loopA];
     }
-    lhs.SumIntoGlobalValues(indices,k);
+    lcErr = lhs.SumIntoGlobalValues(indices,k);
+    cout << lcErr << endl;
   }
 }
 void femSteadyStateAdvectionDiffusionSolver::assembleRHS(femOption* options, femModel* model,Epetra_FEVector &rhs){

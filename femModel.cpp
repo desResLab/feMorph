@@ -3637,6 +3637,10 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
   double bcValue = 0.0;
   double sourceValue = 0.0;
   femDoubleVec tmp;
+  double elBCVal = 0.0;
+  double bcElNormX = 0.0;
+  double bcElNormY = 0.0;
+  double bcElNormZ = 0.0;
 
   // Read Data From File
   std::string buffer;
@@ -3704,12 +3708,16 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
           elTypeString = boost::to_upper_copy(tokenizedString[1]);
           // Get Total Number of Nodes
           totNodes = getTotalNodesFromElementString(elTypeString);
-          // Element Number
-          currNumber = atoi(tokenizedString[2].c_str());
           // Read Element Connections: 1-Based
           for(int loopA=0;loopA<totNodes;loopA++){
-            connections[loopA] = atoi(tokenizedString[4+loopA].c_str())-1;
+            connections[loopA] = atoi(tokenizedString[2+loopA].c_str())-1;
           }
+          // Read BC Value
+          elBCVal = atof(tokenizedString[2+totNodes].c_str())-1;
+          // Read Normal
+          bcElNormX = atof(tokenizedString[3+totNodes].c_str())-1;
+          bcElNormY = atof(tokenizedString[4+totNodes].c_str())-1;
+          bcElNormZ = atof(tokenizedString[5+totNodes].c_str())-1;
         }catch(...){
           throw femException("ERROR: Invalid BOUNDARY ELEMENT Format.\n");
         }
@@ -3729,6 +3737,12 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
           newElement = new femHexa8(currNumber,currProp,kHexa8Nodes,connections);
         }
         bcElementList.push_back(newElement);
+        bcElementValue.push_back(elBCVal);
+        tmp.clear();
+        tmp.push_back(bcElNormX);
+        tmp.push_back(bcElNormY);
+        tmp.push_back(bcElNormZ);
+        bcElementNormal.push_back(tmp);
       }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("ELVELS")){
       try{
         // Read Element Number: 1-Based

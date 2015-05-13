@@ -511,14 +511,14 @@ int solvePoissonEquation(femProgramOptions* options){
 int solveMPISteadyStateAdvectionDiffusionEquation(femProgramOptions* options){
 
   // INIT MPI
-  #ifdef HAVE_MPI
-    int *argc = NULL;
-    char ***argv = NULL;
-    MPI_Init(argc,argv);
-    Epetra_MpiComm Comm( MPI_COMM_WORLD );
-  #else
+  //#ifdef HAVE_MPI
+  //  int *argc = NULL;
+ //   char ***argv = NULL;
+ //   MPI_Init(argc,argv);
+ //   Epetra_MpiComm Comm( MPI_COMM_WORLD );
+ // #else
     Epetra_SerialComm Comm;
-  #endif
+//  #endif
   // Print Communicator
   cout << Comm <<endl;
 
@@ -542,7 +542,7 @@ int solveMPISteadyStateAdvectionDiffusionEquation(femProgramOptions* options){
 
   // Start on Current Processor
   femModel* currProcModel = model;//partitions[Comm.MyPID()];
-  int NumMyElements = currProcModel->elementList.size();
+  int NumMyElements = currProcModel->nodeList.size();
 
   // Construct a Map that puts same number of equations on each processor
   Epetra_Map Map(NumMyElements, 0, Comm);
@@ -550,7 +550,7 @@ int solveMPISteadyStateAdvectionDiffusionEquation(femProgramOptions* options){
 
   // Create a Epetra_Matrix for Finite Elements
   int rowNonZeroEst = NumGlobalElements;
-  Epetra_FECrsMatrix lhs(Copy,Map,rowNonZeroEst);
+  Epetra_FECrsMatrix lhs(Copy,Map,0);
   // RHS Vector
   Epetra_FEVector rhs(Map);
   // Solution Vector
@@ -574,6 +574,9 @@ int solveMPISteadyStateAdvectionDiffusionEquation(femProgramOptions* options){
   lhs.GlobalAssemble();
   rhs.GlobalAssemble();
 
+  cout << lhs << endl;
+
+  /*
   // Add Boundary Conditions
   int NumEntries = 0;
   double* Values;
@@ -593,6 +596,7 @@ int solveMPISteadyStateAdvectionDiffusionEquation(femProgramOptions* options){
     }
     lhs.ReplaceGlobalValues(currNode,NumEntries,Values,Indices);
   }
+  */
 
   // Apply Essential BCs to RHS
   int totDirBC = model->diricheletBCNode.size();
@@ -610,22 +614,23 @@ int solveMPISteadyStateAdvectionDiffusionEquation(femProgramOptions* options){
   AztecOO solver(problem);
 
   solver.SetAztecOption(AZ_precond, AZ_Jacobi);
-  solver.Iterate(1000, 1.0E-8);
+  solver.Iterate(10, 1.0E-8);
+
+  solver.PrintLinearSystem("systemPrint.out");
 
   cout << "Solver performed " << solver.NumIters() << " iterations." << endl
        << "Norm of true residual = " << solver.TrueResidual() << endl;
 
   double theNorm = 0.0;
   (void) rhs.Norm2 (&theNorm);
-  cout << "Norm of sol (all entries are 42.0): " << theNorm << endl;
+  cout << "Norm of sol: " << theNorm << endl;
 
-  #ifdef HAVE_MPI
-    MPI_Finalize() ;
-  #endif
+  cout << sol << endl;
+
+  //#ifdef HAVE_MPI
+  //  MPI_Finalize() ;
+  //#endif
 return 0;
-
-
-
 
 }
 
@@ -645,7 +650,7 @@ int solveSteadyStateAdvectionDiffusionEquation(femProgramOptions* options){
   // CREATE OPTIONS FOR POISSON SOLVER
 
   int advDiffScheme = 0;
-  bool useWeakBC = 0;
+  bool useWeakBC = true;
   femOption* slvOptions = new femAdvectionDiffusionOptions(advDiffScheme,useWeakBC);
 
   // SOLVE PROBLEM
@@ -741,8 +746,8 @@ int main(int argc, char **argv){
         val = solvePoissonEquation(options);
         break;
       case rmSOLVESTEADYSTATEADVECTIONDIFFUSION:
-        //val = solveSteadyStateAdvectionDiffusionEquation(options);
-        val = solveMPISteadyStateAdvectionDiffusionEquation(options);
+        val = solveSteadyStateAdvectionDiffusionEquation(options);
+        //val = solveMPISteadyStateAdvectionDiffusionEquation(options);
         break;
       case rmTESTELEMENTS:
         val = testElementFormulation(options);

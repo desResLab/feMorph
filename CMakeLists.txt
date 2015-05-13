@@ -15,13 +15,13 @@ IF(APPLE)
   MESSAGE("APPLE Mode")
   INCLUDE_DIRECTORIES("." "/Users/danschi/Documents/03_software/12_CSparse/include")
   LINK_DIRECTORIES("/Users/danschi/Documents/03_software/12_CSparse/lib")
-ENDIF()
-
-IF(UNIX)
+ELSE()
   MESSAGE("UNIX Mode")
   INCLUDE_DIRECTORIES("." "/home/danschi/Documents/23_Libraries/SuiteSparse/CSparse/Include")
   LINK_DIRECTORIES("/home/danschi/Documents/23_Libraries/SuiteSparse/CSparse/Lib")
 ENDIF()
+
+LINK_DIRECTORIES("/opt/local/lib/mpich-gcc46/")
 
 ADD_EXECUTABLE(${PROJECT_NAME} ${SRC_LIST})
 

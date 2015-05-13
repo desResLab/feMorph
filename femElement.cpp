@@ -1264,6 +1264,133 @@ void femElement::formAdvDiffRHS(std::vector<femNode*> nodeList,
       }
     }
   }
+}
 
+// ASSEMBLE WEAK BCS FOR BOUNDARY ELEMENTS
+void femElement::formWeakBC(std::vector<femNode*> nodeList,femIntegrationRule* rule,
+                            femDoubleVec diffusivity,femDoubleVec velocity,femDoubleVec elNormal, double elBCValue,
+                            femDoubleMat &elMat,femDoubleVec &elVec){
+
+  // CLEAR AND ALLOCATE MATRIX
+  elMat.clear();
+  elMat.resize(numberOfNodes);
+  for(int loopA=0;loopA<numberOfNodes;loopA++){
+    elMat[loopA].resize(numberOfNodes);
+  }
+  for(int loopA=0;loopA<numberOfNodes;loopA++){
+    for(int loopB=0;loopB<numberOfNodes;loopB++){
+      elMat[loopA][loopB] = 0.0;
+    }
+  }
+
+
+
+
+  // CHECK IF INLET OR OUTLET
+  // EVAL NORM OF DIFFUSION TENSOR
+  double normalVel = 0.0;
+  double diffNorm = 0.0;
+  for(int loopA=0;loopA<kDims;loopA++){
+    normalVel += velocity[loopA] * elNormal[loopA];
+    diffNorm += diffusivity[loopA];
+  }
+  diffNorm = sqrt(diffNorm);
+  bool isInlet = (normalVel < 0.0);
+  // Define Constants
+  double gamma = 1.0;
+  double Cb = 1.0;
+  double elSize = EvalVolume(0.0,nodeList);
+
+  // INIT SHAPE DERIVATIVE MATRIX
+  femDoubleMat shapeDeriv;
+  femDoubleVec shapeFunction;
+  femDoubleMat elGeomMat;
+
+  // GAUSS POINTS LOOP
+  femDoubleMat intCoords;
+  femDoubleVec intWeights;
+  double detJ = 0.0;
+  double currTau = 0.0;
+
+  // Get Integration Coords and Weights
+  intCoords = rule->getCoords(numberOfNodes,dims);
+  intWeights = rule->getWeights(numberOfNodes,dims);
+
+  // Gauss Point Loop
+  for(int loopA=0;loopA<rule->getTotGP(numberOfNodes,dims);loopA++){
+
+    // Eval Shape Function
+    evalShapeFunction(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeFunction);
+
+    // Eval Current Shape Derivatives Matrix
+    evalGlobalShapeFunctionDerivative(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeDeriv);
+
+    // Eval Determinant of the Jacobian Matrix
+    detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
+
+    // EVAL LHS CONTRIBUTION
+    double currStiff = 0.0;
+    double consistencyTerm = 0.0;
+    double inletTerm = 0.0;
+    double outletTerm = 0.0;
+    double penaltyTerm = 0.0;
+    for(int loopB=0;loopB<numberOfNodes;loopB++){
+      for(int loopC=0;loopC<numberOfNodes;loopC++){
+        currStiff = 0.0;
+        for(int loopD=0;loopD<kDims;loopD++){
+          // ADD WEAK BOUNDARY CONDITIONS TERMS
+          // CONSISTENCY TERM
+          consistencyTerm = - shapeFunction[loopB] * diffusivity[loopD] * shapeDeriv[loopC][loopD] * elNormal[loopD] +
+                              shapeFunction[loopB] * velocity[loopD] * elNormal[loopD] * shapeFunction[loopB];
+          if(isInlet){
+            // INLET TERM
+            inletTerm = - gamma * diffusivity[loopD] * shapeDeriv[loopB][loopD] * elNormal[loopD] * shapeFunction[loopC] -
+                          velocity[loopD] * elNormal[loopD]  * shapeFunction[loopB] * shapeFunction[loopC];
+            // OUTLET TERM
+            outletTerm = 0.0;
+          }else{
+              // INLET TERM
+              inletTerm = 0.0;
+              // OUTLET TERM
+              outletTerm = - gamma * diffusivity[loopD] * shapeDeriv[loopB][loopD] * elNormal[loopD] * shapeFunction[loopC];
+          }
+          // PENALTY TERM
+          penaltyTerm = (Cb * diffNorm / elSize) * shapeFunction[loopB] * shapeFunction[loopC];
+
+          // SUM CONTRIBUTIONS FROM ALL TERMS
+          currStiff = consistencyTerm + inletTerm + outletTerm + penaltyTerm;
+        }
+        // Assemble Gauss Point Contribution
+        elMat[loopB][loopC] += currStiff * detJ * intWeights[loopA];
+      }
+    }
+
+    // EVAL RHS CONTRIBUTION
+    double currRHS = 0.0;
+    for(int loopB=0;loopB<numberOfNodes;loopB++){
+      currStiff = 0.0;
+      for(int loopD=0;loopD<kDims;loopD++){
+        // ADD WEAK BOUNDARY CONDITIONS TERMS
+        if(isInlet){
+          // INLET TERM
+          inletTerm = - gamma * diffusivity[loopD] * shapeDeriv[loopB][loopD] * elNormal[loopD] * elBCValue -
+                        velocity[loopD] * elNormal[loopD]  * shapeFunction[loopB] * elBCValue;
+          // OUTLET TERM
+          outletTerm = 0.0;
+        }else{
+          // INLET TERM
+          inletTerm = 0.0;
+          // OUTLET TERM
+          outletTerm = - gamma * diffusivity[loopD] * shapeDeriv[loopB][loopD] * elNormal[loopD] * elBCValue;
+        }
+        // PENALTY TERM
+        penaltyTerm = (Cb * diffNorm / elSize) * shapeFunction[loopB] * elBCValue;
+        // SUM CONTRIBUTIONS FROM ALL TERMS
+        currRHS = inletTerm + outletTerm + penaltyTerm;
+      }
+      // Assemble Gauss Point Contribution
+      elVec[loopB] += currRHS * detJ * intWeights[loopA];
+    }
+  }
 }
 

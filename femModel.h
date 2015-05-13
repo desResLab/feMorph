@@ -21,6 +21,8 @@ class femModel{
     vector<femNode*> nodeList;
     vector<femElement*> elementList;
     vector<femElement*> bcElementList;
+    femDoubleVec bcElementValue;
+    femDoubleMat bcElementNormal;
     vector<femFace*> faceList;
     vector<femEdge*> edgeList;
     vector<femProperty*> propList;
