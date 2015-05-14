@@ -694,7 +694,6 @@ int testElementFormulation(femProgramOptions* options){
   return 0;
 }
 
-
 // ============
 // ============
 // MAIN PROGRAM

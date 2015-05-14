@@ -647,6 +647,33 @@ inline double coth(double value){
   return (temp + 1 / temp) / (temp - 1 / temp);
 }
 
+inline void invert3x3MatrixFor1DElements(femDoubleMat mat,femDoubleMat &invMat, double &detJ){
+  invMat.resize(kDims);
+  for(int loopA=0;loopA<kDims;loopA++){
+    invMat[loopA].resize(kDims);
+    for(int loopB=0;loopB<kDims;loopB++){
+      invMat[loopA][loopB] = 0.0;
+    }
+  }
+  detJ = 1.0;
+  double derX = mat[0][0];
+  double derY = mat[1][0];
+  double derZ = mat[2][0];
+
+  if(fabs(derX)>1.0e-8){
+    invMat[0][0] = 1/derX;
+    detJ *= 1/derX;
+  }
+  if(fabs(derY)>1.0e-8){
+    invMat[1][0] = 1/derY;
+    detJ *= 1/derY;
+  }
+  if(fabs(derZ)>1.0e-8){
+    invMat[2][0] = 1/derZ;
+    detJ *= 1/derZ;
+  }
+}
+
 }
 
 #endif // FEMUTILS_H

@@ -16,6 +16,7 @@ class femMatrix{
     // I/O
     virtual void writeToFile(string fileName);
     virtual double getRowSum(int loopA);
+    virtual void clearRowAndColumn(int dof);
 };
 
 // DERIVED DENSE MATRIX CLASS
@@ -37,6 +38,7 @@ class femDenseMatrix: public femMatrix{
     // I/O
     virtual void writeToFile(string fileName);
     virtual double getRowSum(int loopA);
+    virtual void clearRowAndColumn(int dof);
 
 };
 
@@ -61,6 +63,7 @@ class femSparseMatrix: public femMatrix{
     // I/O
     virtual void writeToFile(string fileName);
     virtual double getRowSum(int loopA);
+    virtual void clearRowAndColumn(int dof);
 };
 
 

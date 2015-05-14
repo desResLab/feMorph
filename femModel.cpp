@@ -3610,6 +3610,8 @@ int getTotalNodesFromElementString(string elType){
 // =========================
 void femModel::ReadFromFEMTextFile(std::string fileName){
 
+  printf("Reading file: %s\n",fileName.c_str());
+
   // Declare input File
   std::ifstream infile;
   infile.open(fileName);
@@ -3713,16 +3715,17 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
             connections[loopA] = atoi(tokenizedString[2+loopA].c_str())-1;
           }
           // Read BC Value
-          elBCVal = atof(tokenizedString[2+totNodes].c_str())-1;
+          elBCVal = atof(tokenizedString[2+totNodes].c_str());
           // Read Normal
-          bcElNormX = atof(tokenizedString[3+totNodes].c_str())-1;
-          bcElNormY = atof(tokenizedString[4+totNodes].c_str())-1;
-          bcElNormZ = atof(tokenizedString[5+totNodes].c_str())-1;
+          bcElNormX = atof(tokenizedString[3+totNodes].c_str());
+          bcElNormY = atof(tokenizedString[4+totNodes].c_str());
+          bcElNormZ = atof(tokenizedString[5+totNodes].c_str());
         }catch(...){
           throw femException("ERROR: Invalid BOUNDARY ELEMENT Format.\n");
         }
         // Create New Element
         femElement* newElement;
+        currProp = 1;
         if(elTypeString == string("ROD")){
           newElement = new femRod(currNumber,currProp,kRodNodes,connections,currArea);
         }else if(elTypeString == string("TRI3")){
@@ -3805,6 +3808,8 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
   }
   // Close File
   infile.close();
+  // Build Parent Element List
+  BuildParentElementList();
 }
 
 // ======================================
@@ -3812,4 +3817,56 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
 // ======================================
 vector<femModel*> femModel::PartitionProblem(int numPartitions){
   throw femException("Not Implemented.\n");
+}
+
+// CHECK INCLUSION OF TWO VECTORS
+bool checkInclusion(femIntVec A, femIntVec B){
+  femIntVec Acopy,Bcopy;
+  for(int loopA=0;loopA<A.size();loopA++){
+    Acopy.push_back(A[loopA]);
+  }
+  for(int loopA=0;loopA<B.size();loopA++){
+    Bcopy.push_back(B[loopA]);
+  }
+  std::sort(Acopy.begin(), Acopy.end());
+  std::sort(Bcopy.begin(), Bcopy.end());
+  return std::includes(Acopy.begin(), Acopy.end(), Bcopy.begin(), Bcopy.end());
+}
+
+// =========================================================
+// BUILD THE LIST OF ALL PARENT ELEMENT FOR EVERY BC ELEMENT
+// =========================================================
+void femModel::BuildParentElementList(){
+  bool found = false;
+  int count = 0;
+  for(int loopA=0;loopA<bcElementList.size();loopA++){
+    // Look for the Enclosing elements
+    found = false;
+    count = 0;
+    while((!found)&&(count<elementList.size())){
+      // Check if element if found
+      //printf("BCELEMENT ");
+      //for(int loopB=0;loopB<bcElementList[loopA]->elementConnections.size();loopB++){
+      //  printf("%d ",bcElementList[loopA]->elementConnections[loopB]);
+      //}
+      //printf("\n");
+      //printf("ELEMENT ");
+      //for(int loopB=0;loopB<elementList[count]->elementConnections.size();loopB++){
+      //  printf("%d ",elementList[count]->elementConnections[loopB]);
+      //}
+      //printf("\n");
+      found = checkInclusion(elementList[count]->elementConnections,bcElementList[loopA]->elementConnections);
+      // Update Counter
+      if(!found){
+        count++;
+      }
+    }
+    if(!found){
+      printf("ERROR Element %d\n",loopA);
+      throw femException("ERROR: Cannot find parent element for element\n");
+    }else{
+      // Add to list
+      bcParentElement.push_back(count);
+    }
+  }
 }

@@ -161,9 +161,6 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
       advDiffMat->assemble(elMat,model->elementList[loopElement]->elementConnections);
     }
 
-    // PRINT LHS MATRIX
-    advDiffMat->writeToFile(string("lhsMatrix.txt"));
-
     // ASSEMBLE RHS TERM
     printf("Assembling RHS Vector...\n");
     int currEl = 0;
@@ -188,9 +185,6 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
       advDiffVec->assemble(elRhs,model->elementList[currEl]->elementConnections);
     }
 
-    // PRINT RHS VECTOR
-    advDiffVec->writeToFile(string("rhsVector.txt"));
-
     // APPLY DIRICHELET/ESSENTIAL BOUNDARY CONDITIONS
 
     if(((femAdvectionDiffusionOptions*)options)->useWeakBC){
@@ -198,13 +192,27 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
       printf("Assembling Weak Boundary Conditions...\n");
 
       // REMEMBER TO CLEAN ROWS AND COLUMNS FOR THE BOUNDARY ELEMENTS !!!
+      int currBCElNode = 0;
+      for(size_t loopA=0;loopA<model->bcElementList.size();loopA++){
+        for(size_t loopB=0;loopB<model->bcElementList[loopA]->elementConnections.size();loopB++){
+          currBCElNode = model->bcElementList[loopA]->elementConnections[loopB];
+          advDiffMat->clearRowAndColumn(currBCElNode);
+          advDiffVec->values[currBCElNode] = 0.0;
+        }
+      }
 
+      // LOOP ON BOUNDARY ELEMENTS
+      int parentElement = 0;
       for(size_t loopElement=0;loopElement<model->bcElementList.size();loopElement++){
+
+        // Get The Parent Element for this BC Element
+        parentElement = model->bcParentElement[loopElement];
+
         // Assemble Advection-Diffusion Matrix
         model->bcElementList[loopElement]->formWeakBC(model->nodeList,
                                                       rule,
-                                                      (femDoubleVec)model->elDiffusivity[loopElement],
-                                                      (femDoubleVec)model->elVelocity[loopElement],
+                                                      (femDoubleVec)model->elDiffusivity[parentElement],
+                                                      (femDoubleVec)model->elVelocity[parentElement],
                                                       (femDoubleVec)model->bcElementNormal[loopElement],
                                                       model->bcElementValue[loopElement],
                                                       elMat,elRhs);
@@ -213,6 +221,7 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
         advDiffMat->assemble(elMat,model->bcElementList[loopElement]->elementConnections);
         // Assemble Source Vector
         advDiffVec->assemble(elRhs,model->elementList[currEl]->elementConnections);
+
       }
     }else{
       // USE STRONG BOUNDARY CONDITIONS
@@ -222,6 +231,12 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
       // RHS Vector
       advDiffVec->applyDirichelet(model->diricheletBCNode,model->diricheletBCValues);
     }
+
+    // PRINT LHS MATRIX
+    advDiffMat->writeToFile(string("lhsMatrix.txt"));
+
+    // PRINT RHS VECTOR
+    advDiffVec->writeToFile(string("rhsVector.txt"));
 
     // SOLVE LINEAR SYSTEM OF EQUATIONS
     femDoubleVec solution;

@@ -267,5 +267,34 @@ double femSparseMatrix::getRowSum(int loopA){
   throw femException("Not Implemented.\n");
 }
 
+// SET ROW AND COLUMN TO ZERO IN DENSE MATRIX
+void femMatrix::clearRowAndColumn(int dof){
+  throw femException("Not Implemented.\n");
+}
+
+// SET ROW AND COLUMN TO ZERO IN DENSE MATRIX
+void femDenseMatrix::clearRowAndColumn(int dof){
+  for(int loopA=0;loopA<totRows;loopA++){
+    values[loopA][dof] = 0.0;
+  }
+  for(int loopA=0;loopA<totCols;loopA++){
+    values[dof][loopA] = 0.0;
+  }
+}
+
+// SET ROW AND COLUMN TO ZERO IN SPARSE MATRIX
+void femSparseMatrix::clearRowAndColumn(int dof){
+  // Set to Zero in Column dof
+  for(int loopA=diagPtr[dof];loopA<diagPtr[dof+1];loopA++){
+    values[loopA] = 0.0;
+  }
+  // Set to Zero with dof Row
+  for(int loopA=0;loopA<rowPtr.size();loopA++){
+    if(rowPtr[loopA] == dof){
+      values[loopA] = 0.0;
+    }
+  }
+}
+
 
 

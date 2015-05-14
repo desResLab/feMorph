@@ -117,10 +117,8 @@ void evalJacobianMatrixLocal(int numberOfNodes, femDoubleMat elNodeCoords, femDo
     }
   }
   // Put one on the diagonal for 1D and 2D problems
-  if(dims == d1){
-    jacMat[1][1] = 1.0;
-    jacMat[2][2] = 1.0;
-  }else if(dims == d2){
+  if(dims == d2){
+    // CAREFULL - IT DEPENDS ON THE PLANE OF ELEMENT DEFINITION
     jacMat[2][2] = 1.0;
   }
 }
@@ -312,7 +310,7 @@ void femElement::evalGlobalShapeFunctionDerivative(std::vector<femNode*> nodeLis
   if(printSF){
     printf("Local Shape Functions\n");
     for(int loopA=0;loopA<numberOfNodes;loopA++){
-        printf("Node %d, dx: %f, dy: %f, dz: %f\n",loopA,shLocalDerivs[loopA][0],shLocalDerivs[loopA][1],shLocalDerivs[loopA][2]);
+      printf("Node %d, dx: %f, dy: %f, dz: %f\n",loopA,shLocalDerivs[loopA][0],shLocalDerivs[loopA][1],shLocalDerivs[loopA][2]);
     }
     printf("\n");
   }
@@ -324,12 +322,16 @@ void femElement::evalGlobalShapeFunctionDerivative(std::vector<femNode*> nodeLis
   // Invert Jacobian Matrix
   femDoubleMat invJacMat;
   double detJ;
-  femUtils::invert3x3Matrix(jacMat,invJacMat,detJ);
+  if(dims == d1){
+    femUtils::invert3x3MatrixFor1DElements(jacMat,invJacMat,detJ);
+  }else{
+    femUtils::invert3x3Matrix(jacMat,invJacMat,detJ);
+  }
 
   if(printJAC){
-    printf("Jacobian\n");
+    printf("Inv Jacobian\n");
     for(int loopA=0;loopA<kDims;loopA++){
-      printf("%12.3f %12.3f %12.3f\n",jacMat[loopA][0],jacMat[loopA][1],jacMat[loopA][2]);
+      printf("%12.3f %12.3f %12.3f\n",invJacMat[loopA][0],invJacMat[loopA][1],invJacMat[loopA][2]);
     }
     printf("\n");
   }
@@ -428,10 +430,6 @@ void femTetra10::EvalVolumeCoordinates(double dispFactor, double* pointCoords, s
   delete [] connections;
   delete tet4;
 }
-
-
-
-
 
 // =================================
 // Interpolate Element Displacements
@@ -1274,6 +1272,7 @@ void femElement::formWeakBC(std::vector<femNode*> nodeList,femIntegrationRule* r
   // CLEAR AND ALLOCATE MATRIX
   elMat.clear();
   elMat.resize(numberOfNodes);
+  elVec.resize(numberOfNodes);
   for(int loopA=0;loopA<numberOfNodes;loopA++){
     elMat[loopA].resize(numberOfNodes);
   }
@@ -1282,9 +1281,6 @@ void femElement::formWeakBC(std::vector<femNode*> nodeList,femIntegrationRule* r
       elMat[loopA][loopB] = 0.0;
     }
   }
-
-
-
 
   // CHECK IF INLET OR OUTLET
   // EVAL NORM OF DIFFUSION TENSOR
@@ -1296,10 +1292,13 @@ void femElement::formWeakBC(std::vector<femNode*> nodeList,femIntegrationRule* r
   }
   diffNorm = sqrt(diffNorm);
   bool isInlet = (normalVel < 0.0);
+  printf("is inlet: %d\n",isInlet);
+
   // Define Constants
   double gamma = 1.0;
   double Cb = 1.0;
   double elSize = EvalVolume(0.0,nodeList);
+  printf("size: %f\n",elSize);
 
   // INIT SHAPE DERIVATIVE MATRIX
   femDoubleMat shapeDeriv;
@@ -1324,6 +1323,7 @@ void femElement::formWeakBC(std::vector<femNode*> nodeList,femIntegrationRule* r
 
     // Eval Current Shape Derivatives Matrix
     evalGlobalShapeFunctionDerivative(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeDeriv);
+    printf("Deriv: %f %f %f\n",shapeDeriv[0][0],shapeDeriv[0][1],shapeDeriv[0][2]);
 
     // Eval Determinant of the Jacobian Matrix
     detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
@@ -1342,6 +1342,7 @@ void femElement::formWeakBC(std::vector<femNode*> nodeList,femIntegrationRule* r
           // CONSISTENCY TERM
           consistencyTerm = - shapeFunction[loopB] * diffusivity[loopD] * shapeDeriv[loopC][loopD] * elNormal[loopD] +
                               shapeFunction[loopB] * velocity[loopD] * elNormal[loopD] * shapeFunction[loopB];
+          printf("shapeFunction: %f, diffusivity: %f, shapeDeriv: %f, elNormal: %f\n",shapeFunction[loopB],diffusivity[loopD],shapeDeriv[loopC][loopD],elNormal[loopD]);
           if(isInlet){
             // INLET TERM
             inletTerm = - gamma * diffusivity[loopD] * shapeDeriv[loopB][loopD] * elNormal[loopD] * shapeFunction[loopC] -
@@ -1359,6 +1360,7 @@ void femElement::formWeakBC(std::vector<femNode*> nodeList,femIntegrationRule* r
 
           // SUM CONTRIBUTIONS FROM ALL TERMS
           currStiff = consistencyTerm + inletTerm + outletTerm + penaltyTerm;
+          //printf("consistency: %f, inlet: %f, outlet: %f, penalty: %f\n",consistencyTerm,inletTerm,outletTerm,penaltyTerm);
         }
         // Assemble Gauss Point Contribution
         elMat[loopB][loopC] += currStiff * detJ * intWeights[loopA];
@@ -1368,7 +1370,6 @@ void femElement::formWeakBC(std::vector<femNode*> nodeList,femIntegrationRule* r
     // EVAL RHS CONTRIBUTION
     double currRHS = 0.0;
     for(int loopB=0;loopB<numberOfNodes;loopB++){
-      currStiff = 0.0;
       for(int loopD=0;loopD<kDims;loopD++){
         // ADD WEAK BOUNDARY CONDITIONS TERMS
         if(isInlet){
@@ -1385,6 +1386,7 @@ void femElement::formWeakBC(std::vector<femNode*> nodeList,femIntegrationRule* r
         }
         // PENALTY TERM
         penaltyTerm = (Cb * diffNorm / elSize) * shapeFunction[loopB] * elBCValue;
+
         // SUM CONTRIBUTIONS FROM ALL TERMS
         currRHS = inletTerm + outletTerm + penaltyTerm;
       }

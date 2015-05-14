@@ -26,6 +26,8 @@ class femModel{
     vector<femFace*> faceList;
     vector<femEdge*> edgeList;
     vector<femProperty*> propList;
+    // Parent element for each bc element
+    femIntVec bcParentElement;
     // Element Velocity
     femDoubleMat elVelocity;
     // Source Array
@@ -140,6 +142,7 @@ class femModel{
     double CheckMinimumElementVolume(double dispFactor);
     double CheckMinimumElementMixProduct(double dispFactor);
     void   EvalModelQualityDistributions(std::string fileName, double* limitBox);
+    void   BuildParentElementList();
 
     // ==================
     // MODEL PARTITIONING

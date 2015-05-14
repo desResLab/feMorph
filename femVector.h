@@ -17,6 +17,7 @@ class femVector{
     void assemble(femDoubleVec vec,femIntVec indices);
     void applyDirichelet(femIntVec diricheletBCNode,femDoubleVec diricheletBCValues);
     void writeToFile(string fileName);
+    void clearRowAndColumn(int dof);
 };
 
 #endif // FEMVECTOR_H
