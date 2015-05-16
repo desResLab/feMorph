@@ -143,8 +143,6 @@ void femElement::evalJacobianMatrix(std::vector<femNode*> nodeList, double coord
     }
   }
 
-  printf("CIAO\n");
-
   // Compute Local Derivatives
   femDoubleMat shLocalDerivs;
   evalLocalShapeFunctionDerivative(nodeList,coord1,coord2,coord3,shLocalDerivs);
@@ -193,8 +191,11 @@ double femElement::evalJacobian(std::vector<femNode*> nodeList, double coord1, d
   // Invert Jacobian Matrix
   femDoubleMat invJacMat;
   double detJ;
-  femUtils::invert3x3Matrix(jacMat,invJacMat,detJ);
-
+  if(dims == d1){
+    femUtils::invert3x3MatrixFor1DElements(jacMat,invJacMat,detJ);
+  }else{
+    femUtils::invert3x3Matrix(jacMat,invJacMat,detJ);
+  }
   // Return
   return detJ;
 }
@@ -228,7 +229,11 @@ void femElement::evalGeometricMatrix(std::vector<femNode*> nodeList, double coor
   // Invert Jacobian Matrix
   femDoubleMat invJacMat;
   double detJ;
-  femUtils::invert3x3Matrix(jacMat,invJacMat,detJ);
+  if(dims == d1){
+    femUtils::invert3x3MatrixFor1DElements(jacMat,invJacMat,detJ);
+  }else{
+    femUtils::invert3x3Matrix(jacMat,invJacMat,detJ);
+  }
 
   // Allocate Geometric Matrix
   elGeomMat.resize(kDims);
@@ -1106,19 +1111,21 @@ void femElement::formAdvDiffLHS(std::vector<femNode*> nodeList,
 
     // Eval Resulting Matrix
     double currStiff = 0.0;
-    double diffTerm = 0.0;
-    double advTerm = 0.0;
+    double firstTerm = 0.0;
+    double stabTerm = 0.0;
     for(int loopB=0;loopB<numberOfNodes;loopB++){
       for(int loopC=0;loopC<numberOfNodes;loopC++){
         currStiff = 0.0;
         for(int loopD=0;loopD<kDims;loopD++){          
           // SUPG
-          // SUPG Diffusion: CHECK !!!
-          diffTerm = diffusivity[loopD] * shapeDeriv[loopB][loopD] * shapeDeriv[loopC][loopD];
           // SUPG Advection: CHECK !!!
-          advTerm = velocity[loopD] * (shapeFunction[loopB] + currTau*shapeDeriv[loopB][loopD]) * shapeDeriv[loopC][loopD];
+          //firstTerm = - shapeDeriv[loopB][loopD] * ( velocity[loopD] * shapeFunction[loopC] - diffusivity[loopD] * shapeDeriv[loopC][loopD]);
+          firstTerm = + shapeFunction[loopB] * velocity[loopD] * shapeDeriv[loopC][loopD]
+                      + shapeDeriv[loopB][loopD] * diffusivity[loopD] * shapeDeriv[loopC][loopD];
+          // Other Therm
+          stabTerm = (velocity[loopD] * shapeDeriv[loopB][loopD] * currTau) * (velocity[loopD] * shapeDeriv[loopC][loopD]);// - diffusivity[loopD] * shapeDeriv[loopC][loopD]);
           // Combine the two
-          currStiff += diffTerm + advTerm;
+          currStiff += firstTerm + stabTerm;
         }
         // Assemble Gauss Point Contribution
         elMat[loopB][loopC] += currStiff * detJ * intWeights[loopA];
@@ -1151,7 +1158,11 @@ void femElement::formAdvDiffRHS(std::vector<femNode*> nodeList,
                                 femDoubleVec &elSourceVec){
 
   // CHOOSE ARTIFICIAL DIFFUSION MODEL
-  //scheme: // 0-SUPG, 1-GALERKIN, 2-UD, 3-GALERKIN + EAD
+  //scheme: // 0-SUPG, 1-GALERKIN, 2-UD, 3-GALERKIN + EAD  
+  elSourceVec.resize(numberOfNodes);
+  for(int loopA=0;loopA<numberOfNodes;loopA++){
+    elSourceVec[loopA] = 0.0;
+  }
 
   // GET SCALAR Diffusivity and Velocity
   double scalarDiff = diffusivity[0];
@@ -1264,20 +1275,60 @@ void femElement::formAdvDiffRHS(std::vector<femNode*> nodeList,
   }
 }
 
+// FIND INDEX IN CONNECTIONS
+int getindex(int index, femIntVec conn){
+  int count = 0;
+  bool found = false;
+  while((!found)&&(count<conn.size())){
+    found = (conn[count] == index);
+    // Increment Count
+    if(!found){
+      count++;
+    }
+  }
+  if(!found){
+    throw femException("Node Not Found in getindex\n");
+  }
+  return count;
+}
+
+// =============================
+// GET COORDINATES FROM BOUNDARY
+// =============================
+void femElement::getBCCoords(double bcCoord1, double bcCoord2, double bcCoord3,
+                             femIntVec conn,
+                             double& newCoord1, double& newCoord2, double& newCoord3){
+  double vec[3];
+  double c1[4] = {-1.0,-1.0,+1.0,+1.0};
+  double c2[4] = {-1.0,+1.0,+1.0,-1.0};
+  int firstIndex = getindex(conn[0],elementConnections);
+  int secondIndex = getindex(conn[1],elementConnections);
+  vec[0] = (1.0/2.0) * (c1[secondIndex] - c1[firstIndex]);
+  vec[1] = (1.0/2.0) * (c2[secondIndex] - c2[firstIndex]);
+  vec[2] = 0.0;
+  // Assign New Coords
+  newCoord1 = 0.5*(c1[secondIndex] + c1[firstIndex]) + vec[0]*bcCoord1;
+  newCoord2 = 0.5*(c2[secondIndex] + c2[firstIndex]) + vec[1]*bcCoord1;
+  newCoord3 = 0.0;
+}
+
 // ASSEMBLE WEAK BCS FOR BOUNDARY ELEMENTS
-void femElement::formWeakBC(std::vector<femNode*> nodeList,femIntegrationRule* rule,
+void femElement::formWeakBC(std::vector<femNode*> nodeList,
+                            femElement* parentElement,
+                            femIntegrationRule* rule,
                             femDoubleVec diffusivity,femDoubleVec velocity,femDoubleVec elNormal, double elBCValue,
                             femDoubleMat &elMat,femDoubleVec &elVec){
 
   // CLEAR AND ALLOCATE MATRIX
   elMat.clear();
-  elMat.resize(numberOfNodes);
-  elVec.resize(numberOfNodes);
-  for(int loopA=0;loopA<numberOfNodes;loopA++){
-    elMat[loopA].resize(numberOfNodes);
+  elMat.resize(parentElement->numberOfNodes);
+  elVec.resize(parentElement->numberOfNodes);
+  for(int loopA=0;loopA<parentElement->numberOfNodes;loopA++){
+    elVec[loopA] = 0.0;
+    elMat[loopA].resize(parentElement->numberOfNodes);
   }
-  for(int loopA=0;loopA<numberOfNodes;loopA++){
-    for(int loopB=0;loopB<numberOfNodes;loopB++){
+  for(int loopA=0;loopA<parentElement->numberOfNodes;loopA++){
+    for(int loopB=0;loopB<parentElement->numberOfNodes;loopB++){
       elMat[loopA][loopB] = 0.0;
     }
   }
@@ -1288,17 +1339,18 @@ void femElement::formWeakBC(std::vector<femNode*> nodeList,femIntegrationRule* r
   double diffNorm = 0.0;
   for(int loopA=0;loopA<kDims;loopA++){
     normalVel += velocity[loopA] * elNormal[loopA];
-    diffNorm += diffusivity[loopA];
+    diffNorm += diffusivity[loopA]*diffusivity[loopA];
   }
   diffNorm = sqrt(diffNorm);
   bool isInlet = (normalVel < 0.0);
   printf("is inlet: %d\n",isInlet);
+  printf("BC Value: %f\n",elBCValue);
 
   // Define Constants
   double gamma = 1.0;
   double Cb = 1.0;
   double elSize = EvalVolume(0.0,nodeList);
-  printf("size: %f\n",elSize);
+  //printf("size: %f\n",elSize);
 
   // INIT SHAPE DERIVATIVE MATRIX
   femDoubleMat shapeDeriv;
@@ -1310,6 +1362,9 @@ void femElement::formWeakBC(std::vector<femNode*> nodeList,femIntegrationRule* r
   femDoubleVec intWeights;
   double detJ = 0.0;
   double currTau = 0.0;
+  double bcCoord1 = 0.0;
+  double bcCoord2 = 0.0;
+  double bcCoord3 = 0.0;
 
   // Get Integration Coords and Weights
   intCoords = rule->getCoords(numberOfNodes,dims);
@@ -1318,12 +1373,14 @@ void femElement::formWeakBC(std::vector<femNode*> nodeList,femIntegrationRule* r
   // Gauss Point Loop
   for(int loopA=0;loopA<rule->getTotGP(numberOfNodes,dims);loopA++){
 
+    parentElement->getBCCoords(intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],elementConnections,bcCoord1,bcCoord2,bcCoord3);
+    //printf("Vels %f %f %f\n",velocity[0],velocity[1],velocity[2]);
+
     // Eval Shape Function
-    evalShapeFunction(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeFunction);
+    parentElement->evalShapeFunction(nodeList,bcCoord1,bcCoord2,bcCoord3,shapeFunction);
 
     // Eval Current Shape Derivatives Matrix
-    evalGlobalShapeFunctionDerivative(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeDeriv);
-    printf("Deriv: %f %f %f\n",shapeDeriv[0][0],shapeDeriv[0][1],shapeDeriv[0][2]);
+    parentElement->evalGlobalShapeFunctionDerivative(nodeList,bcCoord1,bcCoord2,bcCoord3,shapeDeriv);
 
     // Eval Determinant of the Jacobian Matrix
     detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
@@ -1334,19 +1391,21 @@ void femElement::formWeakBC(std::vector<femNode*> nodeList,femIntegrationRule* r
     double inletTerm = 0.0;
     double outletTerm = 0.0;
     double penaltyTerm = 0.0;
-    for(int loopB=0;loopB<numberOfNodes;loopB++){
-      for(int loopC=0;loopC<numberOfNodes;loopC++){
+    for(int loopB=0;loopB<parentElement->numberOfNodes;loopB++){
+      for(int loopC=0;loopC<parentElement->numberOfNodes;loopC++){
         currStiff = 0.0;
         for(int loopD=0;loopD<kDims;loopD++){
           // ADD WEAK BOUNDARY CONDITIONS TERMS
           // CONSISTENCY TERM
-          consistencyTerm = - shapeFunction[loopB] * diffusivity[loopD] * shapeDeriv[loopC][loopD] * elNormal[loopD] +
-                              shapeFunction[loopB] * velocity[loopD] * elNormal[loopD] * shapeFunction[loopB];
-          printf("shapeFunction: %f, diffusivity: %f, shapeDeriv: %f, elNormal: %f\n",shapeFunction[loopB],diffusivity[loopD],shapeDeriv[loopC][loopD],elNormal[loopD]);
+          consistencyTerm = - shapeFunction[loopB] * diffusivity[loopD] * shapeDeriv[loopC][loopD] * elNormal[loopD]
+                            + shapeFunction[loopB] * velocity[loopD] * elNormal[loopD] * shapeFunction[loopC];
+          //consistencyTerm = 0.0;
+          //printf("shapeFunction: %f, diffusivity: %f, shapeDeriv: %f, elNormal: %f\n",borderShapeFunction[loopB],diffusivity[loopD],borderShapeDeriv[loopC][loopD],elNormal[loopD]);          
+          //printf("velocity: %f\n",velocity[loopD]);
           if(isInlet){
             // INLET TERM
-            inletTerm = - gamma * diffusivity[loopD] * shapeDeriv[loopB][loopD] * elNormal[loopD] * shapeFunction[loopC] -
-                          velocity[loopD] * elNormal[loopD]  * shapeFunction[loopB] * shapeFunction[loopC];
+            inletTerm = - gamma * diffusivity[loopD] * shapeDeriv[loopB][loopD] * elNormal[loopD] * shapeFunction[loopC]
+                        - shapeFunction[loopB] * velocity[loopD] * elNormal[loopD] * shapeFunction[loopC];
             // OUTLET TERM
             outletTerm = 0.0;
           }else{
@@ -1354,28 +1413,30 @@ void femElement::formWeakBC(std::vector<femNode*> nodeList,femIntegrationRule* r
               inletTerm = 0.0;
               // OUTLET TERM
               outletTerm = - gamma * diffusivity[loopD] * shapeDeriv[loopB][loopD] * elNormal[loopD] * shapeFunction[loopC];
+              //printf("outletTerm: %f\n",outletTerm);
           }
-          // PENALTY TERM
-          penaltyTerm = (Cb * diffNorm / elSize) * shapeFunction[loopB] * shapeFunction[loopC];
 
           // SUM CONTRIBUTIONS FROM ALL TERMS
-          currStiff = consistencyTerm + inletTerm + outletTerm + penaltyTerm;
+          currStiff += consistencyTerm + inletTerm + outletTerm;
           //printf("consistency: %f, inlet: %f, outlet: %f, penalty: %f\n",consistencyTerm,inletTerm,outletTerm,penaltyTerm);
         }
+        // PENALTY TERM
+        penaltyTerm = (Cb * diffNorm / elSize) * shapeFunction[loopB] * shapeFunction[loopC];
+
         // Assemble Gauss Point Contribution
-        elMat[loopB][loopC] += currStiff * detJ * intWeights[loopA];
+        elMat[loopB][loopC] += (currStiff + penaltyTerm) * detJ * intWeights[loopA];
       }
     }
 
-    // EVAL RHS CONTRIBUTION
-    double currRHS = 0.0;
-    for(int loopB=0;loopB<numberOfNodes;loopB++){
+    // EVAL RHS CONTRIBUTION    
+    for(int loopB=0;loopB<parentElement->numberOfNodes;loopB++){
+      double currRHS = 0.0;
       for(int loopD=0;loopD<kDims;loopD++){
         // ADD WEAK BOUNDARY CONDITIONS TERMS
         if(isInlet){
           // INLET TERM
-          inletTerm = - gamma * diffusivity[loopD] * shapeDeriv[loopB][loopD] * elNormal[loopD] * elBCValue -
-                        velocity[loopD] * elNormal[loopD]  * shapeFunction[loopB] * elBCValue;
+          inletTerm = - gamma * diffusivity[loopD] * shapeDeriv[loopB][loopD] * elNormal[loopD] * elBCValue
+                      - velocity[loopD] * elNormal[loopD]  * shapeFunction[loopB] * elBCValue;
           // OUTLET TERM
           outletTerm = 0.0;
         }else{
@@ -1384,15 +1445,42 @@ void femElement::formWeakBC(std::vector<femNode*> nodeList,femIntegrationRule* r
           // OUTLET TERM
           outletTerm = - gamma * diffusivity[loopD] * shapeDeriv[loopB][loopD] * elNormal[loopD] * elBCValue;
         }
-        // PENALTY TERM
-        penaltyTerm = (Cb * diffNorm / elSize) * shapeFunction[loopB] * elBCValue;
+        //printf("Cb: %f, diffNorm %f, elSize %f, borderSF %f, elBC %f\n",Cb,diffNorm,elSize,borderShapeFunction[loopB],elBCValue);
 
         // SUM CONTRIBUTIONS FROM ALL TERMS
-        currRHS = inletTerm + outletTerm + penaltyTerm;
+        //printf("inlet: %f, outlet: %f\n",inletTerm,outletTerm);
+        currRHS += inletTerm + outletTerm;
+        //printf("CurrRHS : %f\n",currRHS);
       }
+      // PENALTY TERM
+      penaltyTerm = (Cb * diffNorm / elSize) * shapeFunction[loopB] * elBCValue;
+
       // Assemble Gauss Point Contribution
-      elVec[loopB] += currRHS * detJ * intWeights[loopA];
+      elVec[loopB] += (currRHS + penaltyTerm) * detJ * intWeights[loopA];
+      //printf("Detj: %f, weights: %f\n",detJ,intWeights[loopA]);
+      //printf("Summed : %f\n",elVec[loopB]);
     }
   }
+  // Print Element Matrix and Load Vector
+  for(int loopA=0;loopA<numberOfNodes;loopA++){
+    printf("%d ",elementConnections[loopA]);
+  }
+  printf("\n");
+  for(int loopA=0;loopA<parentElement->numberOfNodes;loopA++){
+    printf("%d ",parentElement->elementConnections[loopA]);
+  }
+  printf("\n");
+  printf("MAT\n");
+  for(int loopA=0;loopA<parentElement->numberOfNodes;loopA++){
+    for(int loopB=0;loopB<parentElement->numberOfNodes;loopB++){
+      printf("%f ",elMat[loopA][loopB]);
+    }
+    printf("\n");
+  }
+  printf("VEC\n");
+  for(int loopA=0;loopA<parentElement->numberOfNodes;loopA++){
+    printf("%f\n",elVec[loopA]);
+  }
+
 }
 

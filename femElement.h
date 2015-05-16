@@ -42,6 +42,12 @@ class femElement{
     void   evalGlobalShapeFunctionDerivative(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &globShDeriv);
     void   evalGeometricMatrix(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3,femDoubleMat& elGeomMat);
 
+    // Temporary
+    void getBCCoords(double bcCoord1, double bcCoord2, double bcCoord3,
+                     femIntVec conn,
+                     double& newCoord1, double& newCoord2, double& newCoord3);
+
+
     // Not Virtual
     void   evalElementCentroid(std::vector<femNode*> &nodeList, double* centroid);
     double evalPointToElementDistance(double* pointCoords, std::vector<femNode*> &nodeList);
@@ -63,7 +69,9 @@ class femElement{
     // ADVECTION DIFFUSION
     void formAdvDiffLHS(std::vector<femNode*> nodeList,femIntegrationRule* rule,femDoubleVec diffusivity, femDoubleVec velocity,int schemeType,femDoubleMat &elMat);
     void formAdvDiffRHS(std::vector<femNode*> nodeList,femIntegrationRule* rule,double sourceValue,femDoubleVec diffusivity,femDoubleVec velocity,int schemeType,femDoubleVec &elRhs);
-    void formWeakBC(std::vector<femNode*> nodeList,femIntegrationRule* rule,
+    void formWeakBC(std::vector<femNode*> nodeList,
+                    femElement* parentElement,
+                    femIntegrationRule* rule,
                     femDoubleVec diffusivity,femDoubleVec velocity,femDoubleVec elNormal, double elBCValue,
                     femDoubleMat &elMat,femDoubleVec &elVec);
     void assembleMass(femDoubleMat &nodeVelocities, std::vector<femNode*> nodeList, std::vector<double> tauSUPG, femIntegrationRule rule, double** massMat);

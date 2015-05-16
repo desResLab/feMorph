@@ -3727,7 +3727,7 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
         femElement* newElement;
         currProp = 1;
         if(elTypeString == string("ROD")){
-          newElement = new femRod(currNumber,currProp,kRodNodes,connections,currArea);
+          newElement = new femRod(currNumber,currProp,kRodNodes,connections,0.0);
         }else if(elTypeString == string("TRI3")){
           newElement = new femTri3(currNumber,currProp,kTri3Nodes,connections);
         }else if(elTypeString == string("QUAD4")){

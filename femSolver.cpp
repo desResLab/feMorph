@@ -196,6 +196,7 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
       for(size_t loopA=0;loopA<model->bcElementList.size();loopA++){
         for(size_t loopB=0;loopB<model->bcElementList[loopA]->elementConnections.size();loopB++){
           currBCElNode = model->bcElementList[loopA]->elementConnections[loopB];
+          printf("Removed: %d\n",currBCElNode);
           advDiffMat->clearRowAndColumn(currBCElNode);
           advDiffVec->values[currBCElNode] = 0.0;
         }
@@ -210,17 +211,22 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
 
         // Assemble Advection-Diffusion Matrix
         model->bcElementList[loopElement]->formWeakBC(model->nodeList,
+                                                      model->elementList[parentElement],
                                                       rule,
                                                       (femDoubleVec)model->elDiffusivity[parentElement],
                                                       (femDoubleVec)model->elVelocity[parentElement],
                                                       (femDoubleVec)model->bcElementNormal[loopElement],
                                                       model->bcElementValue[loopElement],
                                                       elMat,elRhs);
+        //printf("RHS Local\n");
+        //for(int loopC=0;loopC<elRhs.size();loopC++){
+        //  printf("RHS %d, %f\n",loopC,elRhs[loopC]);
+        //}
         // Assemble both LHS and RHS Contributions
         // Assemble Sparse Matrix
-        advDiffMat->assemble(elMat,model->bcElementList[loopElement]->elementConnections);
+        advDiffMat->assemble(elMat,model->elementList[parentElement]->elementConnections);
         // Assemble Source Vector
-        advDiffVec->assemble(elRhs,model->elementList[currEl]->elementConnections);
+        advDiffVec->assemble(elRhs,model->elementList[parentElement]->elementConnections);
 
       }
     }else{
@@ -248,7 +254,7 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
     res->type = frNode;
     // Assign to values
     for(size_t loopA=0;loopA<solution.size();loopA++){
-      //printf("Solution %d %f\n",loopA,solution[loopA]);
+      printf("Solution %d %f\n",loopA,solution[loopA]);
       res->values.push_back(solution[loopA]);
     }
     model->resultList.push_back(res);
