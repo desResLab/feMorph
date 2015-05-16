@@ -662,15 +662,15 @@ inline void invert3x3MatrixFor1DElements(femDoubleMat mat,femDoubleMat &invMat, 
 
   if(fabs(derX)>1.0e-8){
     invMat[0][0] = 1/derX;
-    detJ *= 1/derX;
+    detJ *= derX;
   }
   if(fabs(derY)>1.0e-8){
     invMat[1][0] = 1/derY;
-    detJ *= 1/derY;
+    detJ *= derY;
   }
   if(fabs(derZ)>1.0e-8){
     invMat[2][0] = 1/derZ;
-    detJ *= 1/derZ;
+    detJ *= derZ;
   }
 }
 

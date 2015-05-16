@@ -16,8 +16,8 @@ void femQuad4::fixConnectivities(std::vector<femNode*> &nodeList){
 void femQuad4::evalShapeFunction(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction){
   shapeFunction.clear();
   shapeFunction.reserve(numberOfNodes);
-  double c1[4] = {-1.0,-1.0,+1.0,+1.0};
-  double c2[4] = {-1.0,+1.0,+1.0,-1.0};
+  double c1[4] = {-1.0,+1.0,+1.0,-1.0};
+  double c2[4] = {-1.0,-1.0,+1.0,+1.0};
   double currN = 0.0;
   for(int loopA=0;loopA<numberOfNodes;loopA++){
     currN = (1.0/4.0)*(1.0 + coord1 * c1[loopA])*
@@ -28,8 +28,8 @@ void femQuad4::evalShapeFunction(std::vector<femNode*> nodeList, double coord1, 
 void femQuad4::evalLocalShapeFunctionDerivative(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv){
   shapeDeriv.clear();
   shapeDeriv.reserve(numberOfNodes);
-  double c1[4] = {-1.0,-1.0,+1.0,+1.0};
-  double c2[4] = {-1.0,+1.0,+1.0,-1.0};
+  double c1[4] = {-1.0,+1.0,+1.0,-1.0};
+  double c2[4] = {-1.0,-1.0,+1.0,+1.0};
   femDoubleVec temp;
   for(int loopA=0;loopA<numberOfNodes;loopA++){
     temp.clear();

@@ -156,6 +156,8 @@ void femElement::evalJacobianMatrix(std::vector<femNode*> nodeList, double coord
 // ===========================
 double femElement::evalJacobian(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3){
 
+  bool printJac = false;
+
   // Compute Node Coordinate Vector
   int currNode = 0;
   femDoubleMat elNodeCoords;
@@ -179,20 +181,22 @@ double femElement::evalJacobian(std::vector<femNode*> nodeList, double coord1, d
   evalJacobianMatrixLocal(numberOfNodes,elNodeCoords,shLocalDerivs,dims,jacMat);
 
   // Print Jac Matrix
-  //printf("JACOBIAN MATRIX\n");
-  //for(int loopA=0;loopA<kDims;loopA++){
-  //  for(int loopB=0;loopB<kDims;loopB++){
-  //    printf("%e ",jacMat[loopA][loopB]);
-  //  }
-  //  printf("\n");
-  //}
-  //printf("\n");
+  if(printJac){
+    printf("JACOBIAN MATRIX\n");
+    for(int loopA=0;loopA<kDims;loopA++){
+      for(int loopB=0;loopB<kDims;loopB++){
+        printf("%e ",jacMat[loopA][loopB]);
+      }
+      printf("\n");
+    }
+    printf("\n");
+  }
 
   // Invert Jacobian Matrix
   femDoubleMat invJacMat;
   double detJ;
   if(dims == d1){
-    femUtils::invert3x3MatrixFor1DElements(jacMat,invJacMat,detJ);
+    femUtils::invert3x3MatrixFor1DElements(jacMat,invJacMat,detJ);    
   }else{
     femUtils::invert3x3Matrix(jacMat,invJacMat,detJ);
   }
@@ -1106,6 +1110,7 @@ void femElement::formAdvDiffLHS(std::vector<femNode*> nodeList,
 
     // Eval Determinant of the Jacobian Matrix
     detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
+    printf("DetJ QUAD4: %f\n",detJ);
 
     //printf("detJ %f\n",detJ);
 
@@ -1119,9 +1124,9 @@ void femElement::formAdvDiffLHS(std::vector<femNode*> nodeList,
         for(int loopD=0;loopD<kDims;loopD++){          
           // SUPG
           // SUPG Advection: CHECK !!!
-          //firstTerm = - shapeDeriv[loopB][loopD] * ( velocity[loopD] * shapeFunction[loopC] - diffusivity[loopD] * shapeDeriv[loopC][loopD]);
-          firstTerm = + shapeFunction[loopB] * velocity[loopD] * shapeDeriv[loopC][loopD]
-                      + shapeDeriv[loopB][loopD] * diffusivity[loopD] * shapeDeriv[loopC][loopD];
+          firstTerm = - shapeDeriv[loopB][loopD] * ( velocity[loopD] * shapeFunction[loopC] - diffusivity[loopD] * shapeDeriv[loopC][loopD]);
+          //firstTerm = + shapeFunction[loopB] * velocity[loopD] * shapeDeriv[loopC][loopD]
+          //            + shapeDeriv[loopB][loopD] * diffusivity[loopD] * shapeDeriv[loopC][loopD];
           // Other Therm
           stabTerm = (velocity[loopD] * shapeDeriv[loopB][loopD] * currTau) * (velocity[loopD] * shapeDeriv[loopC][loopD]);// - diffusivity[loopD] * shapeDeriv[loopC][loopD]);
           // Combine the two
@@ -1299,8 +1304,8 @@ void femElement::getBCCoords(double bcCoord1, double bcCoord2, double bcCoord3,
                              femIntVec conn,
                              double& newCoord1, double& newCoord2, double& newCoord3){
   double vec[3];
-  double c1[4] = {-1.0,-1.0,+1.0,+1.0};
-  double c2[4] = {-1.0,+1.0,+1.0,-1.0};
+  double c1[4] = {-1.0,+1.0,+1.0,-1.0};
+  double c2[4] = {-1.0,-1.0,+1.0,+1.0};
   int firstIndex = getindex(conn[0],elementConnections);
   int secondIndex = getindex(conn[1],elementConnections);
   vec[0] = (1.0/2.0) * (c1[secondIndex] - c1[firstIndex]);
@@ -1316,18 +1321,21 @@ void femElement::getBCCoords(double bcCoord1, double bcCoord2, double bcCoord3,
 void femElement::formWeakBC(std::vector<femNode*> nodeList,
                             femElement* parentElement,
                             femIntegrationRule* rule,
-                            femDoubleVec diffusivity,femDoubleVec velocity,femDoubleVec elNormal, double elBCValue,
-                            femDoubleMat &elMat,femDoubleVec &elVec){
+                            femDoubleVec diffusivity,
+                            femDoubleVec velocity,
+                            femDoubleVec elNormal,
+                            double elBCValue,
+                            femDoubleMat &elMat,
+                            femDoubleVec &elVec){
 
   // CLEAR AND ALLOCATE MATRIX
-  elMat.clear();
   elMat.resize(parentElement->numberOfNodes);
   elVec.resize(parentElement->numberOfNodes);
-  for(int loopA=0;loopA<parentElement->numberOfNodes;loopA++){
-    elVec[loopA] = 0.0;
+  for(int loopA=0;loopA<parentElement->numberOfNodes;loopA++){   
     elMat[loopA].resize(parentElement->numberOfNodes);
   }
   for(int loopA=0;loopA<parentElement->numberOfNodes;loopA++){
+    elVec[loopA] = 0.0;
     for(int loopB=0;loopB<parentElement->numberOfNodes;loopB++){
       elMat[loopA][loopB] = 0.0;
     }

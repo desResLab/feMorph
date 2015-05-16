@@ -511,14 +511,14 @@ int solvePoissonEquation(femProgramOptions* options){
 int solveMPISteadyStateAdvectionDiffusionEquation(femProgramOptions* options){
 
   // INIT MPI
-  //#ifdef HAVE_MPI
-  //  int *argc = NULL;
- //   char ***argv = NULL;
- //   MPI_Init(argc,argv);
- //   Epetra_MpiComm Comm( MPI_COMM_WORLD );
- // #else
+  #ifdef HAVE_MPI
+    int *argc = NULL;
+    char ***argv = NULL;
+    MPI_Init(argc,argv);
+    Epetra_MpiComm Comm( MPI_COMM_WORLD );
+  #else
     Epetra_SerialComm Comm;
-//  #endif
+  #endif
   // Print Communicator
   cout << Comm <<endl;
 

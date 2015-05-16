@@ -144,8 +144,6 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
     // Local Element Matrix
     femDoubleMat elMat;
     femDoubleVec elRhs;
-    femDoubleVec elBCVec;
-    femIntVec currIdxList;
 
     // ASSEMBLE LHS MATRIX
     printf("Assembling LHS Matrix...\n");
@@ -192,7 +190,7 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
       printf("Assembling Weak Boundary Conditions...\n");
 
       // REMEMBER TO CLEAN ROWS AND COLUMNS FOR THE BOUNDARY ELEMENTS !!!
-      int currBCElNode = 0;
+      /*int currBCElNode = 0;
       for(size_t loopA=0;loopA<model->bcElementList.size();loopA++){
         for(size_t loopB=0;loopB<model->bcElementList[loopA]->elementConnections.size();loopB++){
           currBCElNode = model->bcElementList[loopA]->elementConnections[loopB];
@@ -200,7 +198,7 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
           advDiffMat->clearRowAndColumn(currBCElNode);
           advDiffVec->values[currBCElNode] = 0.0;
         }
-      }
+      }*/
 
       // LOOP ON BOUNDARY ELEMENTS
       int parentElement = 0;
