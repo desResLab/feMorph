@@ -92,10 +92,10 @@ double femElement::checkMinDetJ(std::vector<femNode*> &nodeList, femIntegrationR
 // =====================================
 // VIRTUAL FUNCTIONS FOR FINITE ELEMENTS
 // =====================================
-void femElement::evalShapeFunction(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction){
+void femElement::evalShapeFunction(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction){
   throw femException("Not Implemented.\n");
 }
-void femElement::evalLocalShapeFunctionDerivative(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv){
+void femElement::evalLocalShapeFunctionDerivative(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv){
   throw femException("Not Implemented.\n");
 }
 
@@ -126,7 +126,7 @@ void evalJacobianMatrixLocal(int numberOfNodes, femDoubleMat elNodeCoords, femDo
 // ====================
 // EVAL JACOBIAN MATRIX
 // ====================
-void femElement::evalJacobianMatrix(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, elDim dims, femDoubleMat &jacMat){
+void femElement::evalJacobianMatrix(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3, elDim dims, femDoubleMat &jacMat){
 
   // Compute Node Coordinate Vector
   int currNode = 0;
@@ -154,7 +154,7 @@ void femElement::evalJacobianMatrix(std::vector<femNode*> nodeList, double coord
 // ===========================
 // COMMON ELEMENT CONSTRUCTION
 // ===========================
-double femElement::evalJacobian(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3){
+double femElement::evalJacobian(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3){
 
   bool printJac = false;
 
@@ -207,7 +207,9 @@ double femElement::evalJacobian(std::vector<femNode*> nodeList, double coord1, d
 // =============================
 // EVAL GEOMETRIC ELEMENT MATRIX
 // =============================
-void femElement::evalGeometricMatrix(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3,femDoubleMat& elGeomMat){
+void femElement::evalGeometricMatrix(std::vector<femNode*> &nodeList,
+                                     double coord1, double coord2, double coord3,
+                                     femDoubleMat& elGeomMat){
   // Compute Node Coordinate Vector
   int currNode = 0;
   femDoubleMat elNodeCoords;
@@ -260,7 +262,11 @@ void femElement::evalGeometricMatrix(std::vector<femNode*> nodeList, double coor
 // ==========================
 // EVAL QUADRATIC FORM OF TAU
 // ==========================
-double evalQuadraticTau(femDoubleMat elGeomMat,femDoubleVec velocity,femDoubleVec diffusivity){
+double evalQuadraticTau(double timeStep, femDoubleMat elGeomMat,femDoubleVec velocity,femDoubleVec diffusivity){
+
+  // Contribution for Transient Problems
+  double timeTau = 4.0/(timeStep * timeStep);
+
   // Select Constant
   double cConst = 1.0;
   double isoDiff = sqrt(diffusivity[0]*diffusivity[0] + diffusivity[1]*diffusivity[1] + diffusivity[2]*diffusivity[2]);
@@ -285,13 +291,13 @@ double evalQuadraticTau(femDoubleMat elGeomMat,femDoubleVec velocity,femDoubleVe
   //printf("Tau 1 %f, Tau 2 %f\n",firstTau,secondTau);
 
   // Return the norm
-  return 1.0/sqrt(firstTau + secondTau);
+  return 1.0/sqrt(timeTau + firstTau + secondTau);
 }
 
 // ======================================
 // EVAL GLOBAL SHAPE FUNCTION DERIVATIVES
 // ======================================
-void femElement::evalGlobalShapeFunctionDerivative(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &globShDeriv){
+void femElement::evalGlobalShapeFunctionDerivative(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3, femDoubleMat &globShDeriv){
 
   // Flag to print shape functions
   bool printSF = false;
@@ -475,10 +481,10 @@ void femElement::InterpolateElementDisplacements(double dispFactor, double* node
 void femTetra10::fixConnectivities(std::vector<femNode*> &nodeList){
   throw femException("Not Implemented.\n");
 }
-void femTetra10::evalShapeFunction(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction){
+void femTetra10::evalShapeFunction(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction){
   throw femException("Not Implemented.\n");
 }
-void femTetra10::evalLocalShapeFunctionDerivative(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3,
+void femTetra10::evalLocalShapeFunctionDerivative(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3,
                                                   femDoubleMat &shapeDeriv){
   throw femException("Not Implemented.\n");
 }
@@ -793,13 +799,13 @@ double femTri3::EvalMixProduct(std::vector<femNode*> &nodeList){
 void femTri3::fixConnectivities(std::vector<femNode*> &nodeList){
   throw femException("Not Implemented.\n");
 }
-void femTri3::evalShapeFunction(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction){
+void femTri3::evalShapeFunction(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction){
   shapeFunction.clear();
   shapeFunction.push_back(coord1);
   shapeFunction.push_back(coord2);
   shapeFunction.push_back(1.0-coord1-coord2);
 }
-void femTri3::evalLocalShapeFunctionDerivative(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv){
+void femTri3::evalLocalShapeFunctionDerivative(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv){
   femDoubleVec temp;
   // Third Component Set to Zero: CHECK!!!
   temp.push_back(1.0);
@@ -1103,7 +1109,7 @@ void femElement::formAdvDiffLHS(std::vector<femNode*> nodeList,
     evalGeometricMatrix(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],elGeomMat);
 
     // Eval Quadratic Tau
-    currTau = evalQuadraticTau(elGeomMat,velocity,diffusivity);
+    currTau = evalQuadraticTau(0.0,elGeomMat,velocity,diffusivity);
 
     //printf("dN1/dx %f, dN1/dy %f, dN1/dz %f\n",shapeDeriv[0][0],shapeDeriv[0][1],shapeDeriv[0][2]);
     //printf("dN2/dx %f, dN2/dy %f, dN2/dz %f\n",shapeDeriv[1][0],shapeDeriv[1][1],shapeDeriv[1][2]);
@@ -1489,6 +1495,228 @@ void femElement::formWeakBC(std::vector<femNode*> nodeList,
   for(int loopA=0;loopA<parentElement->numberOfNodes;loopA++){
     printf("%f\n",elVec[loopA]);
   }
-
 }
+
+// =================================
+// TRANSIENT ADVECTION-DIFFUSION LHS
+// =================================
+void femElement::formTransientAdvDiffLHS(std::vector<femNode*> &nodeList,
+                                         femIntegrationRule* rule,
+                                         femDoubleVec diffusivity,
+                                         femDoubleMat solution,
+                                         double timeStep,
+                                         double alphaM, double alphaF, double gamma,
+                                         femDoubleMat &elMat){
+
+  // CLEAR AND ALLOCATE MATRIX
+  if(elMat.size() == 0){
+    elMat.clear();
+    elMat.resize(numberOfNodes);
+    for(int loopA=0;loopA<numberOfNodes;loopA++){
+      elMat[loopA].resize(numberOfNodes);
+    }
+  }
+  for(int loopA=0;loopA<numberOfNodes;loopA++){
+    for(int loopB=0;loopB<numberOfNodes;loopB++){
+      elMat[loopA][loopB] = 0.0;
+    }
+  }
+
+  // INIT SHAPE DERIVATIVE MATRIX
+  femDoubleMat shapeDeriv;
+  femDoubleVec shapeFunction;
+  femDoubleMat elGeomMat;
+
+  // GAUSS POINTS LOOP
+  femDoubleMat intCoords;
+  femDoubleVec intWeights;
+  double detJ = 0.0;
+  double currTau = 0.0;
+
+  // Get Integration Coords and Weights
+  intCoords = rule->getCoords(numberOfNodes,dims);
+  intWeights = rule->getWeights(numberOfNodes,dims);
+
+  // Gauss Point Loop
+  for(int loopA=0;loopA<rule->getTotGP(numberOfNodes,dims);loopA++){
+
+    // Eval Shape Function
+    evalShapeFunction(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeFunction);
+
+    // Eval Current Shape Derivatives Matrix
+    evalGlobalShapeFunctionDerivative(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeDeriv);
+
+    // Eval Geometric Element Matrix
+    evalGeometricMatrix(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],elGeomMat);
+
+    // Get the Velocity at the current Gauss Point
+    femDoubleVec velocity;
+    velocity.resize(kDims);
+    for(int loopD=0;loopD<kDims;loopD++){
+      velocity[loopD] = 0.0;
+      for(int loopB=0;loopB<numberOfNodes;loopB++){
+        velocity[loopD] += shapeFunction[loopB] * solution[elementConnections[loopB]][loopD];
+      }
+    }
+
+    // Eval Quadratic Tau
+    currTau = evalQuadraticTau(timeStep,elGeomMat,velocity,diffusivity);
+
+    // Eval Determinant of the Jacobian Matrix
+    detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
+
+    // Eval Resulting Matrix
+    double currK = 0.0;
+    double stabK = 0.0;
+    double prod1 = 0.0;
+    double prod2 = 0.0;
+    for(int loopB=0;loopB<numberOfNodes;loopB++){
+      for(int loopC=0;loopC<numberOfNodes;loopC++){
+        currK = alphaM * shapeFunction[loopB] * shapeFunction[loopC];
+        stabK = 0.0;
+        prod1 = 0.0;
+        prod2 = 0.0;
+        for(int loopD=0;loopD<kDims;loopD++){
+          // SUPG
+          // SUPG CONVECTIVE FORM - DOES NOT NEED CONSISTENCY
+          currK += shapeFunction[loopB] * velocity[loopD] * shapeDeriv[loopC][loopD] * alphaF * timeStep * gamma;
+          prod1 += velocity[loopD] * shapeDeriv[loopB][loopD];
+          prod2 += velocity[loopD] * shapeDeriv[loopC][loopD];
+
+        }
+        stabK = currTau * prod1 * alphaM * shapeFunction[loopC] +
+                currTau * prod1 * prod2 * alphaF * timeStep * gamma;
+
+        // Assemble Gauss Point Contribution
+        elMat[loopB][loopC] += (currK + stabK) * detJ * intWeights[loopA];
+      }
+    }
+  }
+}
+
+// =================================
+// TRANSIENT ADVECTION-DIFFUSION RHS
+// =================================
+void femElement::formTransientAdvDiffRHS(std::vector<femNode*> &nodeList,
+                                         femIntegrationRule* rule,
+                                         double sourceValue,
+                                         femDoubleVec diffusivity,
+                                         int variableID,
+                                         femDoubleMat solution,
+                                         femDoubleMat solution_Dot,
+                                         double timeStep,
+                                         double alphaM, double alphaF, double gamma,
+                                         femDoubleVec &elRhs){
+
+  // CLEAR AND ALLOCATE MATRIX
+  if(elRhs.size() == 0){
+    elRhs.clear();
+    elRhs.resize(numberOfNodes);
+  }
+  for(int loopA=0;loopA<numberOfNodes;loopA++){
+    elRhs[loopA] = 0.0;
+  }
+
+  // EVAL LOCAL ELEMENT VECTOR WITH SOLUTION AND DERIVATIVE
+  double phi[numberOfNodes];
+  double phi_dot[numberOfNodes];
+  for(int loopA=0;loopA<numberOfNodes;loopA++){
+    phi[loopA] = solution[elementConnections[loopA]][variableID];
+    phi_dot[loopA] = solution_Dot[elementConnections[loopA]][variableID];
+  }
+
+
+  // INIT SHAPE DERIVATIVE MATRIX
+  femDoubleMat shapeDeriv;
+  femDoubleVec shapeFunction;
+  femDoubleMat elGeomMat;
+
+  // GAUSS POINTS LOOP
+  femDoubleMat intCoords;
+  femDoubleVec intWeights;
+  double detJ = 0.0;
+  double currTau = 0.0;
+
+  // Get Integration Coords and Weights
+  intCoords = rule->getCoords(numberOfNodes,dims);
+  intWeights = rule->getWeights(numberOfNodes,dims);
+
+  // Gauss Point Loop
+  for(int loopA=0;loopA<rule->getTotGP(numberOfNodes,dims);loopA++){
+
+    // Eval Shape Function
+    evalShapeFunction(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeFunction);
+
+    // Eval Current Shape Derivatives Matrix
+    evalGlobalShapeFunctionDerivative(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeDeriv);
+
+    // Eval Determinant of the Jacobian Matrix
+    detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
+
+    // Get the Velocity at the current Gauss Point
+    femDoubleVec velocity;
+    velocity.resize(kDims);
+    for(int loopD=0;loopD<kDims;loopD++){
+      velocity[loopD] = 0.0;
+      for(int loopB=0;loopB<numberOfNodes;loopB++){
+        velocity[loopD] += shapeFunction[loopB] * solution[elementConnections[loopB]][loopD];
+      }
+    }
+
+    // Eval Geometric Element Matrix
+    evalGeometricMatrix(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],elGeomMat);
+
+    // Eval Quadratic Tau
+    currTau = evalQuadraticTau(timeStep,elGeomMat,velocity,diffusivity);
+
+    // Eval Solution and its time derivatives at the current Gauss point
+    double phi_dot_n = 0.0;
+    for(int loopB=0;loopB<numberOfNodes;loopB++){
+      phi_dot_n += shapeFunction[loopB] * phi_dot[loopB];
+    }
+    double grad_phi_n[kDims] = {0.0};
+    double grad_phi_dot_n[kDims] = {0.0};
+    for(int loopD=0;loopD<kDims;loopD++){
+      grad_phi_n[loopD] = 0.0;
+      grad_phi_dot_n[loopD] = 0.0;
+      for(int loopB=0;loopB<numberOfNodes;loopB++){
+        grad_phi_n[loopD] += shapeDeriv[loopB][loopD] * phi[loopB];
+        grad_phi_dot_n[loopD] += shapeDeriv[loopB][loopD] * phi_dot[loopB];
+      }
+    }
+
+    // Eval Load Vector
+    double currF = 0.0;
+    double stabF = 0.0;
+    double prod1 = 0.0;
+    double prod2 = 0.0;
+    double prod3 = 0.0;
+    for(int loopB=0;loopB<numberOfNodes;loopB++){
+      currF = - shapeFunction[loopB] * (1.0 - alphaM) * phi_dot_n;
+      stabF = 0.0;
+      prod1 = 0.0;
+      prod2 = 0.0;
+      prod3 = 0.0;
+
+      for(int loopD=0;loopD<kDims;loopD++){
+        // SUPG
+        // SUPG CONVECTIVE FORM - DOES NOT NEED CONSISTENCY
+        currF += - shapeFunction[loopB] * velocity[loopD] * grad_phi_n[loopD]
+                 - shapeFunction[loopB] * velocity[loopD] * alphaF * timeStep * (1.0 - gamma) * grad_phi_dot_n[loopD];
+        prod1 += velocity[loopD] * shapeDeriv[loopB][loopD];
+        prod2 += velocity[loopD] * grad_phi_n[loopD];
+        prod3 += velocity[loopD] * grad_phi_dot_n[loopD];
+      }
+
+
+      stabF = - currTau * prod1 * (1.0 - alphaM) * phi_dot_n -
+                currTau * prod1 * prod2 -
+                currTau * prod1 * alphaF * timeStep * (1.0 - gamma) * prod3;
+
+      // Assemble Gauss Point Contribution
+      elRhs[loopB] += (currF + stabF) * detJ * intWeights[loopA];
+    }
+  }
+}
+
 

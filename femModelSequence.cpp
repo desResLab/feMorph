@@ -88,6 +88,7 @@ void femModelSequence::ComputeResultStatistics(bool computeSD){
   double currWeight = 0.0;
   femResult* resAV;
   femResult* resSD;
+  femDoubleVec temp;
 
   for(size_t loopA=0;loopA<models.size();loopA++){
     for(size_t loopB=0;loopB<models[loopA]->resultList.size();loopB++){
@@ -142,24 +143,30 @@ void femModelSequence::ComputeResultStatistics(bool computeSD){
         double avValue = 0.0;
         for(size_t loopC=0;loopC<models.size();loopC++){
           resIdx = models[loopC]->getResultIndexFromLabel(labelCount[loopA]->label);
-          currResult = models[loopC]->resultList[resIdx]->values[loopB];
+          currResult = models[loopC]->resultList[resIdx]->values[loopB][0];
           currWeight = models[loopC]->weight1;
           avValue += currResult*currWeight;
         }
-        resAV->values.push_back(avValue);
+        temp.clear();
+        temp.push_back(avValue);
+        resAV->values.push_back(temp);
         if(computeSD){
           // Loop through all results to Compute the Standard Deviation
           double stdValue = 0.0;
           for(size_t loopC=0;loopC<models.size();loopC++){
             resIdx = models[loopC]->getResultIndexFromLabel(labelCount[loopA]->label);
-            currResult = models[loopC]->resultList[resIdx]->values[loopB];
+            currResult = models[loopC]->resultList[resIdx]->values[loopB][0];
             currWeight = models[loopC]->weight2;
             stdValue += (currResult-avValue)*(currResult-avValue)*currWeight;
           }
           if(stdValue>0.0){
-            resSD->values.push_back(sqrt(stdValue));
+            temp.clear();
+            temp.push_back(sqrt(stdValue));
+            resSD->values.push_back(temp);
           }else{
-            resSD->values.push_back(0.0);
+            temp.clear();
+            temp.push_back(0.0);
+            resSD->values.push_back(temp);
           }
         }
 

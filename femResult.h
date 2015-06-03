@@ -13,7 +13,8 @@ class femResult{
     // DATA MEMBER
     std::string label;
     femResultType type;
-    std::vector<double> values;
+    int numComponents;
+    femDoubleMat values;
 };
 
 #endif // FEMRESULT_H

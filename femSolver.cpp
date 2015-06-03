@@ -16,7 +16,7 @@ using namespace std;
 // =============================================
 // SOLVE SPARSE LINEAR SYSTEM WITH DIRECT METHOD
 // =============================================
-femDoubleVec solveLinearSystem(femSparseMatrix* lhs,femVector* rhs){
+femDoubleVec femSolver::solveLinearSystem(femSparseMatrix* lhs,femVector* rhs){
   // Set Tolerance
   double tol = 1.0e-12;
   // Set Sparse Ordering AMD
@@ -78,7 +78,7 @@ femDoubleVec solveLinearSystem(femSparseMatrix* lhs,femVector* rhs){
 // ======================================
 // SOLVE LINEAR SYSTEM WITH DIRECT METHOD
 // ======================================
-femDoubleVec solveLinearSystem(femDenseMatrix* poissonMat,femVector* poissonVec){
+femDoubleVec femSolver::solveLinearSystem(femDenseMatrix* poissonMat,femVector* poissonVec){
   // Initialize Armadillo Matrix
   arma::mat A(poissonMat->totRows,poissonMat->totCols);
   for(int loopA=0;loopA<poissonMat->totRows;loopA++){
@@ -93,7 +93,7 @@ femDoubleVec solveLinearSystem(femDenseMatrix* poissonMat,femVector* poissonVec)
   }
   printf("Solving...\n");
   // Solve Linear Set of equations
-  arma::vec x = solve(A, b);
+  arma::vec x = arma::solve(A, b);
   // Return
   femDoubleVec result;
   for(int loopA=0;loopA<x.size();loopA++){
@@ -247,13 +247,17 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
     solution = solveLinearSystem((femSparseMatrix*)advDiffMat,advDiffVec);
 
     // ADD SOLUTION TO MODEL RESULTS
+    femDoubleVec temp;
     femResult* res = new femResult();
     res->label = string("AdvDiffResult");
     res->type = frNode;
+    res->numComponents = 1;
     // Assign to values
     for(size_t loopA=0;loopA<solution.size();loopA++){
       printf("Solution %d %f\n",loopA,solution[loopA]);
-      res->values.push_back(solution[loopA]);
+      temp.clear();
+      temp.push_back(solution[loopA]);
+      res->values.push_back(temp);
     }
     model->resultList.push_back(res);
 }
@@ -364,13 +368,17 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
   solution = solveLinearSystem((femDenseMatrix*)poissonMat,poissonVec);
 
   // ADD SOLUTION TO MODEL RESULTS
+  femDoubleVec temp;
   femResult* res = new femResult();
   res->label = string("PoissonResult");
   res->type = frNode;
+  res->numComponents = 1;
   // Assign to values
   for(size_t loopA=0;loopA<solution.size();loopA++){
     //printf("Solution %d %f\n",loopA,solution[loopA]);
-    res->values.push_back(solution[loopA]);
+    temp.clear();
+    temp.push_back(solution[loopA]);
+    res->values.push_back(temp);
   }
   model->resultList.push_back(res);
 
@@ -535,3 +543,4 @@ void femSteadyStateAdvectionDiffusionSolver::assembleRHS(femOption* options, fem
     rhs.SumIntoGlobalValues(indices,k);
   }
 }
+

@@ -4,7 +4,7 @@
 # include "femUtils.h"
 
 // EVAL SHAPE FUNCTION AT GIVEN LOCATION
-void femHexa8::evalShapeFunction(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction){
+void femHexa8::evalShapeFunction(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction){
  shapeFunction.clear();
  shapeFunction.reserve(numberOfNodes);
  double c1[8] = {-1.0,1.0,1.0,-1.0,-1.0,1.0,1.0,-1.0};
@@ -19,7 +19,7 @@ void femHexa8::evalShapeFunction(std::vector<femNode*> nodeList, double coord1, 
  }
 }
 
-void femHexa8::evalLocalShapeFunctionDerivative(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv){
+void femHexa8::evalLocalShapeFunctionDerivative(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv){
   shapeDeriv.clear();
   shapeDeriv.reserve(numberOfNodes);
   double c1[8] = {-1.0,1.0,1.0,-1.0,-1.0,1.0,1.0,-1.0};

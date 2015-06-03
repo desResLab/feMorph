@@ -8,6 +8,7 @@
 #include "femModelSequence.h"
 #include "femProgramOptions.h"
 #include "femSolver.h"
+#include "femIncompressibleSolver.h"
 
 
 #include "AztecOO_config.h"
@@ -663,6 +664,27 @@ int solveSteadyStateAdvectionDiffusionEquation(femProgramOptions* options){
   return 0;
 }
 
+// =======================
+// SOLVE INCOMPRESSIBLE NS
+// =======================
+int solveIncompressibleNS(femProgramOptions* options){
+
+  // Create New Model
+  femModel* model = new femModel();
+
+  // Read Model From Text File
+  model->ReadFromFEMTextFile(options->inputFileName);
+
+  // CREATE NEW STEADY STATE ADVECTION-DIFFUSION SOLVER
+  femIncompressibleSolver* incNS = new femIncompressibleSolver();
+
+  // SOLVE PROBLEM
+  incNS->solve(model);
+
+  // Return
+  return 0;
+}
+
 // =========================
 // TEST ELEMENTS FORMULATION
 // =========================
@@ -747,6 +769,9 @@ int main(int argc, char **argv){
       case rmSOLVESTEADYSTATEADVECTIONDIFFUSION:
         val = solveSteadyStateAdvectionDiffusionEquation(options);
         //val = solveMPISteadyStateAdvectionDiffusionEquation(options);
+        break;
+      case rmSOLVEINCOMPRESSIBLENS:
+        val = solveIncompressibleNS(options);
         break;
       case rmTESTELEMENTS:
         val = testElementFormulation(options);

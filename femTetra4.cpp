@@ -205,7 +205,7 @@ bool femTetra4::isNodeInsideElement(double dispFactor, double* pointCoords,std::
 // ==========================================
 // FINITE ELEMENT ROUTINES FOR TETRA4 ELEMENT
 // ==========================================
-void femTetra4::evalShapeFunction(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction){
+void femTetra4::evalShapeFunction(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction){
   shapeFunction.clear();
   shapeFunction.push_back(coord1);
   shapeFunction.push_back(coord2);
@@ -214,7 +214,7 @@ void femTetra4::evalShapeFunction(std::vector<femNode*> nodeList, double coord1,
 }
 
 // DERIVATIVES OF SHAPE FUNCTIONS RESPECT TO LOCAL COORDINATES
-void femTetra4::evalLocalShapeFunctionDerivative(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3,
+void femTetra4::evalLocalShapeFunctionDerivative(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3,
                                                  femDoubleMat &shapeDeriv){
   //        nodi - dim
   femDoubleVec temp;

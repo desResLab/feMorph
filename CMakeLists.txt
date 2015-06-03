@@ -7,7 +7,7 @@ AUX_SOURCE_DIRECTORY(. SRC_LIST)
 # Get Trilinos as one entity
 FIND_PACKAGE(Trilinos)
 
-SET( SCH_FLAGS "-Wall -g -O0 -std=c++0x" )
+SET( SCH_FLAGS "-Wall -g -O3 -std=c++0x" )
 SET( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${SCH_FLAGS}" )
 SET( CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${SCH_FLAGS}" )
 

@@ -13,7 +13,7 @@ void femQuad4::fixConnectivities(std::vector<femNode*> &nodeList){
   elementConnections[1] = elementConnections[2];
   elementConnections[2] = temp;
 }
-void femQuad4::evalShapeFunction(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction){
+void femQuad4::evalShapeFunction(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction){
   shapeFunction.clear();
   shapeFunction.reserve(numberOfNodes);
   double c1[4] = {-1.0,+1.0,+1.0,-1.0};
@@ -25,7 +25,7 @@ void femQuad4::evalShapeFunction(std::vector<femNode*> nodeList, double coord1, 
     shapeFunction.push_back(currN);
   }
 }
-void femQuad4::evalLocalShapeFunctionDerivative(std::vector<femNode*> nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv){
+void femQuad4::evalLocalShapeFunctionDerivative(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv){
   shapeDeriv.clear();
   shapeDeriv.reserve(numberOfNodes);
   double c1[4] = {-1.0,+1.0,+1.0,-1.0};

@@ -102,7 +102,7 @@ int femProgramOptions::getCommadLineOptions(int argc, char **argv){
         neumannBCFileName = "poissonFluxBC.dat";
         break;
       case 'u':
-        runMode = rmSOLVESTEADYSTATEADVECTIONDIFFUSION;
+        runMode = rmSOLVEINCOMPRESSIBLENS;
         inputFileName = "inputMesh.dat";
         break;
       case 'g':

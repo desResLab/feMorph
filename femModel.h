@@ -42,6 +42,25 @@ class femModel{
     femIntVec neumannBCElement;
     femIntMat neumannBCFaceNodes;
     femDoubleVec neumannBCValues;
+    // Maximum Number of Dofs per Node
+    int maxNodeDofs;
+    // Time integration parameters
+    double timeStep;
+    int totalSteps;
+    int saveEvery;
+    double alphaM;
+    double alphaF;
+    double gamma;
+    // Solution Stages
+    femIntVec solStages;
+    // Use Prescribed Velocities
+    bool usePrescribedVelocity;
+    int prescribedVelType;
+    // Storage for initial conditions
+    femIntVec iniNodeNumbers;
+    femIntVec iniDofNumber;
+    femDoubleVec iniDofValue;
+
     // Results
     vector<femResult*> resultList;
     // Enclosing Box and Model Centre

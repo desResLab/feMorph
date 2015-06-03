@@ -1363,10 +1363,19 @@ void femModel::ExportToVTKLegacy(std::string fileName){
 
   // Save All Other Result Data
   for(unsigned int loopA=0;loopA<resultList.size();loopA++){    
-    fprintf(outFile,"SCALARS %s double 1\n",resultList[loopA]->label.c_str());
-    fprintf(outFile,"LOOKUP_TABLE default\n");
+    if(resultList[loopA]->numComponents == 1){
+      fprintf(outFile,"SCALARS %s double 1\n",resultList[loopA]->label.c_str());
+      fprintf(outFile,"LOOKUP_TABLE default\n");
+    }else if(resultList[loopA]->numComponents == 3){
+      fprintf(outFile,"VECTORS %s double\n",resultList[loopA]->label.c_str());
+    }else{
+      throw femException("ERROR: Invalid number of Result Components.\n");
+    }
     for(unsigned int loopB=0;loopB<resultList[loopA]->values.size();loopB++){
-      fprintf(outFile,"%e\n",resultList[loopA]->values[loopB]);
+      for(unsigned int loopC=0;loopC<resultList[loopA]->numComponents;loopC++){
+        fprintf(outFile,"%e ",resultList[loopA]->values[loopB][loopC]);
+      }
+      fprintf(outFile,"\n");
     }
   }
 
@@ -2945,6 +2954,7 @@ void femModel::ReadModelResultsFromVTKFile(std::string fileName){
   double valY = 0.0;
   double valZ = 0.0;
   femResult* res = nullptr;
+  femDoubleVec temp;
 
   // Read Data From File
   std::string buffer;
@@ -2992,7 +3002,9 @@ void femModel::ReadModelResultsFromVTKFile(std::string fileName){
 
         // Assign to values
         for(size_t loopA=0;loopA<tokenizedString.size();loopA++){
-          res->values.push_back(atof(tokenizedString[loopA].c_str()));
+          temp.clear();
+          temp.push_back(atof(tokenizedString[loopA].c_str()));
+          res->values.push_back(temp);
         }
 
         // Check if loop is finished
@@ -3032,7 +3044,9 @@ void femModel::ReadModelResultsFromVTKFile(std::string fileName){
           // Update Counted
           valueCounter = valueCounter + tokenizedString.size();
           for(size_t loopB=0;loopB<tokenizedString.size()/totFieldComponents;loopB++){
-            res->values.push_back(atof(tokenizedString[totFieldComponents*loopB].c_str()));
+            temp.clear();
+            temp.push_back(atof(tokenizedString[totFieldComponents*loopB].c_str()));
+            res->values.push_back(temp);
           }
         }
         // Add Result
@@ -3075,10 +3089,18 @@ void femModel::ReadModelResultsFromVTKFile(std::string fileName){
           valX = atof(tokenizedString[loopA*3].c_str());
           valY = atof(tokenizedString[loopA*3 + 1].c_str());
           valZ = atof(tokenizedString[loopA*3 + 2].c_str());
-          resX->values.push_back(valX);
-          resY->values.push_back(valY);
-          resZ->values.push_back(valZ);
-          resMOD->values.push_back(sqrt(valX*valX + valY*valY + valZ*valZ));
+          temp.clear();
+          temp.push_back(valX);
+          resX->values.push_back(temp);
+          temp.clear();
+          temp.push_back(valY);
+          resY->values.push_back(temp);
+          temp.clear();
+          temp.push_back(valZ);
+          resZ->values.push_back(temp);
+          temp.clear();
+          temp.push_back(sqrt(valX*valX + valY*valY + valZ*valZ));
+          resMOD->values.push_back(temp);
         }
 
         // Check if loop is finished
@@ -3236,17 +3258,17 @@ void femModel::copyModelVelocitiesToVector(std::vector<std::vector<double>> &vel
   for(size_t loopA=0;loopA<resultList.size();loopA++){
     if(boost::to_upper_copy(resultList[loopA]->label) == "VELOCITYX"){
       for(size_t loopB=0;loopB<resultList[loopA]->values.size();loopB++){
-        velocity[loopB][0] = resultList[loopA]->values[loopB];
+        velocity[loopB][0] = resultList[loopA]->values[loopB][0];
       }
     }
     if(boost::to_upper_copy(resultList[loopA]->label) == "VELOCITYY"){
       for(size_t loopB=0;loopB<resultList[loopA]->values.size();loopB++){
-        velocity[loopB][1] = resultList[loopA]->values[loopB];
+        velocity[loopB][1] = resultList[loopA]->values[loopB][0];
       }
     }
     if(boost::to_upper_copy(resultList[loopA]->label) == "VELOCITYZ"){
       for(size_t loopB=0;loopB<resultList[loopA]->values.size();loopB++){
-        velocity[loopB][2] = resultList[loopA]->values[loopB];
+        velocity[loopB][2] = resultList[loopA]->values[loopB][0];
       }
     }
   }
@@ -3428,11 +3450,14 @@ void femModel::ComputeWSS(){
   resultList.push_back(res);
   */
   // Add New Results for WSSMOD
+  femDoubleVec temp;
   femResult* res = new femResult();
   res->label = std::string("WSSMOD");
   res->type = frNode;
   for(size_t loopA=0;loopA<nodeList.size();loopA++){
-    res->values.push_back(globalShearStressesModule[loopA]);
+    temp.clear();
+    temp.push_back(globalShearStressesModule[loopA]);
+    res->values.push_back(temp);
   }
   resultList.push_back(res);
   /*
@@ -3643,6 +3668,9 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
   double bcElNormX = 0.0;
   double bcElNormY = 0.0;
   double bcElNormZ = 0.0;
+  int currentNodeNumber = 0;
+  int currDof = 0;
+  double dofValue = 0.0;
 
   // Read Data From File
   std::string buffer;
@@ -3804,6 +3832,68 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
       // Add to source Nodes and Values
       sourceElement.push_back(currElNumber);
       sourceValues.push_back(sourceValue);
+    }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("NODEDOF")){
+      try{
+        // Read Element Number: 1-Based
+        maxNodeDofs = atoi(tokenizedString[1].c_str());
+      }catch(...){
+        throw femException("ERROR: Invalid NODEDOF Option Format.\n");
+      }
+    }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("TIMESTEP")){
+      try{
+        // Read Time Step
+        timeStep = atof(tokenizedString[1].c_str());
+        // Read Total number of Steps
+        totalSteps = atoi(tokenizedString[2].c_str());
+        // Save Interval
+        saveEvery = atoi(tokenizedString[3].c_str());
+      }catch(...){
+        throw femException("ERROR: Invalid TIMESTEP Option Format.\n");
+      }
+    }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("TIMEINTEGRATION")){
+      try{
+        // Read alphaM parameter
+        alphaM = atof(tokenizedString[1].c_str());
+        // Read alphaF parameter
+        alphaF = atof(tokenizedString[2].c_str());
+        // Read gamma
+        gamma = atof(tokenizedString[3].c_str());
+      }catch(...){
+        throw femException("ERROR: Invalid TIMEINTEGRATION Option Format.\n");
+      }
+    }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("STAGES")){
+      try{
+        solStages.clear();
+        for(int loopA=1;loopA<tokenizedString.size();loopA++){
+          solStages.push_back(atoi(tokenizedString[loopA].c_str()));
+        }
+      }catch(...){
+        throw femException("ERROR: Invalid STAGES Option Format.\n");
+      }
+    }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("PRESCRIBEDVEL")){
+      try{
+        // Use Prescribed Velocities
+        usePrescribedVelocity = true;
+        // Read Time Step
+        prescribedVelType = atof(tokenizedString[1].c_str());
+      }catch(...){
+        throw femException("ERROR: Invalid PRESCRIBEDVEL Option Format.\n");
+      }
+    }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("INI")){
+      try{
+        // Read Node Number
+        currentNodeNumber = atoi(tokenizedString[1].c_str()) -1;
+        // Read degree of freedom for initial condition
+        currDof = atoi(tokenizedString[2].c_str());
+        // Read Value of initial conditions
+        dofValue = atof(tokenizedString[3].c_str());
+      }catch(...){
+        throw femException("ERROR: Invalid Initial conditions format Format.\n");
+      }
+      // Add to storage vectors
+      iniNodeNumbers.push_back(currentNodeNumber);
+      iniDofNumber.push_back(currDof);
+      iniDofValue.push_back(dofValue);
     }
   }
   // Close File
