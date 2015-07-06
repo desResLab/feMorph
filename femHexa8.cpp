@@ -3,6 +3,12 @@
 # include "femConstants.h"
 # include "femUtils.h"
 
+// CONSTRUCTOR
+femHexa8::femHexa8(int number, int prop, int totalNodes, int* connections):femElement(number,prop,totalNodes,connections){
+  numberOfNodes = 8;
+  dims = d3;
+}
+
 // EVAL SHAPE FUNCTION AT GIVEN LOCATION
 void femHexa8::evalShapeFunction(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3, femDoubleVec &shapeFunction){
  shapeFunction.clear();

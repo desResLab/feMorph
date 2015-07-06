@@ -94,12 +94,6 @@ int femProgramOptions::getCommadLineOptions(int argc, char **argv){
         break;
       case 'z':
         runMode = rmSOLVEPOISSON;
-        nodeFileName = "poissonNodes.dat";
-        connectionFileName = "poissonConnections.dat";
-        diffusivityFileName = "poissonDiffusivity.dat";
-        sourceFileName = "poissonSources.dat";
-        diricheletBCFileName = "poissonDirBC.dat";
-        neumannBCFileName = "poissonFluxBC.dat";
         break;
       case 'u':
         runMode = rmSOLVEINCOMPRESSIBLENS;

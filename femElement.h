@@ -107,7 +107,7 @@ class femElement{
 // TETRAHEDRAL ELEMENT
 class femTetra4: public femElement{
   public:
-    femTetra4(int number, int prop, int totalNodes, int* connections):femElement(number,prop,totalNodes,connections){numberOfNodes = 4;}
+    femTetra4(int number, int prop, int totalNodes, int* connections):femElement(number,prop,totalNodes,connections){numberOfNodes = 4;dims = d3;}
     femTetra4(const femElement* other):femElement(other){numberOfNodes = 4;}
     virtual ~femTetra4(){}
     // Member Functions
@@ -126,7 +126,7 @@ class femTetra4: public femElement{
 // TETRAHEDRAL ELEMENT
 class femTetra10: public femElement{
   public:
-    femTetra10(int number, int prop, int totalNodes, int* connections):femElement(number,prop,totalNodes,connections){numberOfNodes = 10;}
+    femTetra10(int number, int prop, int totalNodes, int* connections):femElement(number,prop,totalNodes,connections){numberOfNodes = 10;dims = d3;}
     femTetra10(const femElement* other):femElement(other){numberOfNodes = 10;}
     virtual ~femTetra10(){}
 
@@ -145,7 +145,7 @@ class femTetra10: public femElement{
 // TETRAHEDRAL ELEMENT
 class femHexa8: public femElement{
   public:
-    femHexa8(int number, int prop, int totalNodes, int* connections):femElement(number,prop,totalNodes,connections){numberOfNodes = 8;}
+    femHexa8(int number, int prop, int totalNodes, int* connections);
     virtual ~femHexa8(){}
 
     // Member Functions
@@ -163,7 +163,7 @@ class femHexa8: public femElement{
 // TRIANGULAR ELEMENT
 class femTri3: public femElement{
   public:
-    femTri3(int number, int prop, int totalNodes, int* connections):femElement(number,prop,totalNodes,connections){numberOfNodes = 3;}
+    femTri3(int number, int prop, int totalNodes, int* connections):femElement(number,prop,totalNodes,connections){numberOfNodes = 3;dims = d2;}
     virtual ~femTri3(){}
 
     // Member Functions

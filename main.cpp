@@ -466,29 +466,11 @@ int solvePoissonEquation(femProgramOptions* options){
   // Create New Model
   femModel* model = new femModel();
 
-  // Read Node Coord
-  bool skipFirstRow = false;
-  model->ReadNodeCoordsFromFile(options->nodeFileName,skipFirstRow);
-
-  // Read Element Connections
-  bool numbersFromZero = true;
-  model->ReadElementConnectionsFromFile(options->connectionFileName,skipFirstRow,numbersFromZero);
-
-  // Read Element Connections
-  numbersFromZero = true;
-  model->ReadDiffusivityFromFile(options->diffusivityFileName,skipFirstRow,numbersFromZero);
+  // Read Model From Text File
+  model->ReadFromFEMTextFile(options->inputFileName);
 
   // Restore Positive Volume
   model->FixedElementConnectivities();
-
-  // Read Source Term
-  model->ReadElementSourceFromFile(options->sourceFileName,skipFirstRow,numbersFromZero);
-
-  // Read Dirichelet Variables
-  model->ReadDirBCFromFile(options->diricheletBCFileName,skipFirstRow,numbersFromZero);
-
-  // Read Neumann Fluxes
-  model->ReadNeumannBCFromFile(options->neumannBCFileName,skipFirstRow,numbersFromZero);
 
   // CREATE NEW POISSON SOLVER
   femPoissonSolver* poisson = new femPoissonSolver();

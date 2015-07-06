@@ -272,7 +272,7 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
 
   // Init Sparse Matrix and Dense Vector
   femMatrix* poissonMat;
-  poissonMat = new femDenseMatrix(model);
+  poissonMat = new femSparseMatrix(model);
   femVector* poissonVec = new femVector((int)model->nodeList.size());
 
   // Local Element Matrix
@@ -365,7 +365,7 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
 
   // SOLVE LINEAR SYSTEM OF EQUATIONS
   femDoubleVec solution;
-  solution = solveLinearSystem((femDenseMatrix*)poissonMat,poissonVec);
+  solution = solveLinearSystem((femSparseMatrix*)poissonMat,poissonVec);
 
   // ADD SOLUTION TO MODEL RESULTS
   femDoubleVec temp;

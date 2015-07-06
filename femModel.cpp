@@ -1395,20 +1395,20 @@ void femModel::ExportToVTKLegacy(std::string fileName){
   }
 
   // PRINT NEUMANN BOUNDARY CONDITIONS ON FILE
-  femDoubleVec newBC;
-  newBC.resize(nodeList.size());
+  femDoubleVec neuBC;
+  neuBC.resize(nodeList.size());
   for(size_t loopA=0;loopA<nodeList.size();loopA++){
-    newBC[loopA] = 0.0;
+    neuBC[loopA] = 0.0;
   }
   for(size_t loopA=0;loopA<neumannBCElement.size();loopA++){
     for(size_t loopB=0;loopB<neumannBCFaceNodes[loopA].size();loopB++){
-      newBC[neumannBCFaceNodes[loopA][loopB]] = 1.0;
+      neuBC[neumannBCFaceNodes[loopA][loopB]] = 1.0;
     }
   }
-  fprintf(outFile,"SCALARS newBC double 1\n");
+  fprintf(outFile,"SCALARS neuBC double 1\n");
   fprintf(outFile,"LOOKUP_TABLE default\n");
-  for(unsigned int loopB=0;loopB<newBC.size();loopB++){
-    fprintf(outFile,"%e\n",newBC[loopB]);
+  for(unsigned int loopB=0;loopB<neuBC.size();loopB++){
+    fprintf(outFile,"%e\n",neuBC[loopB]);
   }
 
 
@@ -3643,6 +3643,7 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
 
   // Declare
   vector<string> tokenizedString;
+  femDoubleVec temp;
   femNode* newNode;
   int currNumber = 0.0;
   int currElNumber = 0.0;
@@ -3663,13 +3664,15 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
   int bcNode = 0;
   double bcValue = 0.0;
   double sourceValue = 0.0;
-  femDoubleVec tmp;
+  femIntVec tmp;
   double elBCVal = 0.0;
   double bcElNormX = 0.0;
   double bcElNormY = 0.0;
   double bcElNormZ = 0.0;
   int currentNodeNumber = 0;
+  int currentElNumber = 0;
   int currDof = 0;
+  double currValue = 0.0;
   double dofValue = 0.0;
 
   // Read Data From File
@@ -3683,7 +3686,7 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
     if(boost::to_upper_copy(tokenizedString[0]) == std::string("NODE")){
       try{
         // Element Number
-        currNumber = atoi(tokenizedString[1].c_str());
+        currNumber = atoi(tokenizedString[1].c_str() - 1);
         currX = atof(tokenizedString[2].c_str());
         currY = atof(tokenizedString[3].c_str());
         currZ = atof(tokenizedString[4].c_str());
@@ -3702,11 +3705,11 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
         // Get Total Number of Nodes
         totNodes = getTotalNodesFromElementString(elTypeString);
         // Element Number
-        currNumber = atoi(tokenizedString[2].c_str());
-        currProp = atoi(tokenizedString[3].c_str());
+        currNumber = atoi(tokenizedString[2].c_str() - 1);
+        currProp = atoi(tokenizedString[3].c_str() - 1);
         // Read Element Connections: 1-Based
         for(int loopA=0;loopA<totNodes;loopA++){
-          connections[loopA] = atoi(tokenizedString[4+loopA].c_str())-1;
+          connections[loopA] = atoi(tokenizedString[4+loopA].c_str()) - 1;
         }
         // Read Area as last parameter
         if(elTypeString == string("ROD")){
@@ -3769,11 +3772,11 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
         }
         bcElementList.push_back(newElement);
         bcElementValue.push_back(elBCVal);
-        tmp.clear();
-        tmp.push_back(bcElNormX);
-        tmp.push_back(bcElNormY);
-        tmp.push_back(bcElNormZ);
-        bcElementNormal.push_back(tmp);
+        temp.clear();
+        temp.push_back(bcElNormX);
+        temp.push_back(bcElNormY);
+        temp.push_back(bcElNormZ);
+        bcElementNormal.push_back(temp);
       }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("ELVELS")){
       try{
         // Read Element Number: 1-Based
@@ -3786,11 +3789,11 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
         throw femException("ERROR: Invalid Element Velocity Format.\n");
       }
       // Assign Velocity
-      tmp.clear();
-      tmp.push_back(currVelX);
-      tmp.push_back(currVelY);
-      tmp.push_back(currVelZ);
-      elVelocity.push_back(tmp);
+      temp.clear();
+      temp.push_back(currVelX);
+      temp.push_back(currVelY);
+      temp.push_back(currVelZ);
+      elVelocity.push_back(temp);
     }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("ELDIFF")){
       try{
         // Read Element Number: 1-Based
@@ -3803,11 +3806,11 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
         throw femException("ERROR: Invalid Element Diffusivity Format.\n");
       }
       // Add to source Nodes and Values
-      tmp.clear();
-      tmp.push_back(diffX);
-      tmp.push_back(diffY);
-      tmp.push_back(diffZ);
-      elDiffusivity.push_back(tmp);
+      temp.clear();
+      temp.push_back(diffX);
+      temp.push_back(diffY);
+      temp.push_back(diffZ);
+      elDiffusivity.push_back(temp);
     }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("NODEDIRBC")){
       try{
         // Read Element Number: 1-Based
@@ -3894,8 +3897,26 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
       iniNodeNumbers.push_back(currentNodeNumber);
       iniDofNumber.push_back(currDof);
       iniDofValue.push_back(dofValue);
+    }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("FACENEUMANN")){
+        try{
+          // Read Node Number
+          currentElNumber = atoi(tokenizedString[1].c_str()) - 1;
+          // Get Face Connections
+          tmp.clear();
+          for(int loopA=2;loopA<tokenizedString.size() - 1;loopA++){
+            tmp.push_back(atoi(tokenizedString[loopA].c_str()) - 1);
+          }
+          currValue = atof(tokenizedString[tokenizedString.size()-1].c_str());
+        }catch(...){
+          throw femException("ERROR: Invalid Neumann Face Format.\n");
+        }
+        // Add to storage vectors
+        neumannBCElement.push_back(currentElNumber);
+        neumannBCFaceNodes.push_back(tmp);
+        neumannBCValues.push_back(currValue);
     }
   }
+
   // Close File
   infile.close();
   // Build Parent Element List
