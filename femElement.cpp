@@ -1130,7 +1130,9 @@ void femElement::formAdvDiffLHS(std::vector<femNode*> nodeList,
         for(int loopD=0;loopD<kDims;loopD++){          
           // SUPG
           // SUPG Advection: CHECK !!!
+          // CONSERVATIVE FORM: NEEDS CONSISTENCY BC TERM
           firstTerm = - shapeDeriv[loopB][loopD] * ( velocity[loopD] * shapeFunction[loopC] - diffusivity[loopD] * shapeDeriv[loopC][loopD]);
+          // CONVECTIVE FORM: DOES NOT NEED CONSISTENCY BC TERM
           //firstTerm = + shapeFunction[loopB] * velocity[loopD] * shapeDeriv[loopC][loopD]
           //            + shapeDeriv[loopB][loopD] * diffusivity[loopD] * shapeDeriv[loopC][loopD];
           // Other Therm
@@ -1362,7 +1364,7 @@ void femElement::formWeakBC(std::vector<femNode*> nodeList,
 
   // Define Constants
   double gamma = 1.0;
-  double Cb = 1.0;
+  double Cb = 1000000.0;
   double elSize = EvalVolume(0.0,nodeList);
   //printf("size: %f\n",elSize);
 
