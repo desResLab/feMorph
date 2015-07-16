@@ -17,6 +17,7 @@ using namespace std;
 // SOLVE SPARSE LINEAR SYSTEM WITH DIRECT METHOD
 // =============================================
 femDoubleVec femSolver::solveLinearSystem(femSparseMatrix* lhs,femVector* rhs){
+  printf("Solving Linear System...\n");
   // Set Tolerance
   double tol = 1.0e-12;
   // Set Sparse Ordering AMD
@@ -311,7 +312,7 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
   printf("Assembling Source...\n");
   int currEl = 0;
   double currDiff = 0.0;
-  double currValue = 0.0;
+  double currValue = 0.0;  
   for(size_t loopSource=0;loopSource<model->sourceElement.size();loopSource++){
     // Get Current Element
     currEl = model->sourceElement[loopSource];
@@ -357,11 +358,11 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
   //poissonVec->writeToFile(string("pVector.txt"));
 
   // Check the sum of terms in the matrix
-  //sum = 0.0;
-  //for(int loopA=0;loopA<poissonMat->totRows;loopA++){
-  //  sum = poissonMat->getRowSum(loopA);
-  //  printf("SUM: %e\n",sum);
-  //}
+  double sum = 0.0;
+  for(int loopA=0;loopA<poissonVec->getSize();loopA++){
+    sum += poissonVec->values[loopA];
+  }
+  printf("RHS Summation: %e\n",sum);
 
   // SOLVE LINEAR SYSTEM OF EQUATIONS
   femDoubleVec solution;

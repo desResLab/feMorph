@@ -472,6 +472,9 @@ int solvePoissonEquation(femProgramOptions* options){
   // Restore Positive Volume
   model->FixedElementConnectivities();
 
+  // Save Model For Debug
+  model->ExportToVTKLegacy("debug.vtk");
+
   // CREATE NEW POISSON SOLVER
   femPoissonSolver* poisson = new femPoissonSolver();
 
@@ -482,7 +485,7 @@ int solvePoissonEquation(femProgramOptions* options){
   poisson->solve(slvOptions,model);
 
   // TEST : EXPORT TO VTK
-  model->ExportToVTKLegacy("test.vtk");
+  model->ExportToVTKLegacy("solution.vtk");
 
   // Return
   return 0;
