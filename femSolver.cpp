@@ -322,6 +322,12 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
     poissonVec->assemble(elSourceVec,model->elementList[currEl]->elementConnections);
   }
 
+  double sourceSum = 0.0;
+  for(int loopA=0;loopA<poissonVec->getSize();loopA++){
+    sourceSum += poissonVec->values[loopA];
+  }
+  printf("Sum of Source Term: %f\n",sourceSum);
+
   // ASSEMBLE NEUMANN BOUNDARY CONDITIONS
   printf("Assembling Neumann...\n");
   int currNode = 0;
@@ -337,12 +343,50 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
     // Get Global Face Nodes
     for(size_t loopA=0;loopA<model->neumannBCFaceNodes[loopBC].size();loopA++){
       currNode = model->neumannBCFaceNodes[loopBC][loopA];
-      currDiff = model->elDiffusivity[currEl][0];
-      elBCVec[currNode] += (currDiff * currValue)/(double)model->neumannBCFaceNodes[loopBC].size();
+      //elBCVec[currNode] += (currValue)/(double)model->neumannBCFaceNodes[loopBC].size();
+      // TEST !!!
+      elBCVec[currNode] = currValue;
     }
   }
+
+  double maxBCVel = 0.0;
+  for(int loopA=0;loopA<poissonVec->getSize();loopA++){
+    if(fabs(elBCVec[loopA]) > maxBCVel){
+      maxBCVel = fabs(elBCVec[loopA]);
+    }
+  }
+  printf("Biggest Term In Neumann BC RHS: %e\n",maxBCVel);
+
+  // DETERMINE POSITIVE AND NEGATIVE TERMS
+  double neuPosSum = 0.0;
+  double neuNegSum = 0.0;
+  for(int loopA=0;loopA<poissonVec->getSize();loopA++){
+    if(elBCVec[loopA] > 0.0){
+      neuPosSum += elBCVec[loopA];
+    }else{
+      neuNegSum += elBCVec[loopA];
+    }
+  }
+  printf("Neumann BC Summation: Positive %f, Negative %f, Total %f\n",neuPosSum,neuNegSum,neuPosSum+neuNegSum);
+
+  // Multiply by -1 to have zero sum RHS
+  if(fabs(sourceSum) > kMathZero){
+    //if((neuPosSum+neuNegSum)/sourceSum > 0.0){
+      sourceSum *= -1.0;
+    //}
+  }
+
+  // Scale Existing RHS
+  printf("Warning[*]: Scaling Source for Equilibium.\n");
+  for(size_t loopA=0;loopA<poissonVec->getSize();loopA++){
+    if(fabs(sourceSum) > kMathZero){
+      poissonVec->values[loopA] = (poissonVec->values[loopA] * (neuPosSum+neuNegSum)) / (double)(sourceSum);
+    }
+  }
+
   // Assemble in RHS
   for(size_t loopA=0;loopA<poissonVec->getSize();loopA++){
+    //poissonVec->values[loopA] += elBCVec[loopA] * fabs(sourceSum) / (neuPosSum+neuNegSum);
     poissonVec->values[loopA] += elBCVec[loopA];
   }
 

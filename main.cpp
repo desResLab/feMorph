@@ -462,12 +462,13 @@ int computeModelWSS(femProgramOptions* options){
 // ======================
 // SOLVE POISSON EQUATION
 // ======================
-int solvePoissonEquation(femProgramOptions* options){
+int solvePoissonEquation(femProgramOptions* opts){
+
   // Create New Model
   femModel* model = new femModel();
 
   // Read Model From Text File
-  model->ReadFromFEMTextFile(options->inputFileName);
+  model->ReadFromFEMTextFile(opts->inputFileName);
 
   // Restore Positive Volume
   model->FixedElementConnectivities();
@@ -485,7 +486,7 @@ int solvePoissonEquation(femProgramOptions* options){
   poisson->solve(slvOptions,model);
 
   // TEST : EXPORT TO VTK
-  model->ExportToVTKLegacy("solution.vtk");
+  model->ExportToVTKLegacy(opts->outputFileName);
 
   // Return
   return 0;

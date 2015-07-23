@@ -1402,7 +1402,7 @@ void femModel::ExportToVTKLegacy(std::string fileName){
   }
   for(size_t loopA=0;loopA<neumannBCElement.size();loopA++){
     for(size_t loopB=0;loopB<neumannBCFaceNodes[loopA].size();loopB++){
-      neuBC[neumannBCFaceNodes[loopA][loopB]] = 1.0;
+      neuBC[neumannBCFaceNodes[loopA][loopB]] += neumannBCValues[loopA]/(double)neumannBCFaceNodes[loopA].size();
     }
   }
   fprintf(outFile,"SCALARS neuBC double 1\n");
