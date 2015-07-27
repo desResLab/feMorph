@@ -280,23 +280,6 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
   femDoubleMat elMat;
   femDoubleVec elSourceVec;
   femDoubleVec elBCVec;
-  femIntVec currIdxList;
-
-  // Print One local Matrix
-  //double sum = 0.0;
-  //printf("Local Matrix\n");
-  //model->elementList[0]->formPoissonMatrix(model->nodeList,rule,elMat);
-  //Create File
-  //FILE* f;
-  //f = fopen("pLocalMat.txt","w");
-  //for(int loopA=0;loopA<elMat.size();loopA++){
-  //  for(int loopB=0;loopB<elMat.size();loopB++){
-  //    fprintf(f,"%e ",elMat[loopA][loopB]);
-  //  }
-  //  fprintf(f,"\n");
-  //}
-  // Close File
-  //fclose(f);
 
   // ASSEMBLE MATRIX FROM ALL ELEMENTS
   printf("Assembling Matrix...\n");
@@ -311,7 +294,6 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
   // ASSEMBLE SOURCE TERM
   printf("Assembling Source...\n");
   int currEl = 0;
-  double currDiff = 0.0;
   double currValue = 0.0;  
   for(size_t loopSource=0;loopSource<model->sourceElement.size();loopSource++){
     // Get Current Element
@@ -343,9 +325,9 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
     // Get Global Face Nodes
     for(size_t loopA=0;loopA<model->neumannBCFaceNodes[loopBC].size();loopA++){
       currNode = model->neumannBCFaceNodes[loopBC][loopA];
-      //elBCVec[currNode] += (currValue)/(double)model->neumannBCFaceNodes[loopBC].size();
+      elBCVec[currNode] += (currValue)/(double)model->neumannBCFaceNodes[loopBC].size();
       // TEST !!!
-      elBCVec[currNode] = currValue;
+      //elBCVec[currNode] = currValue;
     }
   }
 
@@ -369,18 +351,11 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
   }
   printf("Neumann BC Summation: Positive %f, Negative %f, Total %f\n",neuPosSum,neuNegSum,neuPosSum+neuNegSum);
 
-  // Multiply by -1 to have zero sum RHS
-  if(fabs(sourceSum) > kMathZero){
-    //if((neuPosSum+neuNegSum)/sourceSum > 0.0){
-      sourceSum *= -1.0;
-    //}
-  }
-
   // Scale Existing RHS
   printf("Warning[*]: Scaling Source for Equilibium.\n");
   for(size_t loopA=0;loopA<poissonVec->getSize();loopA++){
     if(fabs(sourceSum) > kMathZero){
-      poissonVec->values[loopA] = (poissonVec->values[loopA] * (neuPosSum+neuNegSum)) / (double)(sourceSum);
+      poissonVec->values[loopA] = (poissonVec->values[loopA] * (neuPosSum+neuNegSum)) / (double)(-sourceSum);
     }
   }
 
@@ -428,8 +403,8 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
   model->resultList.push_back(res);
 
   // Free Memory
-  //delete poissonMat;
-  //delete poissonVec;
+  delete poissonMat;
+  delete poissonVec;
 }
 
 // ========================

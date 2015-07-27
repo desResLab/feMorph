@@ -1379,7 +1379,7 @@ void femModel::ExportToVTKLegacy(std::string fileName){
     }
   }
 
-  // Print Dirichelet Boundary Conditions
+  // PRINT DIRICHELET BOUNDARY CONDITIONS
   femDoubleVec dirBC;
   dirBC.resize(nodeList.size());
   for(size_t loopA=0;loopA<nodeList.size();loopA++){
@@ -1394,7 +1394,7 @@ void femModel::ExportToVTKLegacy(std::string fileName){
     fprintf(outFile,"%e\n",dirBC[loopB]);
   }
 
-  // PRINT NEUMANN BOUNDARY CONDITIONS ON FILE
+  // PRINT NEUMANN BOUNDARY CONDITIONS
   femDoubleVec neuBC;
   neuBC.resize(nodeList.size());
   for(size_t loopA=0;loopA<nodeList.size();loopA++){
@@ -1402,10 +1402,11 @@ void femModel::ExportToVTKLegacy(std::string fileName){
   }
   for(size_t loopA=0;loopA<neumannBCElement.size();loopA++){
     for(size_t loopB=0;loopB<neumannBCFaceNodes[loopA].size();loopB++){
-      neuBC[neumannBCFaceNodes[loopA][loopB]] += neumannBCValues[loopA]/(double)neumannBCFaceNodes[loopA].size();
+      //neuBC[neumannBCFaceNodes[loopA][loopB]] += neumannBCValues[loopA]/(double)neumannBCFaceNodes[loopA].size();
+      neuBC[neumannBCFaceNodes[loopA][loopB]] = neumannBCValues[loopA];
     }
   }
-  fprintf(outFile,"SCALARS neuBC double 1\n");
+  fprintf(outFile,"SCALARS neuBC double\n");
   fprintf(outFile,"LOOKUP_TABLE default\n");
   for(unsigned int loopB=0;loopB<neuBC.size();loopB++){
     fprintf(outFile,"%e\n",neuBC[loopB]);
