@@ -1721,4 +1721,154 @@ void femElement::formTransientAdvDiffRHS(std::vector<femNode*> &nodeList,
   }
 }
 
+// INCOMPRESSIBLE NAVIER STOKES
+void femElement::formNS_LHS(std::vector<femNode*> nodeList,
+                            femIntegrationRule* rule,
+                            femDoubleVec diffusivity,
+                            femDoubleVec velocity,
+                            femDoubleMat solution,
+                            double timeStep,
+                            int schemeType,
+                            int nodeDOFs,
+                            femDoubleDOFMat &elMat){
+
+  // CLEAR AND ALLOCATE MATRIX
+  if(elMat.size() == 0){
+    elMat.clear();
+    elMat.resize(numberOfNodes);
+    for(int loopA=0;loopA<numberOfNodes;loopA++){
+      elMat[loopA].resize(numberOfNodes);
+      for(int loopB=0;loopB<numberOfNodes;loopB++){
+        elMat[loopA][loopB].resize(nodeDOFs * nodeDOFs);
+      }
+    }
+  }
+  for(int loopA=0;loopA<numberOfNodes;loopA++){
+    for(int loopB=0;loopB<numberOfNodes;loopB++){
+      for(int loopC=0;loopC<nodeDOFs*nodeDOFs;loopC++)
+        elMat[loopA][loopB][loopC] = 0.0;
+    }
+  }
+
+  // ALLOCATE THE LOCAL MATRIX
+  femDoubleMat locMat;
+  if(elMat.size() == 0){
+    locMat.clear();
+    locMat.resize(nodeDOFs);
+    for(int loopA=0;loopA<nodeDOFs;loopA++){
+      locMat[loopA].resize(nodeDOFs);
+    }
+  }
+  for(int loopA=0;loopA<nodeDOFs;loopA++){
+    for(int loopB=0;loopB<nodeDOFs;loopB++){
+      locMat[loopA][loopB] = 0.0;
+    }
+  }
+
+  // INIT SHAPE DERIVATIVE MATRIX
+  femDoubleMat shapeDeriv;
+  femDoubleVec shapeFunction;
+  femDoubleMat elGeomMat;
+
+  // GAUSS POINTS LOOP
+  femDoubleMat intCoords;
+  femDoubleVec intWeights;
+  double detJ = 0.0;
+  double currTau = 0.0;
+
+  // Get Integration Coords and Weights
+  intCoords = rule->getCoords(numberOfNodes,dims);
+  intWeights = rule->getWeights(numberOfNodes,dims);
+
+  // Gauss Point Loop
+  for(int loopA=0;loopA<rule->getTotGP(numberOfNodes,dims);loopA++){
+
+      // Eval Shape Function
+      evalShapeFunction(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeFunction);
+
+      // Eval Current Shape Derivatives Matrix
+      evalGlobalShapeFunctionDerivative(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeDeriv);
+
+      // Eval Geometric Element Matrix
+      evalGeometricMatrix(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],elGeomMat);
+
+      // Get the fluid velocity at the current Gauss Point
+      femDoubleVec velocity;
+      velocity.resize(kDims);
+      for(int loopD=0;loopD<kDims;loopD++){
+        velocity[loopD] = 0.0;
+        for(int loopB=0;loopB<numberOfNodes;loopB++){
+          velocity[loopD] += shapeFunction[loopB] * solution[elementConnections[loopB]][loopD];
+        }
+      }
+
+      // Get the mesh velocity at the current Gauss Point
+      femDoubleVec meshVel;
+      meshVel.resize(kDims);
+      for(int loopD=0;loopD<kDims;loopD++){
+        meshVel[loopD] = 0.0;
+      }
+
+      // Eval Quadratic Tau
+      currTau = evalQuadraticTau(timeStep,elGeomMat,velocity,diffusivity);
+
+      // Eval Determinant of the Jacobian Matrix
+      detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
+
+      // Eval Resulting Matrix
+      double velGradNA = 0.0;
+      double velGradNB = 0.0;
+      double gradNAGradNB = 0.0;
+      for(int loopB=0;loopB<numberOfNodes;loopB++){
+        for(int loopC=0;loopC<numberOfNodes;loopC++){
+          // Compute the preliminary quantities
+          // (u - hat{u})\dot\nabla NA
+          velGradNA = 0.0;
+          // (u - hat{u})\dot\nabla NB
+          velGradNB = 0.0;
+          // \nabla NA \dot\nabla NB
+          gradNAGradNB = 0.0;
+          for(int loopD=0;loopD<nodeDOFs - 1;loopD++){
+            velGradNA += (velocity[loopD] - meshVel[loopD]) * shapeDeriv[loopB][loopD];
+            velGradNB += (velocity[loopD] - meshVel[loopD]) * shapeDeriv[loopC][loopD];
+            gradNAGradNB += shapeDeriv[loopB][loopD] * shapeDeriv[loopC][loopD];
+          }
+
+          // Loop on the dimensionality
+          for(int loopD=0;loopD<nodeDOFs - 1;loopD++){
+            // Assemble Diagonal Terms for Velocity
+            locMat[loopD,loopD] += alphaM * shapeFunction[loopB] * rho * shapeFunction[loopC];
+            locMat[loopD,loopD] += alphaM * tauSUPS * velGradNA * rho * shapeFunction[loopC];
+            locMat[loopD,loopD] += alphaF * gamma * timeStep * shapeFunction[loopB] * rho * velGradNB;
+            locMat[loopD,loopD] += alphaF * gamma * timeStep * viscosity * gradNAGradNB;
+            // Other Diagonal
+            locMat[loopD,loopD] += alphaF * gamma * timeStep * tauSUPS * velGradNA * rho * velGradNB;
+            // Assemble the
+            for(int loopE=0;loopsE<nodeDOFs - 1;loopE++){
+              locMat[loopD,loopE] += shapeDeriv[loopB][loopE] * viscosity * shapeDeriv[loopC][loopD];
+              locMat[loopD,loopE] += rho * viscLSIC * shapeDeriv[loopB][loopD] * shapeDeriv[loopC][loopE];
+            }
+          }
+
+
+
+          // Assemble Gauss Point Contribution
+          elMat[loopB][loopC][loopD] += (currK + stabK) * detJ * intWeights[loopA];
+        }
+      }
+    }
+
+
+}
+void femElement::formNS_RHS(std::vector<femNode*> nodeList,
+                            femIntegrationRule* rule,
+                            double sourceValue,
+                            femDoubleVec diffusivity,
+                            femDoubleVec velocity,
+                            int schemeType,
+                            femDoubleVec &elRhs){
+
+}
+
+
 

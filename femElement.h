@@ -66,6 +66,18 @@ class femElement{
     void formPoissonSource(std::vector<femNode*> nodeList,femIntegrationRule* rule, double sourceValue,femDoubleVec &elSourceVec);
     void formPoissonNeumannBC();
 
+    // INCOMPRESSIBLE NAVIER STOKES
+    void formNS_LHS(std::vector<femNode*> nodeList,
+                                femIntegrationRule* rule,
+                                femDoubleVec diffusivity,
+                                femDoubleVec velocity,
+                                femDoubleMat solution,
+                                int schemeType,
+                                int nodeDOFs,
+                                femDoubleDOFMat &elMat);
+
+    void formNS_RHS(std::vector<femNode*> nodeList,femIntegrationRule* rule,double sourceValue,femDoubleVec diffusivity,femDoubleVec velocity,int schemeType,femDoubleVec &elRhs);
+
     // ADVECTION DIFFUSION
     // Steady State
     void formAdvDiffLHS(std::vector<femNode*> nodeList,femIntegrationRule* rule,femDoubleVec diffusivity, femDoubleVec velocity,int schemeType,femDoubleMat &elMat);
