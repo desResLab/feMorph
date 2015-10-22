@@ -1,4 +1,9 @@
+# Include Source in Current Folder
 AUX_SOURCE_DIRECTORY(. SRC_LIST)
+
+# Use the Boost Libraries
+FIND_PACKAGE(Boost 1.40 REQUIRED)
+INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIR})
 
 # Get Trilinos as one entity
 IF(useTrilinos)
@@ -33,3 +38,6 @@ ENDIF()
 IF(useArmadillo)
   TARGET_LINK_LIBRARIES(${PROJECT_NAME} armadillo)
 ENDIF()
+
+# Always Include the Boost Library
+TARGET_LINK_LIBRARIES(${PROJECT_NAME} ${Boost_LIBRARIES})
