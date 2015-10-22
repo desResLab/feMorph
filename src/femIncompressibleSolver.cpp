@@ -58,7 +58,7 @@ void advanceNavierStokes(long loopStep, double currTime,
                          femDoubleMat solution,
                          femDoubleMat solution_Dot,
                          int nodeDOFs,
-                         femTrilinosVector* sol){
+                         femVector* sol){
   // Set Scheme Flag
   int schemeType = 0;
 
@@ -79,8 +79,18 @@ void advanceNavierStokes(long loopStep, double currTime,
   fflush(stdout);
   femMatrix* nsLHS;
   femVector* nsRHS;
+#ifdef USE_ARMADILLO
+  nsLHS = new femDenseMatrix(model);
+  nsRHS = new femDenseVector((int)model->nodeList.size(),nodeDOFs);
+#endif  
+#ifdef USE_CSPARSE
+  nsLHS = new femSparseMatrix(model);
+  nsRHS = new femDenseVector((int)model->nodeList.size(),nodeDOFs);
+#endif    
+#ifdef USE_TRILINOS  
   nsLHS = new femTrilinosMatrix(model);
   nsRHS = new femTrilinosVector((int)model->nodeList.size(),nodeDOFs);
+#endif  
   printf("Done.\n");
   fflush(stdout);
 
