@@ -81,11 +81,11 @@ void advanceNavierStokes(long loopStep, double currTime,
   femVector* nsRHS;
 #ifdef USE_ARMADILLO
   nsLHS = new femDenseMatrix(model);
-  nsRHS = new femDenseVector((int)model->nodeList.size(),nodeDOFs);
+  nsRHS = new femDenseVector((int)model->nodeList.size());
 #endif  
 #ifdef USE_CSPARSE
   nsLHS = new femSparseMatrix(model);
-  nsRHS = new femDenseVector((int)model->nodeList.size(),nodeDOFs);
+  nsRHS = new femDenseVector((int)model->nodeList.size());
 #endif    
 #ifdef USE_TRILINOS  
   nsLHS = new femTrilinosMatrix(model);
@@ -350,7 +350,7 @@ void femIncompressibleSolver::solve(femModel* model){
   femDoubleMat solution_n1;
   femDoubleMat solution_Dot_n1;
   // Single timeStep solution for NS
-  femTrilinosVector* timeStepNSSolution;
+  femVector* timeStepNSSolution;
   // Single timeStep solution for Advection Diffusion
   femDoubleVec timeStepSolution;
   // Quantity for advection diffusion
