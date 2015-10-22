@@ -137,7 +137,7 @@ void advanceNavierStokes(long loopStep, double currTime,
   printf("Solution...");
   fflush(stdout);
   femSolver linSolver;
-  sol = linSolver.solveLinearSystem((femTrilinosMatrix*)nsLHS,(femTrilinosVector*)nsRHS);
+  //sol = linSolver.solveLinearSystem((femTrilinosMatrix*)nsLHS,(femTrilinosVector*)nsRHS);
   printf("Done.\n");
   fflush(stdout);
 }
@@ -169,8 +169,20 @@ void advanceAdvectionDiffusion(long loopStep, double currTime,
   printf("Assembling Matrix...");
   fflush(stdout);
   femMatrix* advDiffMat;
+  femVector* advDiffVec;
+#ifdef USE_ARMADILLO
+  advDiffMat = new femDenseMatrix(model);
+  advDiffVec = new femDenseVector((int)model->nodeList.size());
+#endif
+#ifdef USE_CSPARSE
   advDiffMat = new femSparseMatrix(model);
-  femVector* advDiffVec = new femDenseVector((int)model->nodeList.size());
+  advDiffVec = new femDenseVector((int)model->nodeList.size());
+#endif
+#ifdef USE_TRILINOS
+  advDiffMat = new femTrilinosMatrix(model);
+  advDiffVec = new femTrilinosVector((int)model->nodeList.size());
+#endif
+
   printf("Done.\n");
   fflush(stdout);
 
@@ -265,7 +277,15 @@ void advanceAdvectionDiffusion(long loopStep, double currTime,
     fflush(stdout);
     sol.clear();
     femSolver linSolver;
+#ifdef USE_ARMADILLO
+    sol = linSolver.solveLinearSystem((femDenseMatrix*)advDiffMat,(femDenseVector*)advDiffVec);
+#endif
+#ifdef USE_CSPARSE
     sol = linSolver.solveLinearSystem((femSparseMatrix*)advDiffMat,(femDenseVector*)advDiffVec);
+#endif
+#ifdef USE_TRILINOS
+    sol = linSolver.solveLinearSystem((femTrilinosMatrix*)advDiffMat,(femTrilinosVector*)advDiffVec);
+#endif
     printf("Done.\n");
     fflush(stdout);
 

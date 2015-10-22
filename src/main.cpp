@@ -10,8 +10,7 @@
 #include "femSolver.h"
 #include "femIncompressibleSolver.h"
 
-
-#include "AztecOO_config.h"
+#ifdef USE_TRILINOS
 
 #ifdef HAVE_MPI
   #include "mpi.h"
@@ -19,10 +18,14 @@
 #else
   #include "Epetra_SerialComm.h"
 #endif
+
+#include "AztecOO.h"
+#include "AztecOO_config.h"
 #include "Epetra_Map.h"
 #include "Epetra_FEVector.h"
 #include "Epetra_FECrsMatrix.h"
-#include "AztecOO.h"
+
+#endif
 
 
 
@@ -492,6 +495,8 @@ int solvePoissonEquation(femProgramOptions* opts){
   return 0;
 }
 
+#ifdef USE_TRILINOS
+
 // ===============================================
 // SOLVE STEADY-STATE ADVECTION-DIFFUSION EQUATION
 // ===============================================
@@ -620,6 +625,8 @@ int solveMPISteadyStateAdvectionDiffusionEquation(femProgramOptions* options){
 return 0;
 
 }
+
+#endif
 
 // ===============================================
 // SOLVE STEADY-STATE ADVECTION-DIFFUSION EQUATION

@@ -175,7 +175,9 @@ class femModel{
     // ==================
     // MODEL PARTITIONING
     // ==================
+#ifdef USE_MPI
     vector<femModel*> PartitionProblem(int numPartitions);
+#endif
 
     // ====================
     // MODEL MANIPULATUIONS

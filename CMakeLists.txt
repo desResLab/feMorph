@@ -1,30 +1,52 @@
+# Set Up Project
 PROJECT(feMorph)
-
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
 
-AUX_SOURCE_DIRECTORY(. SRC_LIST)
+# ADD OPTIONS
+OPTION(useMPI "useMPI" OFF)
+OPTION(useCSparse "useCSparse" ON)
+OPTION(useTrilinos "useTrilinos" OFF)
+OPTION(useArmadillo "useArmadillo" OFF)
 
-# Get Trilinos as one entity
-FIND_PACKAGE(Trilinos)
-
-SET( SCH_FLAGS "-O3" )
-SET( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${SCH_FLAGS}" )
-SET( CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${SCH_FLAGS}" )
-
-IF(APPLE)
-  MESSAGE("APPLE Mode")
-  INCLUDE_DIRECTORIES("." "/Users/danschi/Documents/03_software/12_CSparse/include")
-  LINK_DIRECTORIES("/Users/danschi/Documents/03_software/12_CSparse/lib")
-ELSE()
-  MESSAGE("UNIX Mode")
-  INCLUDE_DIRECTORIES("." "/home/danschi/Documents/23_Libraries/SuiteSparse/CSparse/Include")
-  LINK_DIRECTORIES("/home/danschi/Documents/23_Libraries/SuiteSparse/CSparse/Lib")
+# SET MUTUALLY EXCLUSIVE SOLVERS
+IF(useTrilinos)
+  SET(useMPI ON)
+  SET(useArmadillo OFF)
+  SET(useCSparse OFF)
+ENDIF()
+IF(useCSparse)
+  SET(useMPI OFF)
+  SET(useArmadillo OFF)
+  SET(useTrilinos OFF)
+ENDIF()
+IF(useArmadillo)
+  SET(useMPI OFF)
+  SET(useCSparse OFF)
+  SET(useTrilinos OFF)
 ENDIF()
 
-LINK_DIRECTORIES("/opt/local/lib/mpich-gcc46/")
+MESSAGE(STATUS "useMPI=${useMPI}")
+MESSAGE(STATUS "useCSparse=${useCSparse}")
+MESSAGE(STATUS "useTrilinos=${useTrilinos}")
+MESSAGE(STATUS "useArmadillo=${useArmadillo}")
 
-ADD_EXECUTABLE(${PROJECT_NAME} ${SRC_LIST})
+# SET DEFINITIONS AND FLAGS
+# MPI
+if(useMPI)
+  ADD_DEFINITIONS("-DUSE_MPI")
+endif()
+# CSPARSE
+if(useCSparse)
+  ADD_DEFINITIONS("-DUSE_CSPARSE")
+endif()
+# TRILINOS
+if(useTrilinos)
+  ADD_DEFINITIONS("-DUSE_TRILINOS")
+endif()
+# ARMADILLO
+if(useArmadillo)
+  ADD_DEFINITIONS("-DUSE_ARMADILLO")
+endif()
 
-TARGET_LINK_LIBRARIES(${PROJECT_NAME} armadillo csparse mpich ${Trilinos_LIBRARIES} ${Trilinos_TPL_LIBRARIES})
-
-
+# ADD SUBDIRS
+ADD_SUBDIRECTORY("./src/")

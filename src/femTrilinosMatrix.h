@@ -19,6 +19,7 @@ class femTrilinosMatrix : public femMatrix{
     // Block Finite element matrix in Trilinos
     Epetra_FEVbrMatrix* MatValues;
   public:
+    // Construct the matrix
     femTrilinosMatrix(femModel* model);
 
     // VIRTUAL FUNCTIONS
@@ -28,7 +29,6 @@ class femTrilinosMatrix : public femMatrix{
     virtual void writeToFile(string fileName);
     virtual double getRowSum(int loopA);
     virtual void clearRowAndColumn(int dof);
-
     // EXTRA
     void assembleDOF(femDoubleDOFMat elMat,femIntVec connections);
 

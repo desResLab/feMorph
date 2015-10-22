@@ -3921,12 +3921,164 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
   BuildParentElementList();
 }
 
+#ifdef USE_MPI
+// ==========================================================
+// CREATE THE LOCAL PARTITION INFORMATION FOR EVERY PROCESSOR
+// ==========================================================
+void femModel::PassPreliminaryPartitionData(int* elmdist,int* eptr,int* eind){
+  // Count the total connectivities in master node
+  if(procID == 0){
+    totConnectivities = 0;
+    for(size_t loopA=0;loopA<elementList.size();loopA++){
+      totConnectivities += elementList[loopA]->numberOfNodes;
+    }
+    // Allocate and fill connectivities
+    eptr = new int[(int)elementList.size() + 1];
+    eind = new int[totConnectivities];
+    int count = 0;
+    for(size_t loopA=0;loopA<elementList.size();loopA++){
+      eptr[loopA] = count;
+      for(size_t loopB=0;loopB<elementList[loopA]->elementConnections.size();loopB++){
+        eind[count] = elementList[loopA]->elementConnections[loopB];
+        count++;
+      }
+    }
+    eptr[elementList.size()] = totConnectivities;
+
+    // Allocate and fill splitting indexes
+    elmdist = new int[totProc];
+    for(int loopA=0;loopA<totProc - 1;loopA++){
+      if(loopA == 0){
+        startEl = 0;
+      }else{
+        startEl = (loopA * elementList.size()/totProc) - 1;
+      }
+      elmdist[loopA] = startEl
+    }
+    elmdist[totProc - 1] = elementList.size() + 1;
+  }
+
+  // Split the connectivity pointer among processors
+  MPI_Scatterv(&eind, const int *sendcounts, const int *displs, MPI_INT,
+               void *recvbuf, int recvcount,MPI_INT,0, MPI_Comm comm)
+
+  // Renumber the connectivity pointers
+
+  // Split the connectivities among processors
+
+  // Copy the element distances among processors
+
+
+}
+
 // ======================================
 // SUBDIVIDE THE MODEL INTO VARIOUS PARTS
 // ======================================
 vector<femModel*> femModel::PartitionProblem(int numPartitions){
+
+  // Pass data needed to call the mesh partitioner
+  PassPreliminaryPartitionData(int* elmdist,int* eptr,int* eind);
+
+  // Partition Mesh
+  PartitionMesh();
+
+  // Pass to host processor
+  PassToHosts();
+
+    int split_(int *nElptr, int *eNoNptr, int *eNoNbptr, int *IEN,
+       int *nPartsPtr, idxtype *iElmdist, float *iWgt, idxtype *part)
+    {
+
+       float ubvec[MAXNCON], *wgt;
+       idxtype *eptr, *eind, *elmdist;
+
+       map     = (int *)malloc(nTasks*sizeof(int));
+       exRanks = (int *)malloc(nTasks*sizeof(int));
+       wgt     = (float *)malloc(nTasks*sizeof(float));
+       elmdist = (idxtype *)malloc((nTasks+1)*sizeof(idxtype));
+       MPI_Group newGrp, tmpGrp;
+       MPI_Comm comm;
+
+       MPI_Comm_rank(MPI_COMM_WORLD, &task);
+
+    // This is for the case one of the processors doesn't posses any
+    // part of this mesh
+       nExRanks   = 0;
+       nparts     = 0;
+       elmdist[0] = 0;
+       for (i=0; i<nTasks ; i++ ) {
+          if ((iElmdist[i+1] - iElmdist[i]) == 0) {
+             exRanks[nExRanks] = i;
+             nExRanks++;
+          } else {
+             map[nparts] = i;
+             wgt[nparts] = iWgt[i];
+             elmdist[nparts+1] = iElmdist[i+1];
+             nparts++;
+          }
+       }
+       if (nExRanks == 0) {
+          MPI_Comm_dup(MPI_COMM_WORLD, &comm);
+       } else {
+          MPI_Comm_group(MPI_COMM_WORLD, &tmpGrp);
+          MPI_Group_excl(tmpGrp, nExRanks, exRanks, &newGrp);
+          MPI_Comm_create(MPI_COMM_WORLD, newGrp, &comm);
+          MPI_Group_free(&tmpGrp);
+          MPI_Group_free(&newGrp);
+          if (nEl == 0) return 0;
+       }
+    // If there is just one processor left, we give all the element to that
+    // one
+       if ( nparts == 1 ) {
+          for (e=0; e<nEl; e++) part[e] = task;
+          return -1;
+       }
+
+       eptr = (idxtype *)malloc((nEl+1)*sizeof(idxtype));
+       eind = (idxtype *)malloc(nEl*eNoN*sizeof(idxtype));
+
+       for (e=0; e<=nEl; e++) {
+          eptr[e] = e*eNoN;
+       }
+       for (a=0; a<nEl*eNoN; a++) {
+          eind[a] = IEN[a] - 1;
+       }
+       wgtflag = 0;
+       numflag = 0;
+       ncon = 1;
+       ncommonnodes = eNoNb;
+
+       for (i=0; i<ncon; i++) ubvec[i] = UNBALANCE_FRACTION;
+
+       options[0] = 1;
+       options[PMV3_OPTION_DBGLVL] = 0;
+       options[PMV3_OPTION_SEED] = 10;
+
+       ParMETIS_V3_PartMeshKway(elmdist, eptr, eind, NULL, &wgtflag,
+          &numflag, &ncon, &ncommonnodes, &nparts, wgt, ubvec,
+          options, &edgecut, part, &comm);
+
+       MPI_Comm_free(&comm);
+
+    // Mapping proc ID to the global numbering
+       if (edgecut == 0) {
+    // In this case ParMETIS has failed. So I assume each
+          for (e=0; e<nEl; e++) {
+             part[e] = task;
+          }
+       } else {
+          for (e=0; e<nEl; e++) {
+             i = part[e];
+             i = map[i];
+             part[e] = i;
+          }
+       }
+       return edgecut;
+    }
+
   throw femException("Not Implemented.\n");
 }
+#endif
 
 // CHECK INCLUSION OF TWO VECTORS
 bool checkInclusion(femIntVec A, femIntVec B){

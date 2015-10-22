@@ -1,21 +1,26 @@
 # include <string>
-# include <armadillo>
+
+#ifdef USE_ARMADILLO
+  # include <armadillo>
+#endif
 
 # include "femSolver.h"
 # include "femMatrix.h"
 # include "femVector.h"
 # include "femException.h"
 
-
+#ifdef USE_CSPARSE
 extern "C" {
 #include "cs.h"
 }
+#endif
 
 using namespace std;
 
-// ======================================
-// SOLVE LINEAR SYSTEM WITH DIRECT METHOD
-// ======================================
+#ifdef USE_ARMADILLO
+// =========================================================
+// SOLVE LINEAR SYSTEM WITH DIRECT METHOD WITH ARMADILLO LIB
+// =========================================================
 femDoubleVec femSolver::solveLinearSystem(femDenseMatrix* poissonMat,femDenseVector* poissonVec){
   // Initialize Armadillo Matrix
   arma::mat A(poissonMat->totRows,poissonMat->totCols);
@@ -40,7 +45,9 @@ femDoubleVec femSolver::solveLinearSystem(femDenseMatrix* poissonMat,femDenseVec
   // Return Result
   return result;
 }
+#endif
 
+#ifdef USE_CSPARSE
 // =============================================
 // SOLVE SPARSE LINEAR SYSTEM WITH DIRECT METHOD
 // =============================================
@@ -103,13 +110,16 @@ femDoubleVec femSolver::solveLinearSystem(femSparseMatrix* lhs,femDenseVector* r
   // Return Result
   return result;
 }
+#endif
 
+#ifdef USE_TRILINOS
 // ======================================
 // SOLVE LINEAR SYSTEM WITH DIRECT METHOD
 // ======================================
 femTrilinosVector* solveLinearSystem(femTrilinosMatrix* lhs,femTrilinosVector* rhs){
   throw femException("Not Implemented.\n");
 }
+#endif
 
 // MAIN SOLVER CLASS
 femSolver::femSolver(){
@@ -144,10 +154,15 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
 
     // Init Sparse Matrix and Dense Vector
     femMatrix* advDiffMat;
+    femVector* advDiffVec;
+#ifdef USE_ARMADILLO
+    advDiffMat = new femDenseMatrix(model);
+    advDiffVec = new femDenseVector((int)model->nodeList.size());
+#endif
+#ifdef USE_CSPARSE
     advDiffMat = new femSparseMatrix(model);
-    std::string tempMatFile("matFile.dat");
-    advDiffMat->writeToFile(tempMatFile);
-    femVector* advDiffVec = new femDenseVector((int)model->nodeList.size());
+    advDiffVec = new femDenseVector((int)model->nodeList.size());
+#endif
 
     // Local Element Matrix
     femDoubleMat elMat;
@@ -252,7 +267,12 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
 
     // SOLVE LINEAR SYSTEM OF EQUATIONS
     femDoubleVec solution;
+#ifdef USE_ARMADILLO
+    solution = solveLinearSystem((femDenseMatrix*)advDiffMat,(femDenseVector*)advDiffVec);
+#endif
+#ifdef USE_CSPARSE
     solution = solveLinearSystem((femSparseMatrix*)advDiffMat,(femDenseVector*)advDiffVec);
+#endif
 
     // ADD SOLUTION TO MODEL RESULTS
     femDoubleVec temp;
@@ -281,8 +301,18 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
   // Init Sparse Matrix and Dense Vector
   femMatrix* poissonMat;
   femVector* poissonVec;
+#ifdef USE_ARMADILLO
+  poissonMat = new femDenseMatrix(model);
+  poissonVec = new femDenseVector((int)model->nodeList.size());
+#endif
+#ifdef USE_CSPARSE
   poissonMat = new femSparseMatrix(model);
   poissonVec = new femDenseVector((int)model->nodeList.size());
+#endif
+#ifdef USE_TRILINOS
+  poissonMat = new femTrilinosMatrix(model);
+  poissonVec = new femTrilinosVector((int)model->nodeList.size());
+#endif
 
   // Local Element Matrix
   femDoubleMat elMat;
@@ -393,7 +423,16 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
 
   // SOLVE LINEAR SYSTEM OF EQUATIONS
   femDoubleVec solution;
+#ifdef USE_ARMADILLO
+  solution = solveLinearSystem((femDenseMatrix*)poissonMat,(femDenseVector*)poissonVec);
+#endif
+#ifdef USE_CSPARSE
   solution = solveLinearSystem((femSparseMatrix*)poissonMat,(femDenseVector*)poissonVec);
+#endif
+#ifdef USE_TRILINOS
+  solution = solveLinearSystem((femTrilinosMatrix*)poissonMat,(femTrilinosVector*)poissonVec);
+#endif
+
 
   // ADD SOLUTION TO MODEL RESULTS
   femDoubleVec temp;
@@ -482,6 +521,7 @@ void femTestSolver::solve(femOption* options, femModel* model){
   printf("Gradient Z: %f\n",grad[2]);
 }
 
+#ifdef USE_TRILINOS
 void femSteadyStateAdvectionDiffusionSolver::assembleLHS(femOption* options, femModel* model,Epetra_FECrsMatrix &lhs){
   printf("Assembling Advection-Diffusion LHS...\n");
 
@@ -572,4 +612,5 @@ void femSteadyStateAdvectionDiffusionSolver::assembleRHS(femOption* options, fem
     rhs.SumIntoGlobalValues(indices,k);
   }
 }
+#endif
 
