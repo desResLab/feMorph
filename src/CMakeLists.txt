@@ -8,6 +8,8 @@ INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIR})
 # Get Trilinos as one entity
 IF(useTrilinos)
   FIND_PACKAGE(Trilinos)
+  # Include Trilinos Classes
+  INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/src/trilinos)
 ENDIF()
 
 # Add Compilation Flags
