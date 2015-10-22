@@ -1,12 +1,14 @@
 # include "femIncompressibleSolver.h"
 # include "femModel.h"
 # include "femMatrix.h"
-# include "femTrilinosMatrix.h"
 # include "femVector.h"
-# include "femTrilinosVector.h"
 # include "femSolver.h"
 # include "femUtils.h"
 
+#ifdef USE_TRILINOS
+# include "femTrilinosMatrix.h"
+# include "femTrilinosVector.h"
+#endif
 
 // CONSTRUCTOR
 femIncompressibleSolver::femIncompressibleSolver(){
