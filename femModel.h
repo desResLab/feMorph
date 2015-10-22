@@ -35,6 +35,10 @@ class femModel{
     femDoubleVec sourceValues;
     // Element Diffusivity
     femDoubleMat elDiffusivity;
+    // Element Density
+    femDoubleVec elDensity;
+    // Element Viscosity
+    femDoubleVec elViscosity;
     // Dirichelet BC Array
     femIntVec diricheletBCNode;
     femDoubleVec diricheletBCValues;
@@ -66,8 +70,8 @@ class femModel{
     // Enclosing Box and Model Centre
     double modelBox[6];
     double modelCentre[3];
-    double weight1 = 0.0;
-    double weight2 = 0.0;
+    double weight1;
+    double weight2;
   public:
     // Constructor and Destructor
     femModel();
@@ -142,7 +146,7 @@ class femModel{
     // Convert Node and Element File To CVPre
     int ConvertNodeAndElementsToCvPre(std::string nodeFileName, std::string elementFileName, bool vtkFile, bool skipFirstRow, double angleLimit);
     // Copy velocity Results to Vector
-    void copyModelVelocitiesToVector(std::vector<std::vector<double>> &velocity);
+    void copyModelVelocitiesToVector(std::vector<std::vector<double> > &velocity);
 
     // ==================================
     // CHECKS AND GEOMETRICAL EVALUATIONS
@@ -162,6 +166,11 @@ class femModel{
     double CheckMinimumElementMixProduct(double dispFactor);
     void   EvalModelQualityDistributions(std::string fileName, double* limitBox);
     void   BuildParentElementList();
+
+    // ==============
+    // MODEL TOPOLOGY
+    // ==============
+    double getModelNodalTopology(femIntVec& diagPtr,femIntVec& rowPtr);
 
     // ==================
     // MODEL PARTITIONING

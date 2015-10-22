@@ -39,10 +39,12 @@ femSparseMatrix::femSparseMatrix(femModel* model){
   // Form Pointer to Row Elements
   femIntMat tempRowPtrMat;
   tempRowPtrMat.resize(totDof);
+
   // Fill with Diagonal Elements
   for(int loopA=0;loopA<totDof;loopA++){
     tempRowPtrMat[loopA].push_back(loopA);
   }
+
   // Fill with extra diagonal elements
   int currNode1 = 0;
   int currNode2 = 0;
@@ -59,6 +61,7 @@ femSparseMatrix::femSparseMatrix(femModel* model){
       }
     }
   }
+
   // Sort All Entries
   for(int loopA=0;loopA<totDof;loopA++){
     std::sort(tempRowPtrMat[loopA].begin(), tempRowPtrMat[loopA].end());
@@ -72,8 +75,7 @@ femSparseMatrix::femSparseMatrix(femModel* model){
   //  printf("\n");
   //}
 
-  // Form Column Pointer
-  // Initialize
+  // Initialize Column Pointer
   diagPtr.resize(totDof+1);
   for(int loopA=0;loopA<(totDof+1);loopA++){
     diagPtr[loopA] = 0;
@@ -97,7 +99,7 @@ femSparseMatrix::femSparseMatrix(femModel* model){
   rowPtr.resize(totNoZero);
   int count = 0;
   for(int loopA=0;loopA<totDof;loopA++){
-    for(int loopB=0;loopB<tempRowPtrMat[loopA].size();loopB++){
+    for(size_t loopB=0;loopB<tempRowPtrMat[loopA].size();loopB++){
       rowPtr[count] = tempRowPtrMat[loopA][loopB];
       count++;
     }
@@ -107,6 +109,10 @@ femSparseMatrix::femSparseMatrix(femModel* model){
 
 // FEM MATRIX ASSEMBLE: NOT IMPLEMENTED
 void femMatrix::assemble(femDoubleMat elMat,femIntVec connections){
+  throw femException("Not Implemented.\n");
+}
+
+void femMatrix::assembleDOF(femDoubleDOFMat elMat,femIntVec connections){
   throw femException("Not Implemented.\n");
 }
 
@@ -228,7 +234,7 @@ void femSparseMatrix::writeToFile(std::string fileName){
 
   // Plot Diagonal Pointer
   fprintf(f,"# Column Pointer\n");
-  for(int loopA=0;loopA<diagPtr.size();loopA++){
+  for(size_t loopA=0;loopA<diagPtr.size();loopA++){
     fprintf(f,"%d \n",diagPtr[loopA]);
   }
 
@@ -243,7 +249,7 @@ void femSparseMatrix::writeToFile(std::string fileName){
 
   // Plot Matrix Values
   fprintf(f,"# Matrix Values\n");
-  for(int loopA=0;loopA<values.size();loopA++){
+  for(size_t loopA=0;loopA<values.size();loopA++){
     fprintf(f,"%f \n",values[loopA]);
   }
 
@@ -289,7 +295,7 @@ void femSparseMatrix::clearRowAndColumn(int dof){
     values[loopA] = 0.0;
   }
   // Set to Zero with dof Row
-  for(int loopA=0;loopA<rowPtr.size();loopA++){
+  for(size_t loopA=0;loopA<rowPtr.size();loopA++){
     if(rowPtr[loopA] == dof){
       values[loopA] = 0.0;
     }

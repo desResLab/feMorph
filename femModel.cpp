@@ -82,7 +82,7 @@ int femModel::GetNodeIDFromNumber(int number){
 void femModel::ReadModelFromFile(std::string fileName){
   // Declare input File
   ifstream infile;
-  infile.open(fileName);
+  infile.open(fileName.c_str());
 
   // Read Data From File
   std::string buffer;
@@ -144,7 +144,7 @@ void femModel::ReadDirBCFromFile(std::string fileName, bool skipFirstRow, bool n
 
   // Declare input File
   ifstream infile;
-  infile.open(fileName);
+  infile.open(fileName.c_str());
 
   // Write Message
   femUtils::WriteMessage(std::string("Reading Dirichelet BCs Values from file ")+fileName+std::string("..."));
@@ -207,7 +207,7 @@ void femModel::ReadNeumannBCFromFile(std::string fileName, bool skipFirstRow, bo
 
   // Declare input File
   ifstream infile;
-  infile.open(fileName);
+  infile.open(fileName.c_str());
 
   // Write Message
   femUtils::WriteMessage(std::string("Reading Neumann BCs from file ")+fileName+std::string("..."));
@@ -273,7 +273,7 @@ void femModel::ReadNeumannBCFromFile(std::string fileName, bool skipFirstRow, bo
 void femModel::ReadElementSourceFromFile(std::string fileName, bool skipFirstRow, bool numbersFromZero){
   // Declare input File
   ifstream infile;
-  infile.open(fileName);
+  infile.open(fileName.c_str());
 
   // Write Message
   femUtils::WriteMessage(std::string("Reading Element Source from file ")+fileName+std::string("..."));
@@ -327,7 +327,7 @@ void femModel::ReadElementSourceFromFile(std::string fileName, bool skipFirstRow
 void femModel::ReadDiffusivityFromFile(std::string fileName, bool skipFirstRow, bool numbersFromZero){
   // Declare input File
   ifstream infile;
-  infile.open(fileName);
+  infile.open(fileName.c_str());
   double diffX = 0.0;
   double diffY = 0.0;
   double diffZ = 0.0;
@@ -399,7 +399,7 @@ void femModel::ReadDiffusivityFromFile(std::string fileName, bool skipFirstRow, 
 void femModel::ReadNodeCoordsFromFile(std::string fileName, bool skipFirstRow){
   // Declare input File
   ifstream infile;
-  infile.open(fileName);
+  infile.open(fileName.c_str());
 
   // Write Message
   femUtils::WriteMessage(std::string("Reading Coordinates for file ")+fileName+std::string("..."));
@@ -459,7 +459,7 @@ void femModel::ReadNodeCoordsFromFile(std::string fileName, bool skipFirstRow){
 void femModel::ReadElementConnectionsFromFile(std::string fileName, bool skipFirstRow, bool numbersFromZero){
   // Declare input File
   ifstream infile;
-  infile.open(fileName);
+  infile.open(fileName.c_str());
 
   // Write Message
   femUtils::WriteMessage(std::string("Reading Connectivity for file ")+fileName+std::string("..."));
@@ -542,7 +542,7 @@ void femModel::ReadElementConnectionsFromFile(std::string fileName, bool skipFir
 void femModel::ReadNodeDisplacementsFromFile(std::string fileName, bool readRotations){
   // Declare input File
   ifstream infile;
-  infile.open(fileName);
+  infile.open(fileName.c_str());
 
   // Write Message
   femUtils::WriteMessage(std::string("Reading Displacements for file ")+fileName+std::string("..."));
@@ -768,7 +768,8 @@ void femModel::FormElementFaceList(){
   int totalFaces = 0;
   int progress = 0;
   int progressCounted = 0;
-  std::vector<std::vector<femFace*>> firstNodefaceList;
+
+  std::vector<std::vector<femFace*> > firstNodefaceList;
   firstNodefaceList.resize((int)nodeList.size());
   std::vector<int> nodes;
   int faceID = -2;
@@ -785,8 +786,9 @@ void femModel::FormElementFaceList(){
       nodes.push_back(elementList[loopA]->elementConnections[loopB % (kTetraFaces)]);
       nodes.push_back(elementList[loopA]->elementConnections[(loopB + 1) % (kTetraFaces)]);
       nodes.push_back(elementList[loopA]->elementConnections[(loopB + 2) % (kTetraFaces)]);
+
       // Sort Nodes
-      std::sort(std::begin(nodes), std::end(nodes));
+      femUtils::bubbleSortIntVector(nodes);
 
       // Check if the face is already there
       faceID = FindFace(firstNodefaceList[nodes[0]],nodes);
@@ -809,11 +811,6 @@ void femModel::FormElementFaceList(){
   }
   // Write Message
   femUtils::WriteMessage(std::string("Done.\n"));
-}
-
-// Sorting Function
-bool orderTuple (std::tuple<int,int,int> i,std::tuple<int,int,int> j){
-  return (std::get<0>(i)<std::get<0>(j))&&(std::get<1>(i)<std::get<1>(j))&&(std::get<2>(i)<std::get<2>(j));
 }
 
 // ========================================
@@ -1371,8 +1368,8 @@ void femModel::ExportToVTKLegacy(std::string fileName){
     }else{
       throw femException("ERROR: Invalid number of Result Components.\n");
     }
-    for(unsigned int loopB=0;loopB<resultList[loopA]->values.size();loopB++){
-      for(unsigned int loopC=0;loopC<resultList[loopA]->numComponents;loopC++){
+    for(size_t loopB=0;loopB<resultList[loopA]->values.size();loopB++){
+      for(int loopC=0;loopC<resultList[loopA]->numComponents;loopC++){
         fprintf(outFile,"%e ",resultList[loopA]->values[loopB][loopC]);
       }
       fprintf(outFile,"\n");
@@ -2102,7 +2099,7 @@ femModel* femModel::FormBoundaryFaceModel(){
 // ================
 void femModel::FormBoundaryFaceGroups(int &totalFaceGroups, double angleLimit){
   // Form Skin Model
-  femModel* skinModel = nullptr;
+  femModel* skinModel = NULL;
   skinModel = FormBoundaryFaceModel();
   // Number Faces using Normal continuity
   skinModel->GroupFacesByNormal(totalFaceGroups,angleLimit);
@@ -2173,7 +2170,7 @@ void femModel::FormElementEdgeList(){
   int totalEdges = 0;
   int progress = 0;
   int progressCounted = 0;
-  std::vector<std::vector<femEdge*>> firstNodeEdgeList;
+  std::vector<std::vector<femEdge*> > firstNodeEdgeList;
   firstNodeEdgeList.resize((int)nodeList.size());
   std::vector<int> nodes;
   int EdgeID = -2;
@@ -2190,7 +2187,7 @@ void femModel::FormElementEdgeList(){
       nodes.push_back(elementList[loopA]->elementConnections[loopB % (elementList[loopA]->numberOfNodes)]);
       nodes.push_back(elementList[loopA]->elementConnections[(loopB + 1) % (elementList[loopA]->numberOfNodes)]);
       // Sort Nodes
-      std::sort(std::begin(nodes), std::end(nodes));
+      femUtils::bubbleSortIntVector(nodes);
       // Check if the face is already there
       EdgeID = FindEdge(firstNodeEdgeList[nodes[0]],nodes);
       if (EdgeID>-1){
@@ -2802,14 +2799,14 @@ void femModel::ReadModelNodesFromVTKFile(std::string fileName){
 
   // Declare input File
   std::ifstream infile;
-  infile.open(fileName);
+  infile.open(fileName.c_str());
 
   // Declare
   std::vector<string> tokenizedString;
   int pointCount = 0;
   int nodeCount = 0;
   int currCoordCount = 0;
-  double* fileCoords = nullptr;
+  double* fileCoords = NULL;
   femNode* newNode;
   double coordX,coordY,coordZ;
 
@@ -2865,7 +2862,7 @@ void femModel::ReadModelElementsFromVTKFile(std::string fileName){
 
   // Declare input File
   std::ifstream infile;
-  infile.open(fileName);
+  infile.open(fileName.c_str());
 
   // Declare
   std::vector<string> tokenizedString;
@@ -2937,7 +2934,7 @@ void femModel::ReadModelElementsFromVTKFile(std::string fileName){
 void femModel::ReadModelResultsFromVTKFile(std::string fileName){
   // Declare input File
   std::ifstream infile;
-  infile.open(fileName);
+  infile.open(fileName.c_str());
 
   // Declare
   std::vector<string> tokenizedString;
@@ -2954,7 +2951,7 @@ void femModel::ReadModelResultsFromVTKFile(std::string fileName){
   double valX = 0.0;
   double valY = 0.0;
   double valZ = 0.0;
-  femResult* res = nullptr;
+  femResult* res = NULL;
   femDoubleVec temp;
 
   // Read Data From File
@@ -3234,7 +3231,7 @@ int femModel::ConvertNodeAndElementsToCvPre(std::string nodeFileName, std::strin
 // =========================
 // COPY VELOCITIES TO VECTOR
 // =========================
-void femModel::copyModelVelocitiesToVector(std::vector<std::vector<double>> &velocity){
+void femModel::copyModelVelocitiesToVector(std::vector<std::vector<double> > &velocity){
   // Look for the velocity components as results
   bool foundResult = false;
   for(size_t loopA=0;loopA<resultList.size();loopA++){
@@ -3640,7 +3637,7 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
 
   // Declare input File
   std::ifstream infile;
-  infile.open(fileName);
+  infile.open(fileName.c_str());
 
   // Declare
   vector<string> tokenizedString;
@@ -3981,4 +3978,68 @@ void femModel::BuildParentElementList(){
       bcParentElement.push_back(count);
     }
   }
+}
+
+// ====================================================
+// CREATE THE NODAL TOPOLOGY FROM THE MODEL CONNECTIONS
+// ====================================================
+double femModel::getModelNodalTopology(femIntVec& diagPtr,femIntVec& rowPtr){
+  // Get Total Number of Equations
+  int totNodes = nodeList.size();
+
+  // Form Pointer to Row Elements
+  femIntMat tempRowPtrMat;
+  tempRowPtrMat.resize(totNodes);
+
+  // Fill with Diagonal Elements
+  for(int loopA=0;loopA<totNodes;loopA++){
+    tempRowPtrMat[loopA].push_back(loopA);
+  }
+
+  // Fill with extra diagonal elements
+  int currNode1 = 0;
+  int currNode2 = 0;
+  for(size_t loopA=0;loopA<elementList.size();loopA++){
+    for(size_t loopB=0;loopB<elementList[loopA]->elementConnections.size();loopB++){
+      currNode1 = elementList[loopA]->elementConnections[loopB];
+      for(size_t loopC=0;loopC<elementList[loopA]->elementConnections.size();loopC++){
+        currNode2 = elementList[loopA]->elementConnections[loopC];
+        if(currNode1 != currNode2){
+          if(find(tempRowPtrMat[currNode1].begin(), tempRowPtrMat[currNode1].end(), currNode2) == tempRowPtrMat[currNode1].end()){
+            tempRowPtrMat[currNode1].push_back(currNode2);
+          }
+        }
+      }
+    }
+  }
+
+  // Sort All Entries
+  for(int loopA=0;loopA<totNodes;loopA++){
+    std::sort(tempRowPtrMat[loopA].begin(), tempRowPtrMat[loopA].end());
+  }
+
+  // Initialize Column Pointer
+  diagPtr.resize(totNodes+1);
+  for(int loopA=0;loopA<(totNodes+1);loopA++){
+    diagPtr[loopA] = 0;
+  }
+
+  // Form Column Pointer
+  int totNoZero = tempRowPtrMat[0].size();
+  for(int loopA=1;loopA<totNodes;loopA++){
+    diagPtr[loopA] = diagPtr[loopA-1] + tempRowPtrMat[loopA-1].size();
+    totNoZero += tempRowPtrMat[loopA].size();
+  }
+  diagPtr[totNodes] = totNoZero;
+
+  // Copy to Row Pointer
+  rowPtr.resize(totNoZero);
+  int count = 0;
+  for(int loopA=0;loopA<totNodes;loopA++){
+    for(size_t loopB=0;loopB<tempRowPtrMat[loopA].size();loopB++){
+      rowPtr[count] = tempRowPtrMat[loopA][loopB];
+      count++;
+    }
+  }
+
 }

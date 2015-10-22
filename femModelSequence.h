@@ -27,8 +27,8 @@ class femModelSequence{
 
 // Label Counter Struct
 struct labelCounter{
-  std::string label = "";
-  int count = 0;
+  std::string label;
+  int count;
   femResultType type;
 };
 

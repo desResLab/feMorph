@@ -35,7 +35,7 @@ femInputData::~femInputData(){
 void femInputData::ReadFromFile(std::string fileName){
   // Declare input File
   std::ifstream infile;
-  infile.open(fileName);
+  infile.open(fileName.c_str());
 
   // Write Message
   femUtils::WriteMessage("Reading Input Parameter...\n");
@@ -160,7 +160,7 @@ void femInputData::checkAxisNormalization(){
     }
     currMod = sqrt(currMod);
     if(abs(currMod-1.0)>kMathZero){
-      femUtils::WriteMessage(std::string("Warning: Axis ") + std::to_string(loopA+1) + std::string(" was normalized.\n"));
+      femUtils::WriteMessage(std::string("Warning: Axis ") + femUtils::intToStr(loopA+1) + std::string(" was normalized.\n"));
       for(int loopB=0;loopB<kDims;loopB++){
         mainModelRefSystem[loopB][loopA] = mainModelRefSystem[loopB][loopA]/currMod;
       }

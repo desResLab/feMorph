@@ -13,10 +13,38 @@ extern "C" {
 
 using namespace std;
 
+// ======================================
+// SOLVE LINEAR SYSTEM WITH DIRECT METHOD
+// ======================================
+femDoubleVec femSolver::solveLinearSystem(femDenseMatrix* poissonMat,femDenseVector* poissonVec){
+  // Initialize Armadillo Matrix
+  arma::mat A(poissonMat->totRows,poissonMat->totCols);
+  for(int loopA=0;loopA<poissonMat->totRows;loopA++){
+    for(int loopB=0;loopB<poissonMat->totCols;loopB++){
+      A(loopA,loopB) = poissonMat->values[loopA][loopB];
+    }
+  }
+  // Fill RHS Vector
+  arma::vec b(poissonVec->values.size());
+  for(size_t loopA=0;loopA<poissonVec->values.size();loopA++){
+    b(loopA) = poissonVec->values[loopA];
+  }
+  printf("Solving...\n");
+  // Solve Linear Set of equations
+  arma::vec x = arma::solve(A, b);
+  // Return
+  femDoubleVec result;
+  for(int loopA=0;loopA<x.size();loopA++){
+    result.push_back(x[loopA]);
+  }
+  // Return Result
+  return result;
+}
+
 // =============================================
 // SOLVE SPARSE LINEAR SYSTEM WITH DIRECT METHOD
 // =============================================
-femDoubleVec femSolver::solveLinearSystem(femSparseMatrix* lhs,femVector* rhs){
+femDoubleVec femSolver::solveLinearSystem(femSparseMatrix* lhs,femDenseVector* rhs){
   printf("Solving Linear System...\n");
   // Set Tolerance
   double tol = 1.0e-12;
@@ -79,29 +107,8 @@ femDoubleVec femSolver::solveLinearSystem(femSparseMatrix* lhs,femVector* rhs){
 // ======================================
 // SOLVE LINEAR SYSTEM WITH DIRECT METHOD
 // ======================================
-femDoubleVec femSolver::solveLinearSystem(femDenseMatrix* poissonMat,femVector* poissonVec){
-  // Initialize Armadillo Matrix
-  arma::mat A(poissonMat->totRows,poissonMat->totCols);
-  for(int loopA=0;loopA<poissonMat->totRows;loopA++){
-    for(int loopB=0;loopB<poissonMat->totCols;loopB++){
-      A(loopA,loopB) = poissonMat->values[loopA][loopB];
-    }
-  }
-  // Fill RHS Vector
-  arma::vec b(poissonVec->values.size());
-  for(int loopA=0;loopA<poissonVec->values.size();loopA++){
-    b(loopA) = poissonVec->values[loopA];
-  }
-  printf("Solving...\n");
-  // Solve Linear Set of equations
-  arma::vec x = arma::solve(A, b);
-  // Return
-  femDoubleVec result;
-  for(int loopA=0;loopA<x.size();loopA++){
-    result.push_back(x[loopA]);
-  }
-  // Return Result
-  return result;
+femTrilinosVector* solveLinearSystem(femTrilinosMatrix* lhs,femTrilinosVector* rhs){
+  throw femException("Not Implemented.\n");
 }
 
 // MAIN SOLVER CLASS
@@ -140,7 +147,7 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
     advDiffMat = new femSparseMatrix(model);
     std::string tempMatFile("matFile.dat");
     advDiffMat->writeToFile(tempMatFile);
-    femVector* advDiffVec = new femVector((int)model->nodeList.size());
+    femVector* advDiffVec = new femDenseVector((int)model->nodeList.size());
 
     // Local Element Matrix
     femDoubleMat elMat;
@@ -245,7 +252,7 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
 
     // SOLVE LINEAR SYSTEM OF EQUATIONS
     femDoubleVec solution;
-    solution = solveLinearSystem((femSparseMatrix*)advDiffMat,advDiffVec);
+    solution = solveLinearSystem((femSparseMatrix*)advDiffMat,(femDenseVector*)advDiffVec);
 
     // ADD SOLUTION TO MODEL RESULTS
     femDoubleVec temp;
@@ -273,8 +280,9 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
 
   // Init Sparse Matrix and Dense Vector
   femMatrix* poissonMat;
+  femVector* poissonVec;
   poissonMat = new femSparseMatrix(model);
-  femVector* poissonVec = new femVector((int)model->nodeList.size());
+  poissonVec = new femDenseVector((int)model->nodeList.size());
 
   // Local Element Matrix
   femDoubleMat elMat;
@@ -306,7 +314,7 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
 
   double sourceSum = 0.0;
   for(int loopA=0;loopA<poissonVec->getSize();loopA++){
-    sourceSum += poissonVec->values[loopA];
+    sourceSum += ((femDenseVector*)poissonVec)->values[loopA];
   }
   printf("Sum of Source Term: %f\n",sourceSum);
 
@@ -355,14 +363,14 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
   printf("Warning[*]: Scaling Source for Equilibium.\n");
   for(size_t loopA=0;loopA<poissonVec->getSize();loopA++){
     if(fabs(sourceSum) > kMathZero){
-      poissonVec->values[loopA] = (poissonVec->values[loopA] * (neuPosSum+neuNegSum)) / (double)(-sourceSum);
+      ((femDenseVector*)poissonVec)->values[loopA] = (((femDenseVector*)poissonVec)->values[loopA] * (neuPosSum+neuNegSum)) / (double)(-sourceSum);
     }
   }
 
   // Assemble in RHS
   for(size_t loopA=0;loopA<poissonVec->getSize();loopA++){
     //poissonVec->values[loopA] += elBCVec[loopA] * fabs(sourceSum) / (neuPosSum+neuNegSum);
-    poissonVec->values[loopA] += elBCVec[loopA];
+    ((femDenseVector*)poissonVec)->values[loopA] += elBCVec[loopA];
   }
 
   // APPLY DIRICHELET BOUNDARY CONDITIONS
@@ -379,13 +387,13 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
   // Check the sum of terms in the matrix
   double sum = 0.0;
   for(int loopA=0;loopA<poissonVec->getSize();loopA++){
-    sum += poissonVec->values[loopA];
+    sum += ((femDenseVector*)poissonVec)->values[loopA];
   }
   printf("RHS Summation: %e\n",sum);
 
   // SOLVE LINEAR SYSTEM OF EQUATIONS
   femDoubleVec solution;
-  solution = solveLinearSystem((femSparseMatrix*)poissonMat,poissonVec);
+  solution = solveLinearSystem((femSparseMatrix*)poissonMat,(femDenseVector*)poissonVec);
 
   // ADD SOLUTION TO MODEL RESULTS
   femDoubleVec temp;
@@ -482,8 +490,9 @@ void femSteadyStateAdvectionDiffusionSolver::assembleLHS(femOption* options, fem
 
   // Init Sparse Matrix and Dense Vector
   femMatrix* advDiffMat;
+  femVector* advDiffVec;
   advDiffMat = new femSparseMatrix(model);
-  femVector* advDiffVec = new femVector((int)model->nodeList.size());
+  advDiffVec = new femDenseVector((int)model->nodeList.size());
 
   // Local Element Matrix
   femDoubleMat elMat;

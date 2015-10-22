@@ -160,7 +160,7 @@ int runNormalMode(femProgramOptions* options){
 
     if(reducedOutput){
       // Export cvPre Model ready to presolve
-      std::string ncFile = "stenosis_" + std::to_string((int)currStenosisLevel) + ".coordinates";
+      std::string ncFile = "stenosis_" + femUtils::intToStr((int)currStenosisLevel) + ".coordinates";
       mainModel->WriteNodeCoordsToFile(currDispFactor,ncFile);
     }else{
       // Export cvPre Model ready to presolve
@@ -335,7 +335,7 @@ int findFaceMatchList(femProgramOptions* options){
   double tolerance = options->tolerance;
 
   // Fill lists
-  femModel* model = nullptr;
+  femModel* model = NULL;
   femUtils::WriteMessage(std::string("Reading File List 1...\n"));
   for(unsigned int loopA=0;loopA<fileList1.size();loopA++){
     model = new femModel();

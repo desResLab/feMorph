@@ -16,6 +16,7 @@ enum intRuleType{irFirstOrder,irSecondOrder};
 
 typedef vector<vector<double> > femDoubleMat;
 typedef vector<vector<vector<double> > > femDoubleDOFMat;
+typedef vector<vector<double> > femDoubleDOFVec;
 typedef vector<vector<double> > femDoubleMat;
 typedef vector<vector<int> > femIntMat;
 typedef vector<double> femDoubleVec;

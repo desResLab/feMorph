@@ -4,7 +4,9 @@
 # include "femModel.h"
 # include "femOption.h"
 # include "femMatrix.h"
+# include "femTrilinosMatrix.h"
 # include "femVector.h"
+# include "femTrilinosVector.h"
 # include "Epetra_FEVector.h"
 # include "Epetra_SerialDenseVector.h"
 # include "Epetra_FECrsMatrix.h"
@@ -15,9 +17,10 @@ class femSolver{
   public:
     femSolver();
     // SOLVE PROBLEM
-    virtual void solve(femOption* options, femModel* model);
-    femDoubleVec solveLinearSystem(femSparseMatrix* lhs,femVector* rhs);
-    femDoubleVec solveLinearSystem(femDenseMatrix* poissonMat,femVector* poissonVec);
+    virtual void       solve(femOption* options, femModel* model);
+    femDoubleVec       solveLinearSystem(femSparseMatrix* lhs,femDenseVector* rhs);
+    femDoubleVec       solveLinearSystem(femDenseMatrix* poissonMat,femDenseVector* poissonVec);
+    femTrilinosVector* solveLinearSystem(femTrilinosMatrix* lhs,femTrilinosVector* rhs);
 };
 
 // STEADY STATE ADVECTION DIFFUSION SOLVER

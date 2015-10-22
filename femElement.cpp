@@ -374,7 +374,8 @@ void femElement::evalGlobalShapeFunctionDerivative(std::vector<femNode*> &nodeLi
 // CREATE BOUNDARY FACE
 // ====================
 femElement* createBoudaryFace(int faceID){
-
+  throw femException("Not Implemented.\n");
+  return NULL;
 }
 
 
@@ -462,7 +463,7 @@ void femElement::InterpolateElementDisplacements(double dispFactor, double* node
 
   // Loop through the nodes
   int currNode = 0;
-  double* currNodeDisps = nullptr;
+  double* currNodeDisps = NULL;
   for(unsigned int loopA=0;loopA<elementConnections.size();loopA++){
     // Get Node Number
     currNode = elementConnections[loopA];
@@ -1724,12 +1725,15 @@ void femElement::formTransientAdvDiffRHS(std::vector<femNode*> &nodeList,
 // INCOMPRESSIBLE NAVIER STOKES
 void femElement::formNS_LHS(std::vector<femNode*> nodeList,
                             femIntegrationRule* rule,
-                            femDoubleVec diffusivity,
-                            femDoubleVec velocity,
+                            double rho,
+                            double viscosity,
                             femDoubleMat solution,
-                            double timeStep,
                             int schemeType,
                             int nodeDOFs,
+                            double timeStep,
+                            double alphaM,
+                            double alphaF,
+                            double gamma,
                             femDoubleDOFMat &elMat){
 
   // CLEAR AND ALLOCATE MATRIX
@@ -1810,7 +1814,10 @@ void femElement::formNS_LHS(std::vector<femNode*> nodeList,
       }
 
       // Eval Quadratic Tau
-      currTau = evalQuadraticTau(timeStep,elGeomMat,velocity,diffusivity);
+      // TO COMPLETE DEFINE THE STABILIZATION COEFFS !!!
+      // currTau = evalQuadraticTau(timeStep,elGeomMat,velocity,diffusivity);
+      double tauSUPS = 0.0;
+      double viscLSIC = 0.0;
 
       // Eval Determinant of the Jacobian Matrix
       detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
@@ -1837,36 +1844,42 @@ void femElement::formNS_LHS(std::vector<femNode*> nodeList,
           // Loop on the dimensionality
           for(int loopD=0;loopD<nodeDOFs - 1;loopD++){
             // Assemble Diagonal Terms for Velocity
-            locMat[loopD,loopD] += alphaM * shapeFunction[loopB] * rho * shapeFunction[loopC];
-            locMat[loopD,loopD] += alphaM * tauSUPS * velGradNA * rho * shapeFunction[loopC];
-            locMat[loopD,loopD] += alphaF * gamma * timeStep * shapeFunction[loopB] * rho * velGradNB;
-            locMat[loopD,loopD] += alphaF * gamma * timeStep * viscosity * gradNAGradNB;
+            locMat[loopD][loopD] += alphaM * shapeFunction[loopB] * rho * shapeFunction[loopC];
+            locMat[loopD][loopD] += alphaM * tauSUPS * velGradNA * rho * shapeFunction[loopC];
+            locMat[loopD][loopD] += alphaF * gamma * timeStep * shapeFunction[loopB] * rho * velGradNB;
+            locMat[loopD][loopD] += alphaF * gamma * timeStep * viscosity * gradNAGradNB;
             // Other Diagonal
-            locMat[loopD,loopD] += alphaF * gamma * timeStep * tauSUPS * velGradNA * rho * velGradNB;
+            locMat[loopD][loopD] += alphaF * gamma * timeStep * tauSUPS * velGradNA * rho * velGradNB;
             // Assemble the
-            for(int loopE=0;loopsE<nodeDOFs - 1;loopE++){
-              locMat[loopD,loopE] += shapeDeriv[loopB][loopE] * viscosity * shapeDeriv[loopC][loopD];
-              locMat[loopD,loopE] += rho * viscLSIC * shapeDeriv[loopB][loopD] * shapeDeriv[loopC][loopE];
+            for(int loopE=0;loopE<nodeDOFs - 1;loopE++){
+              locMat[loopD][loopE] += shapeDeriv[loopB][loopE] * viscosity * shapeDeriv[loopC][loopD];
+              locMat[loopD][loopE] += rho * viscLSIC * shapeDeriv[loopB][loopD] * shapeDeriv[loopC][loopE];
             }
           }
 
-
-
           // Assemble Gauss Point Contribution
-          elMat[loopB][loopC][loopD] += (currK + stabK) * detJ * intWeights[loopA];
+          int count = 0;
+          for(int loopD=0;loopD<nodeDOFs - 1;loopD++){
+            for(int loopE=0;loopE<nodeDOFs - 1;loopE++){
+              elMat[loopB][loopC][count] += locMat[loopD][loopE];
+              count++;
+            }
+          }
         }
       }
     }
 
 
 }
-void femElement::formNS_RHS(std::vector<femNode*> nodeList,
+void femElement::formNS_RHS(std::vector<femNode*> &nodeList,
                             femIntegrationRule* rule,
                             double sourceValue,
                             femDoubleVec diffusivity,
-                            femDoubleVec velocity,
-                            int schemeType,
-                            femDoubleVec &elRhs){
+                            femDoubleMat solution,
+                            femDoubleMat solution_Dot,
+                            double timeStep,
+                            double alphaM, double alphaF, double gamma,
+                            femDoubleDOFVec &elRhs){
 
 }
 

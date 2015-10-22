@@ -1,14 +1,16 @@
 # include "femIncompressibleSolver.h"
 # include "femModel.h"
 # include "femMatrix.h"
+# include "femTrilinosMatrix.h"
 # include "femVector.h"
+# include "femTrilinosVector.h"
 # include "femSolver.h"
+# include "femUtils.h"
 
 
 // CONSTRUCTOR
 femIncompressibleSolver::femIncompressibleSolver(){
 }
-
 
 // ===================
 // PRESCIBE VELOCITIES
@@ -18,7 +20,7 @@ void prescribeNodeVels(femModel* model, int prescribedVelType,double currTime,fe
   double nodeX = 0.0;
   double nodeY = 0.0;
   if(prescribedVelType == 0){
-    for(int loopA=0;loopA<model->nodeList.size();loopA++){
+    for(size_t loopA=0;loopA<model->nodeList.size();loopA++){
       nodeX = model->nodeList[loopA]->coords[0];
       nodeY = model->nodeList[loopA]->coords[1];
       solution[loopA][0] = cos(M_PI * currTime / 8.0) * sin(2.0 * M_PI * nodeY) * sin(M_PI * nodeX) * sin(M_PI * nodeX);
@@ -28,7 +30,7 @@ void prescribeNodeVels(femModel* model, int prescribedVelType,double currTime,fe
   }else if(prescribedVelType == 1){
     // Constant Velocity equal to the prescribed velocity
     // Assume all the Element Velocities are Specified
-    for(int loopA=0;loopA<model->nodeList.size();loopA++){
+    for(size_t loopA=0;loopA<model->nodeList.size();loopA++){
         nodeX = model->nodeList[loopA]->coords[0];
         nodeY = model->nodeList[loopA]->coords[1];
         solution[loopA][0] =  sin(M_PI * nodeX) * cos(M_PI * nodeY);
@@ -38,7 +40,7 @@ void prescribeNodeVels(femModel* model, int prescribedVelType,double currTime,fe
   }else if(prescribedVelType == 2){
     // Constant Velocity equal to the prescribed velocity
     // Assume all the Element Velocities are Specified
-    for(int loopA=0;loopA<model->nodeList.size();loopA++){
+    for(size_t loopA=0;loopA<model->nodeList.size();loopA++){
       solution[loopA][0] = model->elVelocity[loopA][0];
       solution[loopA][1] = model->elVelocity[loopA][1];
       solution[loopA][2] = model->elVelocity[loopA][2];
@@ -49,16 +51,17 @@ void prescribeNodeVels(femModel* model, int prescribedVelType,double currTime,fe
 // ===========================================
 // PERFORM ONE INCOMPRESSIBLE NS STEP IN TIME
 // ===========================================
-
 void advanceNavierStokes(long loopStep, double currTime,
                          femModel* model,
                          femDoubleMat solution,
                          femDoubleMat solution_Dot,
-                         int variableID,
-                         femDoubleVec& sol){
+                         int nodeDOFs,
+                         femTrilinosVector* sol){
+  // Set Scheme Flag
+  int schemeType = 0;
 
   // Print Step Info
-  printf("Incompressible NS Step %d, Current Time: %f\n",loopStep+1,currTime);
+  printf("Incompressible NS Step %d, Current Time: %f\n",(int)(loopStep+1),currTime);
 
   // Get Quantities From Options
   double timeStep = model->timeStep;
@@ -73,14 +76,15 @@ void advanceNavierStokes(long loopStep, double currTime,
   printf("Assembling Matrix...");
   fflush(stdout);
   femMatrix* nsLHS;
-  nsLHS = new femSparseMatrix(model);
-  femVector* nsRHS = new femVector((int)model->nodeList.size());
+  femVector* nsRHS;
+  nsLHS = new femTrilinosMatrix(model);
+  nsRHS = new femTrilinosVector((int)model->nodeList.size(),nodeDOFs);
   printf("Done.\n");
   fflush(stdout);
 
   // INIT LOCAL ELEMENT MATRIX
-  femDoubleMat elMat;
-  femDoubleVec elRhs;
+  femDoubleDOFMat elMat;
+  femDoubleDOFVec elRhs;
 
   // ASSEMBLE LHS MATRIX
   printf("Assembling NS LHS...");
@@ -88,14 +92,17 @@ void advanceNavierStokes(long loopStep, double currTime,
   for(size_t loopElement=0;loopElement<model->elementList.size();loopElement++){
     // Assemble LHS
     model->elementList[loopElement]->formNS_LHS(model->nodeList,
-                                               rule,
-                                               (femDoubleVec)model->elDiffusivity[loopElement],
-                                               solution,
-                                               timeStep,
-                                               alphaM,alphaF,gamma,
-                                               elMat);
+                                                rule,
+                                                model->elDensity[loopElement],
+                                                model->elViscosity[loopElement],
+                                                solution,
+                                                schemeType,
+                                                nodeDOFs,
+                                                timeStep,
+                                                alphaM,alphaF,gamma,
+                                                elMat);
     // Assemble Sparse Matrix
-    nsLHS->assemble(elMat,model->elementList[loopElement]->elementConnections);
+    nsLHS->assembleDOF(elMat,model->elementList[loopElement]->elementConnections);
   }
   printf("Done.\n");
   fflush(stdout);
@@ -110,31 +117,27 @@ void advanceNavierStokes(long loopStep, double currTime,
                                                 rule,
                                                 0.0,
                                                 (femDoubleVec)model->elDiffusivity[loopElement],
-                                                variableID,
                                                 solution,
                                                 solution_Dot,
                                                 timeStep,
                                                 alphaM,alphaF,gamma,
                                                 elRhs);
     // Assemble Source Vector
-    advDiffVec->assemble(elRhs,model->elementList[loopElement]->elementConnections);
+    nsRHS->assembleDOF(elRhs,model->elementList[loopElement]->elementConnections);
   }
   printf("Done.\n");
   fflush(stdout);
 
-  advDiffVec->assemble(elRhs,model->elementList[parentElement]->elementConnections);
-
   // Sparse Matrix
-  advDiffMat->applyDirichelet(model->diricheletBCNode);
+  nsLHS->applyDirichelet(model->diricheletBCNode);
   // RHS Vector
-  advDiffVec->applyDirichelet(model->diricheletBCNode,model->diricheletBCValues);
+  nsRHS->applyDirichelet(model->diricheletBCNode,model->diricheletBCValues);
 
   // SOLVE LINEAR SYSTEM OF EQUATIONS AND COMPUTE VARIABLE INCREMENT
   printf("Solution...");
   fflush(stdout);
-  sol.clear();
   femSolver linSolver;
-  sol = linSolver.solveLinearSystem((femSparseMatrix*)advDiffMat,advDiffVec);
+  sol = linSolver.solveLinearSystem((femTrilinosMatrix*)nsLHS,(femTrilinosVector*)nsRHS);
   printf("Done.\n");
   fflush(stdout);
 }
@@ -151,7 +154,7 @@ void advanceAdvectionDiffusion(long loopStep, double currTime,
                                femDoubleVec& sol){
 
   // Print Step Info
-  printf("Advection-Diffusion Step %d, Current Time: %f\n",loopStep+1,currTime);
+  printf("Advection-Diffusion Step %d, Current Time: %f\n",(int)(loopStep+1),currTime);
 
   // Get Quantities From Options
   double timeStep = model->timeStep;
@@ -167,7 +170,7 @@ void advanceAdvectionDiffusion(long loopStep, double currTime,
   fflush(stdout);
   femMatrix* advDiffMat;
   advDiffMat = new femSparseMatrix(model);
-  femVector* advDiffVec = new femVector((int)model->nodeList.size());
+  femVector* advDiffVec = new femDenseVector((int)model->nodeList.size());
   printf("Done.\n");
   fflush(stdout);
 
@@ -262,7 +265,7 @@ void advanceAdvectionDiffusion(long loopStep, double currTime,
     fflush(stdout);
     sol.clear();
     femSolver linSolver;
-    sol = linSolver.solveLinearSystem((femSparseMatrix*)advDiffMat,advDiffVec);
+    sol = linSolver.solveLinearSystem((femSparseMatrix*)advDiffMat,(femDenseVector*)advDiffVec);
     printf("Done.\n");
     fflush(stdout);
 
@@ -287,7 +290,7 @@ void setInitialConditions(femModel* model, femDoubleMat& solution,femDoubleMat& 
   int currNode = 0;
   int currDof = 0;
   double currVal = 0.0;
-  for(int loopA=0;loopA<model->iniNodeNumbers.size();loopA++){
+  for(size_t loopA=0;loopA<model->iniNodeNumbers.size();loopA++){
     currNode = model->iniNodeNumbers[loopA];
     currDof = model->iniDofNumber[loopA];
     currVal = model->iniDofValue[loopA];
@@ -314,10 +317,14 @@ void femIncompressibleSolver::solve(femModel* model){
   // Solution and time derivative and step n+1
   femDoubleMat solution_n1;
   femDoubleMat solution_Dot_n1;
-  // Single timeStep solution
+  // Single timeStep solution for NS
+  femTrilinosVector* timeStepNSSolution;
+  // Single timeStep solution for Advection Diffusion
   femDoubleVec timeStepSolution;
   // Quantity for advection diffusion
   int currAdvectedQty = 4;
+  // Nodal DOFS for NS Solver
+  int nodeDOFs = 4;
 
   // Temporary Container
   femDoubleVec temp;
@@ -402,7 +409,7 @@ void femIncompressibleSolver::solve(femModel* model){
     // Update Save Counter
     saveCounter++;
     // LOOP ON STAGES
-    for(long loopStage = 0;loopStage<model->solStages.size(); loopStage++){
+    for(size_t loopStage = 0;loopStage<model->solStages.size(); loopStage++){
 
       // Get Stage Type
       currStageType = model->solStages[loopStage];
@@ -419,7 +426,12 @@ void femIncompressibleSolver::solve(femModel* model){
         }else{
 
           // Solve Navier-Stokes Step
-          advanceNavierStokes(model, solVector);
+          advanceNavierStokes(loopTime,currentTime,
+                              model,
+                              solution_n,
+                              solution_Dot_n,
+                              nodeDOFs,
+                              timeStepNSSolution);
 
         }
       }else{
@@ -437,17 +449,17 @@ void femIncompressibleSolver::solve(femModel* model){
 
     // UPDATE SOLUTION AND TIME DERIVATIVE
     // Update time derivative
-    for(int loopA=0;loopA<model->nodeList.size();loopA++){
+    for(size_t loopA=0;loopA<model->nodeList.size();loopA++){
       solution_Dot_n1[loopA][currAdvectedQty] = timeStepSolution[loopA];
     }
     // Update Solution
-    for(int loopA=0;loopA<model->nodeList.size();loopA++){
+    for(size_t loopA=0;loopA<model->nodeList.size();loopA++){
       solution_n1[loopA][currAdvectedQty] = solution_n[loopA][currAdvectedQty] +
                                             model->timeStep * solution_Dot_n[loopA][currAdvectedQty]  +
                                             model->gamma * model->timeStep * (solution_Dot_n1[loopA][currAdvectedQty] - solution_Dot_n[loopA][currAdvectedQty]);
     }
     // Update Old Solutions and time derivatives
-    for(int loopA=0;loopA<model->nodeList.size();loopA++){
+    for(size_t loopA=0;loopA<model->nodeList.size();loopA++){
       solution_n[loopA][currAdvectedQty] = solution_n1[loopA][currAdvectedQty];
       solution_Dot_n[loopA][currAdvectedQty] = solution_Dot_n1[loopA][currAdvectedQty];
     }
@@ -465,7 +477,7 @@ void femIncompressibleSolver::solve(femModel* model){
         model->resultList[2]->values[loopA][2] = solution_n[loopA][2];
       }
       // Export Model to Check
-      model->ExportToVTKLegacy(string("out_Step_" + to_string(loopTime+1) + ".vtk"));
+      model->ExportToVTKLegacy(string("out_Step_" + femUtils::intToStr(loopTime+1) + ".vtk"));
     }
   }
 }

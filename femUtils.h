@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <algorithm>
 #include <math.h>
 #include <vector>
@@ -83,6 +84,26 @@ inline void Do3DExternalProduct(double* v1,double* v2,double* v3){
 // Eval Internal Product
 inline double Do3DInternalProduct(double* v1, double* v2){
   return v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2];
+}
+
+// =================================
+// SORT INTEGER VECTOR - BUBBLE SORT
+// =================================
+inline void bubbleSortIntVector(std::vector<int>& nodes){
+  int first;
+  int second;
+  int temp;
+  for(size_t loopA=0;loopA<nodes.size();loopA++){
+    for(size_t loopB=0;loopB<nodes.size();loopB++){
+      first = nodes[loopA];
+      second = nodes[loopB];
+      if(first>second){
+        temp = nodes[loopA];
+        nodes[loopA] = nodes[loopB];
+        nodes[loopB] = temp;
+      }
+    }
+  }
 }
 
 // ===================
@@ -527,7 +548,7 @@ inline bool AreCompatibleBoxes(double* firstBox, double* secondBox,double tolera
 inline void ReadListFromFile(std::string fileName, std::vector<std::string> &fileList1){
   // Declare input File
   std::ifstream infile;
-  infile.open(fileName);
+  infile.open(fileName.c_str());
 
   // Clear File List
   fileList1.clear();
@@ -555,7 +576,7 @@ inline void ReadWeightedFileList(std::string fileName, std::vector<femWeightedFi
 
   // Declare input File
   std::ifstream infile;
-  infile.open(fileName);
+  infile.open(fileName.c_str());
 
   // Tokenized Strings
   std::vector<std::string> tokenizedString;
@@ -672,6 +693,18 @@ inline void invert3x3MatrixFor1DElements(femDoubleMat mat,femDoubleMat &invMat, 
     invMat[2][0] = 1/derZ;
     detJ *= derZ;
   }
+}
+
+inline string intToStr(int a){
+  std::stringstream ss;
+  ss << a;
+  return ss.str();
+}
+
+inline string floatToStr(float a){
+  std::stringstream ss;
+  ss << a;
+  return ss.str();
 }
 
 }

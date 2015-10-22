@@ -12,6 +12,7 @@ class femMatrix{
 
     // VIRTUAL FUNCTIONS
     virtual void assemble(femDoubleMat elMat,femIntVec connections);
+    virtual void assembleDOF(femDoubleDOFMat elMat,femIntVec connections);
     virtual void applyDirichelet(femIntVec dofs);
     // I/O
     virtual void writeToFile(string fileName);

@@ -80,12 +80,12 @@ void femModelSequence::ComputeResultStatistics(bool computeSD){
   std::vector<labelCounter*> labelCount;
   std::string currLabel;
   femResultType currType;
-  int currID = 0;
-  int totEntities = 0;
-  femModel* combModel = nullptr;
-  int resIdx = 0;
-  int currResult = 0;
-  double currWeight = 0.0;
+  int currID;
+  int totEntities;
+  femModel* combModel;
+  int resIdx;
+  int currResult;
+  double currWeight;
   femResult* resAV;
   femResult* resSD;
   femDoubleVec temp;
@@ -187,7 +187,7 @@ void femModelSequence::ComputeResultStatistics(bool computeSD){
 // ===========
 void femModelSequence::ComputeWSS(){
   for(size_t loopA=0;loopA<models.size();loopA++){
-    femUtils::WriteMessage(std::string("Computing WSS for model ") + std::to_string(loopA+1) + "\n");
+    femUtils::WriteMessage(std::string("Computing WSS for model ") + femUtils::intToStr(loopA+1) + "\n");
     models[loopA]->ComputeWSS();
   }
 }
@@ -197,7 +197,7 @@ void femModelSequence::ComputeWSS(){
 // =====================
 void femModelSequence::FixedElementConnectivities(){
   for(size_t loopA=0;loopA<models.size();loopA++){
-    femUtils::WriteMessage(std::string("Fixing Connectivities for model ") + std::to_string(loopA+1) + "\n");
+    femUtils::WriteMessage(std::string("Fixing Connectivities for model ") + femUtils::intToStr(loopA+1) + "\n");
     models[loopA]->FixedElementConnectivities();
   }
 }
@@ -207,7 +207,7 @@ void femModelSequence::FixedElementConnectivities(){
 // =========================
 void femModelSequence::FormElementFaceList(){
   for(size_t loopA=0;loopA<models.size();loopA++){
-    femUtils::WriteMessage(std::string("Forming element face list for model ") + std::to_string(loopA+1) + "\n");
+    femUtils::WriteMessage(std::string("Forming element face list for model ") + femUtils::intToStr(loopA+1) + "\n");
     models[loopA]->FormElementFaceList();
   }
 }

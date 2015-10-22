@@ -21,24 +21,24 @@ class femProgramOptions{
     femProgramOptions();
     // DATA MEMBERS
     runModes runMode;
-    bool debugMode = false;
-    bool reducedOutput = false;
+    bool debugMode;
+    bool reducedOutput;
     // Use Legacy VTK as inputs
-    bool useVTKFile = false;
+    bool useVTKFile;
     double tolerance;
     // Normal Angle for surface identification
     double angleLimit;
-    string inputFileName = "";
-    string outputFileName = "";
+    string inputFileName;
+    string outputFileName;
 
     // File Names
-    string velocityFileName = "";
-    string nodeFileName = "";
-    string connectionFileName = "";
-    string diffusivityFileName = "";
-    string sourceFileName = "";
-    string diricheletBCFileName = "";
-    string neumannBCFileName = "";
+    string velocityFileName;
+    string nodeFileName;
+    string connectionFileName;
+    string diffusivityFileName;
+    string sourceFileName;
+    string diricheletBCFileName;
+    string neumannBCFileName;
 
     // Option for Advection Diffusion Solver
     int advDiffScheme;

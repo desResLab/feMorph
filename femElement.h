@@ -68,15 +68,27 @@ class femElement{
 
     // INCOMPRESSIBLE NAVIER STOKES
     void formNS_LHS(std::vector<femNode*> nodeList,
-                                femIntegrationRule* rule,
-                                femDoubleVec diffusivity,
-                                femDoubleVec velocity,
-                                femDoubleMat solution,
-                                int schemeType,
-                                int nodeDOFs,
-                                femDoubleDOFMat &elMat);
+                    femIntegrationRule* rule,
+                    double rho,
+                    double viscosity,
+                    femDoubleMat solution,
+                    int schemeType,
+                    int nodeDOFs,
+                    double timeStep,
+                    double alphaM,
+                    double alphaF,
+                    double gamma,
+                    femDoubleDOFMat &elMat);
 
-    void formNS_RHS(std::vector<femNode*> nodeList,femIntegrationRule* rule,double sourceValue,femDoubleVec diffusivity,femDoubleVec velocity,int schemeType,femDoubleVec &elRhs);
+    void formNS_RHS(std::vector<femNode*> &nodeList,
+                    femIntegrationRule* rule,
+                    double sourceValue,
+                    femDoubleVec diffusivity,
+                    femDoubleMat solution,
+                    femDoubleMat solution_Dot,
+                    double timeStep,
+                    double alphaM, double alphaF, double gamma,
+                    femDoubleDOFVec &elRhs);
 
     // ADVECTION DIFFUSION
     // Steady State
