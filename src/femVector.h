@@ -5,7 +5,6 @@
 
 # include "femException.h"
 
-
 class femVector{
   public:
     // CONSTRUCTOR

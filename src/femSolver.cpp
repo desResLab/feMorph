@@ -140,7 +140,7 @@ femTestSolver::femTestSolver(){
 
 // GENERIC SOLVER: NOT IMPLEMENTED
 void femSolver::solve(femOption* options, femModel* model){
-  throw femException("Not Implemented.\n");
+  throw femException("Solve Not Implemented for femSolver.\n");
 }
 
 // =================================
@@ -305,7 +305,7 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
   poissonMat = new femDenseMatrix(model);
   poissonVec = new femDenseVector((int)model->nodeList.size());
 #endif
-#ifdef USE_CSPARSE
+#ifdef USE_CSPARSE  
   poissonMat = new femSparseMatrix(model);
   poissonVec = new femDenseVector((int)model->nodeList.size());
 #endif

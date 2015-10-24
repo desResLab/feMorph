@@ -7,7 +7,7 @@
 
 // CONSTRUCTOR
 femVector::femVector(){
-  throw femException("Not Implemented.\n");
+  //throw femException("femVector constructor not implemented.\n");
 }
 
 // ASSEMBLE IN DENSE VECTOR
