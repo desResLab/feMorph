@@ -364,8 +364,6 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
     for(size_t loopA=0;loopA<model->neumannBCFaceNodes[loopBC].size();loopA++){
       currNode = model->neumannBCFaceNodes[loopBC][loopA];
       elBCVec[currNode] += (currValue)/(double)model->neumannBCFaceNodes[loopBC].size();
-      // TEST !!!
-      //elBCVec[currNode] = currValue;
     }
   }
 
@@ -433,8 +431,14 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
   solution = solveLinearSystem((femTrilinosMatrix*)poissonMat,(femTrilinosVector*)poissonVec);
 #endif
 
+  // EVAL SOLUTION AVERAGE
+  double solAVG = 0.0;
+  for(size_t loopA=0;loopA<solution.size();loopA++){
+    solAVG += solution[loopA];
+  }
+  solAVG = solAVG/(double)solution.size();
 
-  // ADD SOLUTION TO MODEL RESULTS
+  // ADD SOLUTION TO MODEL RESULTS AND SUBTRACT AVERAGE
   femDoubleVec temp;
   femResult* res = new femResult();
   res->label = string("PoissonResult");
@@ -442,9 +446,8 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
   res->numComponents = 1;
   // Assign to values
   for(size_t loopA=0;loopA<solution.size();loopA++){
-    //printf("Solution %d %f\n",loopA,solution[loopA]);
     temp.clear();
-    temp.push_back(solution[loopA]);
+    temp.push_back(solution[loopA] - solAVG);
     res->values.push_back(temp);
   }
   model->resultList.push_back(res);
