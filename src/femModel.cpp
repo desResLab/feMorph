@@ -43,8 +43,9 @@ femModel::femModel(){
   }
 }
 
-// Distructor
+// DISTRUCTOR
 femModel::~femModel(){
+  delete [] localToGlobalNodes;
 }
 
 // =================
@@ -1289,7 +1290,7 @@ void femModel::ExportToVTKLegacy(std::string fileName){
     normal[loopA][2] = 0.0;
   }
   int currElement = 0;
-  double currNormal[3] = {0.0};
+  double currNormal[3] = {0.0};  
 
   // Write Message
   femUtils::WriteMessage(std::string("(Debug) Exporting Model to VTK file ")+fileName+std::string("..."));
@@ -1297,18 +1298,22 @@ void femModel::ExportToVTKLegacy(std::string fileName){
   // Open Output File
   FILE* outFile;
   outFile = fopen(fileName.c_str(),"w");
-
+  if (outFile == NULL){
+    perror("The following error occurred");
+    printf("On file: %s\n",fileName.c_str());
+    throw femException("ERROR: Cannot open output file.\n");
+  }
   // Write Header
   fprintf(outFile,"# vtk DataFile Version 2.0\n");
   fprintf(outFile,"Model Exported from feMorph\n");
   fprintf(outFile,"ASCII\n");
-  fprintf(outFile,"DATASET UNSTRUCTURED_GRID\n");
+  fprintf(outFile,"DATASET UNSTRUCTURED_GRID\n");  
 
   // Write Points
   fprintf(outFile,"POINTS %d float\n",int(nodeList.size()));
   for(unsigned int loopA=0;loopA<nodeList.size();loopA++){
     fprintf(outFile,"%e %e %e\n",nodeList[loopA]->coords[0],nodeList[loopA]->coords[1],nodeList[loopA]->coords[2]);
-  }
+  }  
 
   // Count the size of the cell list
   int cellListSize = 0;
@@ -1343,7 +1348,7 @@ void femModel::ExportToVTKLegacy(std::string fileName){
       fclose(outFile);
       throw femException("Error: Invalid element to Export.");
     }
-  }
+  }  
 
   // ==========
   // POINT DATA
@@ -3335,8 +3340,7 @@ void femModel::ComputeWSS(){
       currElement = faceList[loopA]->faceElements[0];
 
       // Eval the shape function derivatives and Jacobian
-      elementList[currElement]->evalGlobalShapeFunctionDerivative(nodeList,0.25,0.25,0.25,shDerivs);
-      Jacobian = elementList[currElement]->evalJacobian(nodeList,0.25,0.25,0.25);
+      elementList[currElement]->evalGlobalShapeFunctionDerivative(nodeList,0.25,0.25,0.25,Jacobian,shDerivs);
       if(Jacobian<0.0){
         throw femException("INTERNAL: Negative Jacobian!\n");
       }
@@ -3921,6 +3925,7 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
   BuildParentElementList();
 }
 
+/*
 #ifdef USE_MPI
 // ==========================================================
 // CREATE THE LOCAL PARTITION INFORMATION FOR EVERY PROCESSOR
@@ -3974,7 +3979,7 @@ void femModel::PassPreliminaryPartitionData(int* elmdist,int* eptr,int* eind){
 // ======================================
 // SUBDIVIDE THE MODEL INTO VARIOUS PARTS
 // ======================================
-vector<femModel*> femModel::PartitionProblem(int numPartitions){
+femModel* femModel::PartitionProblem(int numPartitions){
 
   // Pass data needed to call the mesh partitioner
   PassPreliminaryPartitionData(int* elmdist,int* eptr,int* eind);
@@ -4079,6 +4084,25 @@ vector<femModel*> femModel::PartitionProblem(int numPartitions){
   throw femException("Not Implemented.\n");
 }
 #endif
+*/
+
+// ======================================
+// SUBDIVIDE THE MODEL INTO VARIOUS PARTS
+// ======================================
+#ifdef USE_MPI
+femModel* femModel::CreatePartition(int numPartitions){
+  if(numPartitions == 1){
+    totNodesInProc = nodeList.size();
+    localToGlobalNodes = new int[totNodesInProc];
+    for(int loopA=0;loopA<totNodesInProc;loopA++){
+      localToGlobalNodes[loopA] = loopA;
+    }
+  }else{
+    throw femException("Mesh Partitioning not implemented!!!\n");
+  }
+}
+#endif
+
 
 // CHECK INCLUSION OF TWO VECTORS
 bool checkInclusion(femIntVec A, femIntVec B){
@@ -4093,6 +4117,7 @@ bool checkInclusion(femIntVec A, femIntVec B){
   std::sort(Bcopy.begin(), Bcopy.end());
   return std::includes(Acopy.begin(), Acopy.end(), Bcopy.begin(), Bcopy.end());
 }
+
 
 // =========================================================
 // BUILD THE LIST OF ALL PARENT ELEMENT FOR EVERY BC ELEMENT

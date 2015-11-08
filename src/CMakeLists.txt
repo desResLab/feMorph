@@ -9,7 +9,9 @@ INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIR})
 IF(useTrilinos)
   FIND_PACKAGE(Trilinos)
   # Include Trilinos Classes
+  AUX_SOURCE_DIRECTORY(${CMAKE_SOURCE_DIR}/src/trilinos SRC_TRILINOS)
   INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/src/trilinos)
+  SET(SRC_LIST ${SRC_LIST} ${SRC_TRILINOS})
 ENDIF()
 
 # Add Compilation Flags

@@ -10,13 +10,28 @@ femVector::femVector(){
   //throw femException("femVector constructor not implemented.\n");
 }
 
+// GET VECTOR SIZE
+int femVector::getSize(){
+  throw femException("femVector getSize not implemented.\n");
+}
+
+// GET VECTOR COMPONENT
+double femVector::getComponent(int id){
+  throw femException("femVector getComponent not implemented.\n");
+}
+
+// SET VECTOR COMPONENT
+double femVector::setComponent(int id, double entry){
+  throw femException("femVector setComponent not implemented.\n");
+}
+
 // ASSEMBLE IN DENSE VECTOR
 void femVector::assemble(femDoubleVec vec,femIntVec indices){
   throw femException("Not Implemented.\n");
 }
 
 // ASSEMBLE IN DENSE VECTOR
-void femVector::assembleDOF(femDoubleDOFVec vec,femIntVec indices){
+void femVector::blockAssemble(femDoubleBlockVec vec,femIntVec indices){
   throw femException("Not Implemented.\n");
 }
 
@@ -42,8 +57,18 @@ femDenseVector::femDenseVector(int total){
   }
 }
 
+// GET VECTOR COMPONENT
+double femDenseVector::getComponent(int id){
+  return values[id];
+}
+
+// SET VECTOR COMPONENT
+double femDenseVector::setComponent(int id, double entry){
+  values[id] = entry;
+}
+
 // ASSEMBLE IN DENSE VECTOR
-void femDenseVector::assembleDOF(femDoubleDOFVec vec,femIntVec indices){
+void femDenseVector::blockAssemble(femDoubleBlockVec vec,femIntVec indices){
   throw femException("Not Implemented.\n");
 }
 
@@ -73,4 +98,12 @@ void femDenseVector::writeToFile(string fileName){
   }
   // Close File
   fclose(f);
+}
+
+void femVector::GlobalAssemble(){
+  throw femException("femVector::GlobalAssemble Not Implemented.\n");
+}
+
+void femDenseVector::GlobalAssemble(){
+  throw femException("femDenseVector::GlobalAssemble Not Implemented.\n");
 }

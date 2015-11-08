@@ -10,7 +10,6 @@ OPTION(useArmadillo "useArmadillo" OFF)
 
 # SET MUTUALLY EXCLUSIVE SOLVERS
 IF(useTrilinos)
-  SET(useMPI ON)
   SET(useArmadillo OFF)
   SET(useCSparse OFF)
 ENDIF()

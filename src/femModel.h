@@ -65,6 +65,10 @@ class femModel{
     femIntVec iniDofNumber;
     femDoubleVec iniDofValue;
 
+    // MPI Partitioning Information
+    int totNodesInProc;
+    int* localToGlobalNodes;
+
     // Results
     vector<femResult*> resultList;
     // Enclosing Box and Model Centre
@@ -72,7 +76,7 @@ class femModel{
     double modelCentre[3];
     double weight1;
     double weight2;
-  public:
+
     // Constructor and Destructor
     femModel();
     ~femModel();
@@ -176,7 +180,7 @@ class femModel{
     // MODEL PARTITIONING
     // ==================
 #ifdef USE_MPI
-    vector<femModel*> PartitionProblem(int numPartitions);
+    femModel* CreatePartition(int numPartitions);
 #endif
 
     // ====================

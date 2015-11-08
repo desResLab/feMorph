@@ -39,7 +39,7 @@ class femElement{
     // Common
     void   evalJacobianMatrix(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3, elDim dims, femDoubleMat &jacMat);
     double evalJacobian(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3);
-    void   evalGlobalShapeFunctionDerivative(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3, femDoubleMat &globShDeriv);
+    void   evalGlobalShapeFunctionDerivative(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3, double& detJ, femDoubleMat &globShDeriv);
     void   evalGeometricMatrix(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3,femDoubleMat& elGeomMat);
 
     // Temporary
@@ -78,7 +78,7 @@ class femElement{
                     double alphaM,
                     double alphaF,
                     double gamma,
-                    femDoubleDOFMat &elMat);
+                    femDoubleBlockMat &elMat);
 
     void formNS_RHS(std::vector<femNode*> &nodeList,
                     femIntegrationRule* rule,
@@ -88,7 +88,7 @@ class femElement{
                     femDoubleMat solution_Dot,
                     double timeStep,
                     double alphaM, double alphaF, double gamma,
-                    femDoubleDOFVec &elRhs);
+                    femDoubleBlockVec &elRhs);
 
     // ADVECTION DIFFUSION
     // Steady State

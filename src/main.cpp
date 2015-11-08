@@ -467,6 +467,12 @@ int computeModelWSS(femProgramOptions* options){
 // ======================
 int solvePoissonEquation(femProgramOptions* opts){
 
+  #ifdef USE_MPI
+    int *argc = NULL;
+    char ***argv = NULL;
+    MPI_Init(argc,argv);
+  #endif
+
   // Create New Model
   femModel* model = new femModel();
 
@@ -477,7 +483,12 @@ int solvePoissonEquation(femProgramOptions* opts){
   model->FixedElementConnectivities();
 
   // Save Model For Debug
-  model->ExportToVTKLegacy("debug.vtk");
+  // model->ExportToVTKLegacy("debug.vtk");
+
+  // MPI Partitioning Information
+#ifdef USE_MPI
+  model->CreatePartition(1);
+#endif
 
   // CREATE NEW POISSON SOLVER
   femPoissonSolver* poisson = new femPoissonSolver();
@@ -491,6 +502,13 @@ int solvePoissonEquation(femProgramOptions* opts){
   // TEST : EXPORT TO VTK
   model->ExportToVTKLegacy(opts->outputFileName);
 
+  // DELETE MODEL
+  delete model;
+
+  #ifdef HAVE_MPI
+    MPI_Finalize();
+  #endif
+
   // Return
   return 0;
 }
@@ -503,7 +521,7 @@ int solvePoissonEquation(femProgramOptions* opts){
 int solveMPISteadyStateAdvectionDiffusionEquation(femProgramOptions* options){
 
   // INIT MPI
-  #ifdef HAVE_MPI
+  #ifdef USE_MPI
     int *argc = NULL;
     char ***argv = NULL;
     MPI_Init(argc,argv);
@@ -619,9 +637,10 @@ int solveMPISteadyStateAdvectionDiffusionEquation(femProgramOptions* options){
 
   cout << sol << endl;
 
-  //#ifdef HAVE_MPI
-  //  MPI_Finalize() ;
-  //#endif
+  #ifdef USE_MPI
+    MPI_Finalize() ;
+  #endif
+
 return 0;
 
 }

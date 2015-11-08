@@ -30,6 +30,7 @@ femDenseMatrix::femDenseMatrix(femModel* model){
 // =============================
 femSparseMatrix::femSparseMatrix(femModel* model){
 
+    double getModelNodalTopology(femIntVec& diagPtr,femIntVec& rowPtr);
   // Get Total Number of Equations
   int totDof = model->nodeList.size();
 
@@ -93,7 +94,7 @@ femSparseMatrix::femSparseMatrix(femModel* model){
   values.resize(totNoZero);
   for(int loopA=0;loopA<totNoZero;loopA++){
     values[loopA] = 0.0;
-  }  
+  }
 
   // Copy to Row Pointer
   rowPtr.resize(totNoZero);
@@ -109,10 +110,6 @@ femSparseMatrix::femSparseMatrix(femModel* model){
 
 // FEM MATRIX ASSEMBLE: NOT IMPLEMENTED
 void femMatrix::assemble(femDoubleMat elMat,femIntVec connections){
-  throw femException("Not Implemented.\n");
-}
-
-void femMatrix::assembleDOF(femDoubleDOFMat elMat,femIntVec connections){
   throw femException("Not Implemented.\n");
 }
 
@@ -302,5 +299,24 @@ void femSparseMatrix::clearRowAndColumn(int dof){
   }
 }
 
+// Block Assemble only implemented for Trilinos Matrices
+void femMatrix::blockAssemble(femDoubleBlockMat elMat,femIntVec connections){
+  throw femException("Not Implemented.\n");
+}
+void femDenseMatrix::blockAssemble(femDoubleBlockMat elMat,femIntVec connections){
+  throw femException("Not Implemented.\n");
+}
+void femSparseMatrix::blockAssemble(femDoubleBlockMat elMat,femIntVec connections){
+  throw femException("Not Implemented.\n");
+}
 
-
+// Complete Fill only implemented for Trilinos Matrices
+void femMatrix::completeFill(){
+  throw femException("femMatrix::completeFill not Implemented.\n");
+}
+void femDenseMatrix::completeFill(){
+  throw femException(" femDenseMatrix::completeFill not Implemented.\n");
+}
+void femSparseMatrix::completeFill(){
+  throw femException("femSparseMatrix::completeFill not Implemented.\n");
+}

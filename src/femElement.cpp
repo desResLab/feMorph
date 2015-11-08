@@ -297,7 +297,7 @@ double evalQuadraticTau(double timeStep, femDoubleMat elGeomMat,femDoubleVec vel
 // ======================================
 // EVAL GLOBAL SHAPE FUNCTION DERIVATIVES
 // ======================================
-void femElement::evalGlobalShapeFunctionDerivative(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3, femDoubleMat &globShDeriv){
+void femElement::evalGlobalShapeFunctionDerivative(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3, double& detJ, femDoubleMat &globShDeriv){
 
   // Flag to print shape functions
   bool printSF = false;
@@ -336,7 +336,6 @@ void femElement::evalGlobalShapeFunctionDerivative(std::vector<femNode*> &nodeLi
 
   // Invert Jacobian Matrix
   femDoubleMat invJacMat;
-  double detJ;
   if(dims == d1){
     femUtils::invert3x3MatrixFor1DElements(jacMat,invJacMat,detJ);
   }else{
@@ -833,6 +832,7 @@ void femElement::assembleMass(femDoubleMat &nodeVelocities, std::vector<femNode*
   femDoubleVec intWeights;
   int globNode = 0;
   double currProd = 0.0;
+  double detJ = 0.0;
 
   // Get Gauss Points and Weights
   intCoords = rule.getCoords(numberOfNodes,dims);
@@ -843,7 +843,7 @@ void femElement::assembleMass(femDoubleMat &nodeVelocities, std::vector<femNode*
     // Eval Shape Functions
     evalShapeFunction(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeFunction);
     // Eval Shape Function Derivatives
-    evalGlobalShapeFunctionDerivative(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeFunctionDerivs);
+    evalGlobalShapeFunctionDerivative(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],detJ,shapeFunctionDerivs);
 
     // Loop Through the Nodes
     for(int loopB=0;loopB<numberOfNodes;loopB++){
@@ -875,6 +875,7 @@ void femElement::assembleStiffness(femDoubleMat &nodeVelocities, std::vector<fem
   double firstTerm = 0.0;
   double secondTerm = 0.0;
   double tauTerm = 0.0;
+  double detJ = 0.0;
 
   // Get Integration Coords and Weights
   intCoords = rule.getCoords(numberOfNodes,dims);
@@ -885,7 +886,7 @@ void femElement::assembleStiffness(femDoubleMat &nodeVelocities, std::vector<fem
     // Eval Shape Functions
     evalShapeFunction(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeFunction);
     // Eval Shape Function Derivatives
-    evalGlobalShapeFunctionDerivative(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeFunctionDerivs);
+    evalGlobalShapeFunctionDerivative(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],detJ,shapeFunctionDerivs);
     // Loop Through the Nodes
     for(int loopB=0;loopB<numberOfNodes;loopB++){
       for(int loopC=0;loopC<numberOfNodes;loopC++){
@@ -915,18 +916,11 @@ void femElement::assembleStiffness(femDoubleMat &nodeVelocities, std::vector<fem
 void femElement::formPoissonMatrix(std::vector<femNode*> nodeList,femIntegrationRule* rule,femDoubleVec diffusivity,femDoubleMat &elMat){
 
   // CLEAR AND ALLOCATE MATRIX
-  elMat.clear();
-  elMat.resize(numberOfNodes);
-  for(int loopA=0;loopA<numberOfNodes;loopA++){
-    elMat[loopA].resize(numberOfNodes);
-  }
   for(int loopA=0;loopA<numberOfNodes;loopA++){
     for(int loopB=0;loopB<numberOfNodes;loopB++){
       elMat[loopA][loopB] = 0.0;
     }
   }
-
-  //printf("Diff: %e %e %e\n",diffusivity[0],diffusivity[1],diffusivity[2]);
 
   // INIT SHAPE DERIVATIVE MATRIX
   femDoubleMat shapeDeriv;
@@ -951,7 +945,7 @@ void femElement::formPoissonMatrix(std::vector<femNode*> nodeList,femIntegration
   for(int loopA=0;loopA<rule->getTotGP(numberOfNodes,dims);loopA++){
 
     // Eval Current Shape Derivatives Matrix
-    evalGlobalShapeFunctionDerivative(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeDeriv);
+    evalGlobalShapeFunctionDerivative(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],detJ,shapeDeriv);
 
     // Print Global Derivatives
     //printf("Global Derivatives\n");
@@ -961,7 +955,7 @@ void femElement::formPoissonMatrix(std::vector<femNode*> nodeList,femIntegration
     //printf("\n");
 
     // Eval Determinant of the Jacobian Matrix
-    detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
+    //detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
 
     // Eval Resulting Matrix
     for(int loopB=0;loopB<numberOfNodes;loopB++){
@@ -986,8 +980,6 @@ void femElement::formPoissonSource(std::vector<femNode*> nodeList,femIntegration
   femDoubleVec shapeFunction;
 
   // Init Source Array
-  elSourceVec.clear();
-  elSourceVec.resize(numberOfNodes);
   for(int loopA=0;loopA<numberOfNodes;loopA++){
     elSourceVec[loopA] = 0.0;
   }
@@ -1104,7 +1096,7 @@ void femElement::formAdvDiffLHS(std::vector<femNode*> nodeList,
     //printf(" Shape Function %f %f\n",shapeFunction[0],shapeFunction[1]);
 
     // Eval Current Shape Derivatives Matrix
-    evalGlobalShapeFunctionDerivative(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeDeriv);
+    evalGlobalShapeFunctionDerivative(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],detJ,shapeDeriv);
 
     // Eval Geometric Element Matrix
     evalGeometricMatrix(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],elGeomMat);
@@ -1116,7 +1108,7 @@ void femElement::formAdvDiffLHS(std::vector<femNode*> nodeList,
     //printf("dN2/dx %f, dN2/dy %f, dN2/dz %f\n",shapeDeriv[1][0],shapeDeriv[1][1],shapeDeriv[1][2]);
 
     // Eval Determinant of the Jacobian Matrix
-    detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
+    //detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
     printf("DetJ QUAD4: %f\n",detJ);
 
     //printf("detJ %f\n",detJ);
@@ -1224,6 +1216,7 @@ void femElement::formAdvDiffRHS(std::vector<femNode*> nodeList,
     double normCoord2 = 0.0;
     double currForcing1 = 0.0;
     double currForcing2 = 0.0;
+    double detJ = 0.0;
     for(int loopA=0;loopA<totalTrapzPoints;loopA++){
       // Eval Physical Coordinates
       intCoordX1 = node1x + loopA*(node2x - node1x)/(double)totalTrapzPoints;
@@ -1237,8 +1230,8 @@ void femElement::formAdvDiffRHS(std::vector<femNode*> nodeList,
       evalShapeFunction(nodeList,normCoord2,0.0,0.0,shapeFunction2);
 
       // Eval Current Shape Derivatives
-      evalGlobalShapeFunctionDerivative(nodeList,normCoord1,0.0,0.0,shapeDeriv1);
-      evalGlobalShapeFunctionDerivative(nodeList,normCoord2,0.0,0.0,shapeDeriv2);
+      evalGlobalShapeFunctionDerivative(nodeList,normCoord1,0.0,0.0,detJ,shapeDeriv1);
+      evalGlobalShapeFunctionDerivative(nodeList,normCoord2,0.0,0.0,detJ,shapeDeriv2);
 
       if(schemeType == 0){
         shapeFunction1[0] += (0.5*elSize*tauFactor)*shapeDeriv1[0][0];
@@ -1397,10 +1390,10 @@ void femElement::formWeakBC(std::vector<femNode*> nodeList,
     parentElement->evalShapeFunction(nodeList,bcCoord1,bcCoord2,bcCoord3,shapeFunction);
 
     // Eval Current Shape Derivatives Matrix
-    parentElement->evalGlobalShapeFunctionDerivative(nodeList,bcCoord1,bcCoord2,bcCoord3,shapeDeriv);
+    parentElement->evalGlobalShapeFunctionDerivative(nodeList,bcCoord1,bcCoord2,bcCoord3,detJ,shapeDeriv);
 
     // Eval Determinant of the Jacobian Matrix
-    detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
+    //detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
 
     // EVAL LHS CONTRIBUTION
     double currStiff = 0.0;
@@ -1547,7 +1540,7 @@ void femElement::formTransientAdvDiffLHS(std::vector<femNode*> &nodeList,
     evalShapeFunction(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeFunction);
 
     // Eval Current Shape Derivatives Matrix
-    evalGlobalShapeFunctionDerivative(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeDeriv);
+    evalGlobalShapeFunctionDerivative(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],detJ,shapeDeriv);
 
     // Eval Geometric Element Matrix
     evalGeometricMatrix(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],elGeomMat);
@@ -1566,7 +1559,7 @@ void femElement::formTransientAdvDiffLHS(std::vector<femNode*> &nodeList,
     currTau = evalQuadraticTau(timeStep,elGeomMat,velocity,diffusivity);
 
     // Eval Determinant of the Jacobian Matrix
-    detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
+    //detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
 
     // Eval Resulting Matrix
     double currK = 0.0;
@@ -1651,10 +1644,10 @@ void femElement::formTransientAdvDiffRHS(std::vector<femNode*> &nodeList,
     evalShapeFunction(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeFunction);
 
     // Eval Current Shape Derivatives Matrix
-    evalGlobalShapeFunctionDerivative(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeDeriv);
+    evalGlobalShapeFunctionDerivative(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],detJ,shapeDeriv);
 
     // Eval Determinant of the Jacobian Matrix
-    detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
+    //detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
 
     // Get the Velocity at the current Gauss Point
     femDoubleVec velocity;
@@ -1734,7 +1727,7 @@ void femElement::formNS_LHS(std::vector<femNode*> nodeList,
                             double alphaM,
                             double alphaF,
                             double gamma,
-                            femDoubleDOFMat &elMat){
+                            femDoubleBlockMat &elMat){
 
   // CLEAR AND ALLOCATE MATRIX
   if(elMat.size() == 0){
@@ -1791,7 +1784,7 @@ void femElement::formNS_LHS(std::vector<femNode*> nodeList,
       evalShapeFunction(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeFunction);
 
       // Eval Current Shape Derivatives Matrix
-      evalGlobalShapeFunctionDerivative(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],shapeDeriv);
+      evalGlobalShapeFunctionDerivative(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],detJ,shapeDeriv);
 
       // Eval Geometric Element Matrix
       evalGeometricMatrix(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],elGeomMat);
@@ -1820,7 +1813,7 @@ void femElement::formNS_LHS(std::vector<femNode*> nodeList,
       double viscLSIC = 0.0;
 
       // Eval Determinant of the Jacobian Matrix
-      detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
+      // detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
 
       // Eval Resulting Matrix
       double velGradNA = 0.0;
@@ -1879,7 +1872,7 @@ void femElement::formNS_RHS(std::vector<femNode*> &nodeList,
                             femDoubleMat solution_Dot,
                             double timeStep,
                             double alphaM, double alphaF, double gamma,
-                            femDoubleDOFVec &elRhs){
+                            femDoubleBlockVec &elRhs){
 
 }
 

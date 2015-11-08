@@ -12,12 +12,13 @@ class femMatrix{
 
     // VIRTUAL FUNCTIONS
     virtual void assemble(femDoubleMat elMat,femIntVec connections);
-    virtual void assembleDOF(femDoubleDOFMat elMat,femIntVec connections);
+    virtual void blockAssemble(femDoubleBlockMat elMat,femIntVec connections);
     virtual void applyDirichelet(femIntVec dofs);
     // I/O
     virtual void writeToFile(string fileName);
     virtual double getRowSum(int loopA);
     virtual void clearRowAndColumn(int dof);
+    virtual void completeFill();
 };
 
 // DERIVED DENSE MATRIX CLASS
@@ -35,12 +36,13 @@ class femDenseMatrix: public femMatrix{
 
     // VIRTUAL FUNCTIONS
     virtual void assemble(femDoubleMat elMat,femIntVec connections);
+    virtual void blockAssemble(femDoubleBlockMat elMat,femIntVec connections);
     virtual void applyDirichelet(femIntVec dofs);
     // I/O
     virtual void writeToFile(string fileName);
     virtual double getRowSum(int loopA);
     virtual void clearRowAndColumn(int dof);
-
+    virtual void completeFill();
 };
 
 
@@ -60,11 +62,14 @@ class femSparseMatrix: public femMatrix{
 
     // VIRTUAL FUNCTIONS
     virtual void assemble(femDoubleMat elMat,femIntVec connections);
+    virtual void blockAssemble(femDoubleBlockMat elMat,femIntVec connections);
+
     virtual void applyDirichelet(femIntVec dofs);
     // I/O
     virtual void writeToFile(string fileName);
     virtual double getRowSum(int loopA);
     virtual void clearRowAndColumn(int dof);
+    virtual void completeFill();
 };
 
 

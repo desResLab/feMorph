@@ -11,11 +11,16 @@ class femVector{
     femVector();
 
     // GETTER AND SETTER
-    virtual int getSize(){return 0;}
+    // Get total size of the array
+    virtual int getSize();
+    // Get single component
+    virtual double getComponent(int id);
+    virtual double setComponent(int id, double entry);
 
     // ASSEMBLE IN DENSE COLUMN FORMAT
     virtual void assemble(femDoubleVec vec,femIntVec indices);
-    virtual void assembleDOF(femDoubleDOFVec vec,femIntVec indices);
+    virtual void blockAssemble(femDoubleBlockVec vec,femIntVec indices);
+    virtual void GlobalAssemble();
     virtual void applyDirichelet(femIntVec diricheletBCNode,femDoubleVec diricheletBCValues);
     virtual void writeToFile(string fileName);
 };
@@ -29,10 +34,13 @@ class femDenseVector: public femVector{
 
     // GETTER AND SETTER
     virtual int getSize(){return (int)values.size();}
+    virtual double getComponent(int id);
+    virtual double setComponent(int id, double entry);
 
     // ASSEMBLE IN DENSE COLUMN FORMAT
     virtual void assemble(femDoubleVec vec,femIntVec indices);
-    virtual void assembleDOF(femDoubleDOFVec vec,femIntVec indices);
+    virtual void blockAssemble(femDoubleBlockVec vec,femIntVec indices);
+    virtual void GlobalAssemble();
     virtual void applyDirichelet(femIntVec diricheletBCNode,femDoubleVec diricheletBCValues);
     virtual void writeToFile(string fileName);
 };

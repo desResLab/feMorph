@@ -6,8 +6,8 @@
 # include "femUtils.h"
 
 #ifdef USE_TRILINOS
-# include "femTrilinosMatrix.h"
-# include "femTrilinosVector.h"
+# include "trilinos/femTrilinosMatrix.h"
+# include "trilinos/femTrilinosVector.h"
 #endif
 
 // CONSTRUCTOR
@@ -88,15 +88,15 @@ void advanceNavierStokes(long loopStep, double currTime,
   nsRHS = new femDenseVector((int)model->nodeList.size());
 #endif    
 #ifdef USE_TRILINOS  
-  nsLHS = new femTrilinosMatrix(model);
-  nsRHS = new femTrilinosVector((int)model->nodeList.size(),nodeDOFs);
+  nsLHS = new femTrilinosMatrix(model,nodeDOFs);
+  nsRHS = new femTrilinosVector(model->totNodesInProc,model->localToGlobalNodes,nodeDOFs);
 #endif  
   printf("Done.\n");
   fflush(stdout);
 
   // INIT LOCAL ELEMENT MATRIX
-  femDoubleDOFMat elMat;
-  femDoubleDOFVec elRhs;
+  femDoubleBlockMat elMat;
+  femDoubleBlockVec elRhs;
 
   // ASSEMBLE LHS MATRIX
   printf("Assembling NS LHS...");
@@ -114,7 +114,7 @@ void advanceNavierStokes(long loopStep, double currTime,
                                                 alphaM,alphaF,gamma,
                                                 elMat);
     // Assemble Sparse Matrix
-    nsLHS->assembleDOF(elMat,model->elementList[loopElement]->elementConnections);
+    nsLHS->blockAssemble(elMat,model->elementList[loopElement]->elementConnections);
   }
   printf("Done.\n");
   fflush(stdout);
@@ -135,7 +135,7 @@ void advanceNavierStokes(long loopStep, double currTime,
                                                 alphaM,alphaF,gamma,
                                                 elRhs);
     // Assemble Source Vector
-    nsRHS->assembleDOF(elRhs,model->elementList[loopElement]->elementConnections);
+    nsRHS->blockAssemble(elRhs,model->elementList[loopElement]->elementConnections);
   }
   printf("Done.\n");
   fflush(stdout);
@@ -163,10 +163,13 @@ void advanceAdvectionDiffusion(long loopStep, double currTime,
                                femDoubleMat solution,
                                femDoubleMat solution_Dot,
                                int variableID,
-                               femDoubleVec& sol){
+                               femVector* sol){
 
   // Print Step Info
   printf("Advection-Diffusion Step %d, Current Time: %f\n",(int)(loopStep+1),currTime);
+
+  // One degree of freedom in Advection Diffusion
+  int nodeDOFs = 1;
 
   // Get Quantities From Options
   double timeStep = model->timeStep;
@@ -191,8 +194,9 @@ void advanceAdvectionDiffusion(long loopStep, double currTime,
   advDiffVec = new femDenseVector((int)model->nodeList.size());
 #endif
 #ifdef USE_TRILINOS
-  advDiffMat = new femTrilinosMatrix(model);
-  advDiffVec = new femTrilinosVector((int)model->nodeList.size());
+  advDiffMat = new femTrilinosMatrix(model,nodeDOFs);
+  // One degree of freedom per node in advection diffusion solver
+  advDiffVec = new femTrilinosVector(model->totNodesInProc,model->localToGlobalNodes,nodeDOFs);
 #endif
 
   printf("Done.\n");
@@ -287,7 +291,6 @@ void advanceAdvectionDiffusion(long loopStep, double currTime,
     // SOLVE LINEAR SYSTEM OF EQUATIONS AND COMPUTE VARIABLE INCREMENT
     printf("Solution...");
     fflush(stdout);
-    sol.clear();
     femSolver linSolver;
 #ifdef USE_ARMADILLO
     sol = linSolver.solveLinearSystem((femDenseMatrix*)advDiffMat,(femDenseVector*)advDiffVec);
@@ -296,11 +299,10 @@ void advanceAdvectionDiffusion(long loopStep, double currTime,
     sol = linSolver.solveLinearSystem((femSparseMatrix*)advDiffMat,(femDenseVector*)advDiffVec);
 #endif
 #ifdef USE_TRILINOS
-    sol = linSolver.solveLinearSystem((femTrilinosMatrix*)advDiffMat,(femTrilinosVector*)advDiffVec);
+    sol = linSolver.solveLinearSystem(model->totNodesInProc,(femTrilinosMatrix*)advDiffMat,(femTrilinosVector*)advDiffVec,1);
 #endif
     printf("Done.\n");
     fflush(stdout);
-
 }
 
 // SET INITIAL CONDITIONS FOR ALL VARIABLES
@@ -352,7 +354,7 @@ void femIncompressibleSolver::solve(femModel* model){
   // Single timeStep solution for NS
   femVector* timeStepNSSolution;
   // Single timeStep solution for Advection Diffusion
-  femDoubleVec timeStepSolution;
+  femVector* timeStepSolution;
   // Quantity for advection diffusion
   int currAdvectedQty = 4;
   // Nodal DOFS for NS Solver
@@ -482,7 +484,7 @@ void femIncompressibleSolver::solve(femModel* model){
     // UPDATE SOLUTION AND TIME DERIVATIVE
     // Update time derivative
     for(size_t loopA=0;loopA<model->nodeList.size();loopA++){
-      solution_Dot_n1[loopA][currAdvectedQty] = timeStepSolution[loopA];
+      solution_Dot_n1[loopA][currAdvectedQty] = timeStepSolution->getComponent(loopA);
     }
     // Update Solution
     for(size_t loopA=0;loopA<model->nodeList.size();loopA++){
