@@ -24,8 +24,10 @@ SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # Add CSparse Include and Lib Folder
 IF(useCSparse)
-  INCLUDE_DIRECTORIES("." "/home/danschi/Documents/23_Libraries/SuiteSparse/CSparse/Include")
-  LINK_DIRECTORIES("/home/danschi/Documents/23_Libraries/SuiteSparse/CSparse/Lib")
+  # INCLUDE_DIRECTORIES("." "/home/danschi/Documents/23_Libraries/SuiteSparse/CSparse/Include")
+  # LINK_DIRECTORIES("/home/danschi/Documents/23_Libraries/SuiteSparse/CSparse/Lib")
+  INCLUDE_DIRECTORIES("." "/Users/danschi/Documents/03_software/12_CSparse/Include")
+  LINK_DIRECTORIES("/Users/danschi/Documents/03_software/12_CSparse/Lib")
 ENDIF()
 
 ADD_EXECUTABLE(${PROJECT_NAME} ${SRC_LIST})
