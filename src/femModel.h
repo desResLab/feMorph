@@ -174,12 +174,12 @@ class femModel{
     // ==============
     // MODEL TOPOLOGY
     // ==============
-    double getModelNodalTopology(femIntVec& diagPtr,femIntVec& rowPtr);
+    void getModelNodalTopology(femIntVec& diagPtr,femIntVec& rowPtr);
 
     // ==================
     // MODEL PARTITIONING
     // ==================
-#ifdef USE_MPI
+#ifdef USE_TRILINOS
     femModel* CreatePartition(int numPartitions);
 #endif
 

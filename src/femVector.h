@@ -15,7 +15,8 @@ class femVector{
     virtual int getSize();
     // Get single component
     virtual double getComponent(int id);
-    virtual double setComponent(int id, double entry);
+    virtual void setComponent(int id, double entry);
+    virtual void addComponent(int id, double entry);
 
     // ASSEMBLE IN DENSE COLUMN FORMAT
     virtual void assemble(femDoubleVec vec,femIntVec indices);
@@ -35,7 +36,8 @@ class femDenseVector: public femVector{
     // GETTER AND SETTER
     virtual int getSize(){return (int)values.size();}
     virtual double getComponent(int id);
-    virtual double setComponent(int id, double entry);
+    virtual void setComponent(int id, double entry);
+    virtual void addComponent(int id, double entry);
 
     // ASSEMBLE IN DENSE COLUMN FORMAT
     virtual void assemble(femDoubleVec vec,femIntVec indices);

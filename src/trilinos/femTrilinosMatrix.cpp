@@ -45,7 +45,6 @@ femTrilinosMatrix::~femTrilinosMatrix(){
   delete values;
 }
 
-
 // VIRTUAL FUNCTIONS
 void  femTrilinosMatrix::assemble(femDoubleMat nodeMat,femIntVec elConnections){
   if(nodeDOFs > 1){

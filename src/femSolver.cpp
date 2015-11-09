@@ -131,13 +131,11 @@ femVector* femSolver::solveLinearSystem(int totalNodes, femTrilinosMatrix* lhs,f
 
   solver.SetAztecOption(AZ_precond, AZ_dom_decomp);
   solver.SetAztecOption(AZ_subdomain_solve, AZ_ilut);
+  // solver.SetAztecOption(AZ_precond, AZ_ls);
 
-  solver.Iterate(1000, 5.0E-2);
+  solver.Iterate(1000, 1.0E-5);
 
   const double* status = solver.GetAztecStatus();
-
-  cout << "Iterations: " << (int)status[AZ_its] << endl
-  << "Reason = " << (int)status[AZ_why] << endl;
 
   cout << "Solver performed " << solver.NumIters() << " iterations." << endl
   << "Norm of true residual = " << solver.TrueResidual() << endl;
@@ -196,8 +194,6 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
     advDiffMat = new femTrilinosMatrix(model,nodeDOFs);
     // One Nodal Degrees of freedom in AdvDiff
     advDiffVec = new femTrilinosVector(model->totNodesInProc,model->localToGlobalNodes,nodeDOFs);
-
-
 #endif
 
     // Local Element Matrix
@@ -362,14 +358,17 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
   for(int loopA=0;loopA<kMaxConnections;loopA++){
     elMat[loopA].resize(kMaxConnections);
   }
+
   // ASSEMBLE MATRIX FROM ALL ELEMENTS
   int precentProgress,percentCounted;
   printf("Assembling Matrix...");
+  fflush(stdout);
   for(size_t loopElement=0;loopElement<model->elementList.size();loopElement++){
     precentProgress = (int)(((double)loopElement/(double)model->elementList.size())*100);
     if (((precentProgress % 10) == 0)&&((precentProgress / 10) != percentCounted)){
       percentCounted = (precentProgress / 10);
-      printf("%d...",precentProgress);
+      printf("%d.",precentProgress);
+      fflush(stdout);
     }
     // Gauss Points Loop
     // Assemble Poisson Matrix
@@ -380,20 +379,23 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
 #ifdef USE_TRILINOS
   poissonMat->completeFill();
 #endif
-  printf("100...OK\n");
+  printf("100.OK\n");
+  fflush(stdout);
 
   // Local Source Vector
   femDoubleVec elSourceVec;
   elSourceVec.resize(kMaxConnections);
   // ASSEMBLE SOURCE TERM
   printf("Assembling Source...");
+  fflush(stdout);
   int currEl = 0;
   double currValue = 0.0;  
   for(size_t loopSource=0;loopSource<model->sourceElement.size();loopSource++){
     precentProgress = (int)(((double)loopSource/(double)model->sourceElement.size())*100);
     if (((precentProgress % 10) == 0)&&((precentProgress / 10) != percentCounted)){
       percentCounted = (precentProgress / 10);
-      printf("%d...",precentProgress);
+      printf("%d.",precentProgress);
+      fflush(stdout);
     }
     // Get Current Element
     currEl = model->sourceElement[loopSource];
@@ -405,7 +407,8 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
 #ifdef USE_TRILINOS
   poissonVec->GlobalAssemble();
 #endif
-  printf("100...OK\n");
+  printf("100.OK\n");
+  fflush(stdout);
 
   //double sourceSum = 0.0;
   //printf("Size of Poisson Vector: %d\n",poissonVec->getSize());
@@ -416,6 +419,7 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
 
   // ASSEMBLE NEUMANN BOUNDARY CONDITIONS
   printf("Assembling Neumann Vector...\n");
+  fflush(stdout);
   femDoubleVec elBCVec;
   int currNode = 0;
   elBCVec.resize(model->nodeList.size());
@@ -436,8 +440,9 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
 
   // Assemble in RHS
   printf("Assembling Neumann RHS...\n");
+  fflush(stdout);
   for(int loopA=0;loopA<poissonVec->getSize();loopA++){
-    poissonVec->setComponent(loopA,elBCVec[loopA]);
+    poissonVec->addComponent(loopA,elBCVec[loopA]);
   }
 
   // APPLY DIRICHELET BOUNDARY CONDITIONS
@@ -452,15 +457,16 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
   //poissonVec->writeToFile(string("pVector.txt"));
 
   // Check the sum of terms in the matrix
-  //double sum = 0.0;
-  //for(int loopA=0;loopA<poissonVec->getSize();loopA++){
-  //    sum += ((femDenseVector*)poissonVec)->values[loopA];
-  //}
-  // printf("RHS Summation: %e\n",sum);
+  double sum = 0.0;
+  for(int loopA=0;loopA<poissonVec->getSize();loopA++){
+    sum += poissonVec->getComponent(loopA);
+  }
+  printf("RHS Summation: %e\n",sum);
 
   // SOLVE LINEAR SYSTEM OF EQUATIONS
   femVector* solution;
   printf("Solving Linear System...\n");
+  fflush(stdout);
 #ifdef USE_ARMADILLO
   solution = solveLinearSystem((femDenseMatrix*)poissonMat,(femDenseVector*)poissonVec);
 #endif
@@ -470,7 +476,6 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
 #ifdef USE_TRILINOS
   solution = solveLinearSystem(model->totNodesInProc,(femTrilinosMatrix*)poissonMat,(femTrilinosVector*)poissonVec,1);
 #endif
-
 
   // EVAL SOLUTION AVERAGE
   double solAVG = 0.0;

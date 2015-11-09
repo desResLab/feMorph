@@ -21,7 +21,7 @@ double femVector::getComponent(int id){
 }
 
 // SET VECTOR COMPONENT
-double femVector::setComponent(int id, double entry){
+void femVector::setComponent(int id, double entry){
   throw femException("femVector setComponent not implemented.\n");
 }
 
@@ -63,7 +63,7 @@ double femDenseVector::getComponent(int id){
 }
 
 // SET VECTOR COMPONENT
-double femDenseVector::setComponent(int id, double entry){
+void femDenseVector::setComponent(int id, double entry){
   values[id] = entry;
 }
 
@@ -106,4 +106,12 @@ void femVector::GlobalAssemble(){
 
 void femDenseVector::GlobalAssemble(){
   throw femException("femDenseVector::GlobalAssemble Not Implemented.\n");
+}
+
+void femVector::addComponent(int id, double entry){
+  throw femException("femVector::addComponent Not Implemented.\n");
+}
+
+void femDenseVector::addComponent(int id, double entry){
+  values[id] += entry;
 }

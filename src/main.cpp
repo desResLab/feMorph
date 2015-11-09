@@ -486,7 +486,7 @@ int solvePoissonEquation(femProgramOptions* opts){
   // model->ExportToVTKLegacy("debug.vtk");
 
   // MPI Partitioning Information
-#ifdef USE_MPI
+#ifdef USE_TRILINOS
   model->CreatePartition(1);
 #endif
 

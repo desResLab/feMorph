@@ -3617,19 +3617,21 @@ void femModel::ApplyParametricDisplacements(femInputData* data){
 
 // RETURN NUMBER OF NODES FROM ELEMENT TYPE STRING
 int getTotalNodesFromElementString(string elType){
+  int res = 0;
   if(elType == string("ROD")){
-      return 2;
+      res = 2;
   }else if(elType == string("TRI3")){
-      return 3;
+      res = 3;
   }else if(elType == string("QUAD4")){
-      return 4;
+      res = 4;
   }else if(elType == string("TET4")){
-      return 4;
+      res = 4;
   }else if(elType == string("TET10")){
-      return 10;
+      res = 10;
   }else if(elType == string("HEXA8")){
-      return 8;
+      res = 8;
   }
+  return res;
 }
 
 // =========================
@@ -4089,7 +4091,7 @@ femModel* femModel::PartitionProblem(int numPartitions){
 // ======================================
 // SUBDIVIDE THE MODEL INTO VARIOUS PARTS
 // ======================================
-#ifdef USE_MPI
+#ifdef USE_TRILINOS
 femModel* femModel::CreatePartition(int numPartitions){
   if(numPartitions == 1){
     totNodesInProc = nodeList.size();
@@ -4160,7 +4162,7 @@ void femModel::BuildParentElementList(){
 // ====================================================
 // CREATE THE NODAL TOPOLOGY FROM THE MODEL CONNECTIONS
 // ====================================================
-double femModel::getModelNodalTopology(femIntVec& diagPtr,femIntVec& rowPtr){
+void femModel::getModelNodalTopology(femIntVec& diagPtr,femIntVec& rowPtr){
   // Get Total Number of Equations
   int totNodes = nodeList.size();
 

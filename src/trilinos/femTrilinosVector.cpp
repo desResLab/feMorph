@@ -51,7 +51,7 @@ double femTrilinosVector::getComponent(int id){
 }
 
 // SET VECTOR COMPONENT
-double femTrilinosVector::setComponent(int id, double entry){
+void femTrilinosVector::setComponent(int id, double entry){
   int currBlock = id / nodeDOFs;
   int currIndex = id % nodeDOFs;
   double** pointer;
@@ -60,21 +60,44 @@ double femTrilinosVector::setComponent(int id, double entry){
   pointer[currIndex][currBlock] = entry;
 }
 
-// ASSEMBLE IN DENSE COLUMN FORMAT
+// ADD COMPONENT TO A VECTOR
+/*void femTrilinosVector::addComponent(int id, double entry){
+  int currBlock = id / nodeDOFs;
+  int currIndex = id % nodeDOFs;
+  double** pointer;
+  double value = 0.0;
+  values->ExtractView(&pointer);
+  // Get Data
+  value = pointer[currIndex][currBlock];
+  pointer[currIndex][currBlock] = value + entry;
+}*/
+
+void femTrilinosVector::addComponent(int id, double entry){
+  int GIDs[1];
+  GIDs[0] = id;
+  double val[1];
+  val[0] = entry;
+  values->SumIntoGlobalValues(1,GIDs,val);
+  values->GlobalAssemble();
+}
+
+// ASSEMBLE VECTOR INDICES WITH 1 DOF
 void femTrilinosVector::assemble(femDoubleVec vec,femIntVec indices){
   if(nodeDOFs > 1){
     throw femException("ERROR: Calling Assemble with more than one DOF per node.\n");
   }
-  int currIdx = 0.0;
-  double currVal = 0.0;
-  // Loop through the Nodes
-  for(size_t loopA=0;loopA<indices.size();loopA++){
-    currIdx = indices[loopA];
-    // Loop through the entries for every node
-    currVal = vec[currIdx];
-    values->SumIntoGlobalValue(currIdx,0,currVal);
-  }
+  /*int idx[1];
+  double nums[1];
+  for(int loopA=0;loopA<(int)indices.size();loopA++){
+    idx[0] = indices[loopA];
+    nums[0] = vec[loopA];
+    values->SumIntoGlobalValues(1,idx,nums);
+  }*/
+  values->SumIntoGlobalValues(indices.size(),&indices[0],&vec[0]);
+  values->GlobalAssemble();
 }
+
+// ASSEMBLE BLOCK VECTOR
 void femTrilinosVector::blockAssemble(femDoubleBlockVec vec,femIntVec indices){
   int currIdx = 0.0;
   double currVal = 0.0;

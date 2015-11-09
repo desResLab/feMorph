@@ -133,7 +133,7 @@ void femSparseMatrix::assemble(femDoubleMat elMat,femIntVec connections){
   int colIndex = 0;
   int counter = 0;
   bool found = false;
-  int count = elMat.size();
+  int count = connections.size();
   for(int loopA=0;loopA<count;loopA++){
     rowIndex = connections[loopA];
     for(int loopB=0;loopB<count;loopB++){

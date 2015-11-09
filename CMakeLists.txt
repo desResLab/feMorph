@@ -4,8 +4,8 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
 
 # ADD OPTIONS
 OPTION(useMPI "useMPI" OFF)
-OPTION(useCSparse "useCSparse" ON)
-OPTION(useTrilinos "useTrilinos" OFF)
+OPTION(useCSparse "useCSparse" OFF)
+OPTION(useTrilinos "useTrilinos" ON)
 OPTION(useArmadillo "useArmadillo" OFF)
 
 # SET MUTUALLY EXCLUSIVE SOLVERS
