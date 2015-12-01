@@ -12,7 +12,7 @@
 
 #ifdef USE_TRILINOS
 
-#ifdef HAVE_MPI
+#ifdef USE_MPI
   #include "mpi.h"
   #include "Epetra_MpiComm.h"
 #else
@@ -505,7 +505,7 @@ int solvePoissonEquation(femProgramOptions* opts){
   // DELETE MODEL
   delete model;
 
-  #ifdef HAVE_MPI
+  #ifdef USE_MPI
     MPI_Finalize();
   #endif
 

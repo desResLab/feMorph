@@ -3,7 +3,7 @@ PROJECT(feMorph)
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
 
 # ADD OPTIONS
-OPTION(useMPI "useMPI" OFF)
+OPTION(useMPI "useMPI" ON)
 OPTION(useCSparse "useCSparse" OFF)
 OPTION(useTrilinos "useTrilinos" ON)
 OPTION(useArmadillo "useArmadillo" OFF)

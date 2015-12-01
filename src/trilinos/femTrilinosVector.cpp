@@ -47,7 +47,7 @@ double femTrilinosVector::getComponent(int id){
   double** pointer;
   values->ExtractView(&pointer);
   // Get Data
-  return pointer[currIndex][currBlock];
+  return pointer[currBlock][currIndex];
 }
 
 // SET VECTOR COMPONENT
@@ -57,7 +57,7 @@ void femTrilinosVector::setComponent(int id, double entry){
   double** pointer;
   values->ExtractView(&pointer);
   // Get Data
-  pointer[currIndex][currBlock] = entry;
+  pointer[currBlock][currIndex] = entry;
 }
 
 // ADD COMPONENT TO A VECTOR
