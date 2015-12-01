@@ -318,8 +318,11 @@ void femElement::evalGlobalShapeFunctionDerivative(std::vector<femNode*> &nodeLi
   }
 
   // Compute Local Derivatives
+  double beginTime = clock();
   femDoubleMat shLocalDerivs;
   evalLocalShapeFunctionDerivative(nodeList,coord1,coord2,coord3,shLocalDerivs);
+  double totalTime = float( clock () - beginTime ) /  CLOCKS_PER_SEC;
+  femTime::LocalSFTime += totalTime;
 
   // Print Shape Functions if requested
   if(printSF){
@@ -331,16 +334,23 @@ void femElement::evalGlobalShapeFunctionDerivative(std::vector<femNode*> &nodeLi
   }
 
   // Compute Jacobian Matrix
+  beginTime = clock();
   femDoubleMat jacMat;
   evalJacobianMatrixLocal(numberOfNodes,elNodeCoords,shLocalDerivs,dims,jacMat);
+  totalTime = float( clock () - beginTime ) /  CLOCKS_PER_SEC;
+  femTime::JacobianMatTime += totalTime;
 
   // Invert Jacobian Matrix
+  beginTime = clock();
   femDoubleMat invJacMat;
   if(dims == d1){
     femUtils::invert3x3MatrixFor1DElements(jacMat,invJacMat,detJ);
   }else{
     femUtils::invert3x3Matrix(jacMat,invJacMat,detJ);
   }
+  totalTime = float( clock () - beginTime ) /  CLOCKS_PER_SEC;
+  femTime::JacInversionTime += totalTime;
+
 
   if(printJAC){
     printf("Inv Jacobian\n");
@@ -351,11 +361,14 @@ void femElement::evalGlobalShapeFunctionDerivative(std::vector<femNode*> &nodeLi
   }
 
   // Allocate Global Shape derivatives
+  beginTime = clock();
   globShDeriv.clear();
   globShDeriv.resize(numberOfNodes);
   for(int loopA=0;loopA<numberOfNodes;loopA++){
     globShDeriv[loopA].resize(kDims);
   }
+  totalTime = float( clock () - beginTime ) /  CLOCKS_PER_SEC;
+  femTime::globShDerivAllocTime += totalTime;
 
   // Obtain Global SF Derivatives
   for(int loopA=0;loopA<numberOfNodes;loopA++){

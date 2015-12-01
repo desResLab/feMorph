@@ -78,7 +78,7 @@ void femTrilinosVector::addComponent(int id, double entry){
   double val[1];
   val[0] = entry;
   values->SumIntoGlobalValues(1,GIDs,val);
-  values->GlobalAssemble();
+  //values->GlobalAssemble();
 }
 
 // ASSEMBLE VECTOR INDICES WITH 1 DOF

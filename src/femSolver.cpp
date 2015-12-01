@@ -361,6 +361,7 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
 
   // ASSEMBLE MATRIX FROM ALL ELEMENTS
   int precentProgress,percentCounted;
+  double beginTime = clock();
   printf("Assembling Matrix...");
   fflush(stdout);
   for(size_t loopElement=0;loopElement<model->elementList.size();loopElement++){
@@ -381,6 +382,11 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
 #endif
   printf("100.OK\n");
   fflush(stdout);
+  double totalTime = float( clock () - beginTime ) /  CLOCKS_PER_SEC;
+  femTime::totLHSAssemblyTime += totalTime;
+
+  // Print Time
+  femTime::printToScreen();
 
   // Local Source Vector
   femDoubleVec elSourceVec;
@@ -410,12 +416,11 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
   printf("100.OK\n");
   fflush(stdout);
 
-  //double sourceSum = 0.0;
-  //printf("Size of Poisson Vector: %d\n",poissonVec->getSize());
-  //for(int loopA=0;loopA<poissonVec->getSize();loopA++){
-  //  sourceSum += poissonVec->getComponent(loopA);
-  //}
-  //printf("Sum of Source Term: %f\n",sourceSum);
+  double sourceSum = 0.0;
+  for(int loopA=0;loopA<poissonVec->getSize();loopA++){
+    sourceSum += poissonVec->getComponent(loopA);
+  }
+  printf("Source Summation: %f\n",sourceSum);
 
   // ASSEMBLE NEUMANN BOUNDARY CONDITIONS
   printf("Assembling Neumann Vector...\n");
@@ -438,12 +443,23 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
     }
   }
 
+  // Compute Sum of Neumann BC
+  double neuBCSum = 0.0;
+  for(int loopA=0;loopA<elBCVec.size();loopA++){
+    neuBCSum += elBCVec[loopA];
+  }
+  printf("Neumann BC Summation: %f\n",neuBCSum);
+
   // Assemble in RHS
   printf("Assembling Neumann RHS...\n");
   fflush(stdout);
   for(int loopA=0;loopA<poissonVec->getSize();loopA++){
     poissonVec->addComponent(loopA,elBCVec[loopA]);
   }
+#ifdef USE_TRILINOS
+  poissonVec->GlobalAssemble();
+#endif
+
 
   // APPLY DIRICHELET BOUNDARY CONDITIONS
   //printf("Assembling Dirichelet...\n");

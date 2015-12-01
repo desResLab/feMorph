@@ -5,6 +5,7 @@
 # include "femOption.h"
 # include "femMatrix.h"
 # include "femVector.h"
+# include "femTime.h"
 
 #ifdef USE_TRILINOS
 # include "trilinos/femTrilinosMatrix.h"
