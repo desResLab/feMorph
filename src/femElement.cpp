@@ -318,11 +318,8 @@ void femElement::evalGlobalShapeFunctionDerivative(std::vector<femNode*> &nodeLi
   }
 
   // Compute Local Derivatives
-  double beginTime = clock();
   femDoubleMat shLocalDerivs;
   evalLocalShapeFunctionDerivative(nodeList,coord1,coord2,coord3,shLocalDerivs);
-  double totalTime = float( clock () - beginTime ) /  CLOCKS_PER_SEC;
-  femTime::LocalSFTime += totalTime;
 
   // Print Shape Functions if requested
   if(printSF){
@@ -334,22 +331,16 @@ void femElement::evalGlobalShapeFunctionDerivative(std::vector<femNode*> &nodeLi
   }
 
   // Compute Jacobian Matrix
-  beginTime = clock();
   femDoubleMat jacMat;
   evalJacobianMatrixLocal(numberOfNodes,elNodeCoords,shLocalDerivs,dims,jacMat);
-  totalTime = float( clock () - beginTime ) /  CLOCKS_PER_SEC;
-  femTime::JacobianMatTime += totalTime;
 
   // Invert Jacobian Matrix
-  beginTime = clock();
   femDoubleMat invJacMat;
   if(dims == d1){
     femUtils::invert3x3MatrixFor1DElements(jacMat,invJacMat,detJ);
   }else{
     femUtils::invert3x3Matrix(jacMat,invJacMat,detJ);
   }
-  totalTime = float( clock () - beginTime ) /  CLOCKS_PER_SEC;
-  femTime::JacInversionTime += totalTime;
 
 
   if(printJAC){
@@ -361,14 +352,11 @@ void femElement::evalGlobalShapeFunctionDerivative(std::vector<femNode*> &nodeLi
   }
 
   // Allocate Global Shape derivatives
-  beginTime = clock();
   globShDeriv.clear();
   globShDeriv.resize(numberOfNodes);
   for(int loopA=0;loopA<numberOfNodes;loopA++){
     globShDeriv[loopA].resize(kDims);
   }
-  totalTime = float( clock () - beginTime ) /  CLOCKS_PER_SEC;
-  femTime::globShDerivAllocTime += totalTime;
 
   // Obtain Global SF Derivatives
   for(int loopA=0;loopA<numberOfNodes;loopA++){
@@ -926,7 +914,7 @@ void femElement::assembleStiffness(femDoubleMat &nodeVelocities, std::vector<fem
 // =================================
 // POISSON PROBLEM - ASSEMBLE MATRIX
 // =================================
-void femElement::formPoissonMatrix(std::vector<femNode*> nodeList,femIntegrationRule* rule,femDoubleVec diffusivity,femDoubleMat &elMat){
+void femElement::formPoissonMatrix(std::vector<femNode*>& nodeList,femIntegrationRule* rule,femDoubleVec diffusivity,femDoubleMat &elMat){
 
   // CLEAR AND ALLOCATE MATRIX
   for(int loopA=0;loopA<numberOfNodes;loopA++){
@@ -943,32 +931,17 @@ void femElement::formPoissonMatrix(std::vector<femNode*> nodeList,femIntegration
   femDoubleVec intWeights;
   double detJ = 0.0;
   double currStiff = 0.0;
+  double beginTime = 0.0;
+  double totalTime = 0.0;
 
   // Get Integration Coords and Weights
   intCoords = rule->getCoords(numberOfNodes,dims);
   intWeights = rule->getWeights(numberOfNodes,dims);
 
-  //printf("Gauss Points: %d\n",intCoords.size());
-  //for(int loopA=0;loopA<rule->getTotGP(numberOfNodes);loopA++){
-  //  printf("GP: %d, gpx: %f, gpy: %f, gpz: %f\n",loopA,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
-  //}
-  //printf("\n");
-
-
   for(int loopA=0;loopA<rule->getTotGP(numberOfNodes,dims);loopA++){
 
     // Eval Current Shape Derivatives Matrix
     evalGlobalShapeFunctionDerivative(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2],detJ,shapeDeriv);
-
-    // Print Global Derivatives
-    //printf("Global Derivatives\n");
-    //for(int loopA=0;loopA<numberOfNodes;loopA++){
-    //  printf("Node %d, dx: %f, dy: %f, dz: %f\n",loopA,shapeDeriv[loopA][0],shapeDeriv[loopA][1],shapeDeriv[loopA][2]);
-    //}
-    //printf("\n");
-
-    // Eval Determinant of the Jacobian Matrix
-    //detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
 
     // Eval Resulting Matrix
     for(int loopB=0;loopB<numberOfNodes;loopB++){
@@ -987,7 +960,7 @@ void femElement::formPoissonMatrix(std::vector<femNode*> nodeList,femIntegration
 // =================================
 // POISSON PROBLEM - ASSEMBLE SOURCE
 // =================================
-void femElement::formPoissonSource(std::vector<femNode*> nodeList,femIntegrationRule* rule,double sourceValue,femDoubleVec &elSourceVec){
+void femElement::formPoissonSource(std::vector<femNode*>& nodeList,femIntegrationRule* rule,double sourceValue,femDoubleVec &elSourceVec){
 
   // Shape Function Values
   femDoubleVec shapeFunction;

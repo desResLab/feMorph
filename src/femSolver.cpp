@@ -361,7 +361,6 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
 
   // ASSEMBLE MATRIX FROM ALL ELEMENTS
   int precentProgress,percentCounted;
-  double beginTime = clock();
   printf("Assembling Matrix...");
   fflush(stdout);
   for(size_t loopElement=0;loopElement<model->elementList.size();loopElement++){
@@ -382,11 +381,9 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
 #endif
   printf("100.OK\n");
   fflush(stdout);
-  double totalTime = float( clock () - beginTime ) /  CLOCKS_PER_SEC;
-  femTime::totLHSAssemblyTime += totalTime;
 
   // Print Time
-  femTime::printToScreen();
+  //femTime::printToScreen();
 
   // Local Source Vector
   femDoubleVec elSourceVec;
@@ -421,6 +418,25 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
     sourceSum += poissonVec->getComponent(loopA);
   }
   printf("Source Summation: %f\n",sourceSum);
+
+  // Computing Volume
+  double totalVolume = 0.0;
+  double currentVolume = 0.0;
+  double maxVolume = -std::numeric_limits<double>::max();
+  double minVolume = std::numeric_limits<double>::max();
+  for(int loopA=0;loopA<model->elementList.size();loopA++){
+    currentVolume = model->elementList[loopA]->EvalVolume(0.0,model->nodeList);
+    totalVolume += currentVolume;
+    if(currentVolume > maxVolume){
+      maxVolume = currentVolume;
+    }
+    if(currentVolume < minVolume){
+      minVolume = currentVolume;
+    }
+  }
+  printf("Min Volume: %f, Max Volume: %f\n",minVolume,maxVolume);
+  printf("Total Volume: %f\n",totalVolume);
+
 
   // ASSEMBLE NEUMANN BOUNDARY CONDITIONS
   printf("Assembling Neumann Vector...\n");

@@ -11,6 +11,13 @@ class femTime{
     static double JacInversionTime;
     static double globShDerivAllocTime;
     static double totLHSAssemblyTime;
+    static double totLHSMatAssembleTime;
+    static double totTrilinosCompleteFillTime;
+    static double multShDerivAllocTime;
+    static double writeLHSAssemblyProgressTime;
+    static double totAssembleFromElementList;
+    static double evalGlobalShapeFunctionDerivativeTime;
+    static double evalLocalMatrixTime;
 
     // Member Functions
     static void printToScreen();

@@ -1,6 +1,8 @@
 #ifndef FEMSOLVER_H
 #define FEMSOLVER_H
 
+# include <limits>
+
 # include "femModel.h"
 # include "femOption.h"
 # include "femMatrix.h"

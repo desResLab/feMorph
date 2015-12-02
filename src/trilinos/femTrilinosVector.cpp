@@ -44,10 +44,8 @@ int femTrilinosVector::getSize(){
 double femTrilinosVector::getComponent(int id){
   int currBlock = id / nodeDOFs;
   int currIndex = id % nodeDOFs;
-  double** pointer;
-  values->ExtractView(&pointer);
   // Get Data
-  return pointer[currBlock][currIndex];
+  return ((double*)(*values)[currIndex])[currBlock];
 }
 
 // SET VECTOR COMPONENT
@@ -56,7 +54,7 @@ void femTrilinosVector::setComponent(int id, double entry){
   int currIndex = id % nodeDOFs;
   double** pointer;
   values->ExtractView(&pointer);
-  // Get Data
+  // Set Data
   pointer[currBlock][currIndex] = entry;
 }
 
@@ -86,13 +84,6 @@ void femTrilinosVector::assemble(femDoubleVec vec,femIntVec indices){
   if(nodeDOFs > 1){
     throw femException("ERROR: Calling Assemble with more than one DOF per node.\n");
   }
-  /*int idx[1];
-  double nums[1];
-  for(int loopA=0;loopA<(int)indices.size();loopA++){
-    idx[0] = indices[loopA];
-    nums[0] = vec[loopA];
-    values->SumIntoGlobalValues(1,idx,nums);
-  }*/
   values->SumIntoGlobalValues(indices.size(),&indices[0],&vec[0]);
   values->GlobalAssemble();
 }

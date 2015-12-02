@@ -45,8 +45,23 @@ bool femHexa8::isNodeInsideElement(double dispFactor, double* pointCoords,std::v
   throw femException("Not Implemented.\n");
 }
 
-double femHexa8::EvalVolume(std::vector<femNode*> &nodeList){
-  throw femException("Not Implemented.\n");
+// EVAL ELEMENT VOLUME
+double femHexa8::EvalVolume(double dispFactor, std::vector<femNode*> &nodeList){
+  double res = 0.0;
+  double detJ = 0.0;
+  femDoubleMat intCoords;
+  femDoubleVec intWeights;
+  // Get Integration Rule
+  femIntegrationRule* rule = new femIntegrationRule(irFirstOrder);
+  // Get Integration Coords and Weights
+  intCoords = rule->getCoords(numberOfNodes,dims);
+  intWeights = rule->getWeights(numberOfNodes,dims);
+  for(int loopA=0;loopA<rule->getTotGP(numberOfNodes,dims);loopA++){
+    // Eval Determinant of the Jacobian Matrix
+    detJ = evalJacobian(nodeList,intCoords[loopA][0],intCoords[loopA][1],intCoords[loopA][2]);
+    res += detJ * intWeights[loopA];
+  }
+  return res;
 }
 
 // EVAL ELEMENT MIXED PRODUCT

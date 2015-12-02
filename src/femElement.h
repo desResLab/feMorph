@@ -63,8 +63,8 @@ class femElement{
     femElement* createBoudaryFace(int faceID);
 
     // POISSON PROBLEM
-    void formPoissonMatrix(std::vector<femNode*> nodeList,femIntegrationRule* rule,femDoubleVec diffusivity,femDoubleMat &elMat);
-    void formPoissonSource(std::vector<femNode*> nodeList,femIntegrationRule* rule, double sourceValue,femDoubleVec &elSourceVec);
+    void formPoissonMatrix(std::vector<femNode*>& nodeList,femIntegrationRule* rule,femDoubleVec diffusivity,femDoubleMat &elMat);
+    void formPoissonSource(std::vector<femNode*>& nodeList,femIntegrationRule* rule, double sourceValue,femDoubleVec &elSourceVec);
     void formPoissonNeumannBC();
 
     // INCOMPRESSIBLE NAVIER STOKES
@@ -158,7 +158,7 @@ class femTetra10: public femElement{
     // Member Functions
     virtual void EvalVolumeCoordinates(double dispFactor, double* pointCoords, std::vector<femNode*> &nodeList, double* volCoords);
     virtual bool isNodeInsideElement(double dispFactor, double* pointCoords,std::vector<femNode*> &nodeList);
-    virtual double EvalVolume(std::vector<femNode*> &nodeList){return 0.0;}
+    virtual double EvalVolume(double dispFactor, std::vector<femNode*> &nodeList){return 0.0;}
     virtual double EvalMixProduct(std::vector<femNode*> &nodeList);
     virtual void   fixConnectivities(std::vector<femNode*> &nodeList);
 
@@ -175,7 +175,7 @@ class femHexa8: public femElement{
 
     // Member Functions
     virtual bool isNodeInsideElement(double dispFactor, double* pointCoords,std::vector<femNode*> &nodeList);
-    virtual double EvalVolume(std::vector<femNode*> &nodeList);
+    virtual double EvalVolume(double dispFactor, std::vector<femNode*> &nodeList);
     // Positive Volume Evaluation
     virtual double EvalMixProduct(std::vector<femNode*> &nodeList);
     virtual void   fixConnectivities(std::vector<femNode*> &nodeList);
@@ -192,7 +192,7 @@ class femTri3: public femElement{
     virtual ~femTri3(){}
 
     // Member Functions
-    virtual double EvalVolume(std::vector<femNode*> &nodeList){return 0.0;}
+    virtual double EvalVolume(double dispFactor, std::vector<femNode*> &nodeList){return 0.0;}
     virtual double EvalMixProduct(std::vector<femNode*> &nodeList);
     virtual void   fixConnectivities(std::vector<femNode*> &nodeList);
 
@@ -209,7 +209,7 @@ class femQuad4: public femElement{
 
     // Member Functions
     virtual bool   is2D(){return true;}
-    virtual double EvalVolume(std::vector<femNode*> &nodeList){return 0.0;}
+    virtual double EvalVolume(double dispFactor, std::vector<femNode*> &nodeList){return 0.0;}
     virtual double EvalMixProduct(std::vector<femNode*> &nodeList){return 0.0;}
     virtual void   fixConnectivities(std::vector<femNode*> &nodeList);
 
