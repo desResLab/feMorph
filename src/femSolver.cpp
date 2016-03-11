@@ -131,7 +131,8 @@ femVector* femSolver::solveLinearSystem(int totalNodes, femTrilinosMatrix* lhs,f
 
   solver.SetAztecOption(AZ_precond, AZ_dom_decomp);
   solver.SetAztecOption(AZ_subdomain_solve, AZ_ilut);
-  // solver.SetAztecOption(AZ_precond, AZ_ls);
+  //solver.SetAztecOption(AZ_subdomain_solve, AZ_lu);
+  //solver.SetAztecOption(AZ_precond, AZ_ls);
 
   solver.Iterate(1000, 1.0E-5);
 
