@@ -5,6 +5,9 @@
 #include <string>
 #include <vector>
 
+const int ipUseFile   = 0;
+const int ipUseParams = 1;
+
 class femInputData
 {
 public:
@@ -42,6 +45,8 @@ public:
   double mappingDisplacementRadius;
   bool accountForAngle;
   double maxAngle;
+  // Type of Displacemetns
+  int mappingDisplacementType;
 
   // Constructor and Destructor
   femInputData();

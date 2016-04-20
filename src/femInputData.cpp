@@ -73,8 +73,10 @@ void femInputData::ReadFromFile(std::string fileName){
           // Displacements of the mapping model
           boost::split(tokenizedString, buffer, boost::is_any_of(" ,"), boost::token_compress_on);
           if(boost::to_upper_copy(tokenizedString[0]) == "USEFILE"){
+            mappingDisplacementType = ipUseFile;
             mappingModelResultsFileName = tokenizedString[1];
           }else if(boost::to_upper_copy(tokenizedString[0]) == "USEPARAMS"){
+            mappingDisplacementType = ipUseParams;
             mappingDisplacementRadius = atof(tokenizedString[1].c_str());
             if(tokenizedString[2] == "1"){
               accountForAngle = true;

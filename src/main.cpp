@@ -37,7 +37,6 @@ int runNormalMode(femProgramOptions* options){
   double stenosisBox[6];
 
   // Set Debug Mode
-  bool debugMode = options->debugMode;
   bool reducedOutput = options->reducedOutput;
 
   // Read All input parameters
@@ -45,7 +44,7 @@ int runNormalMode(femProgramOptions* options){
   data->ReadFromFile(options->inputFileName);
 
   // Export Main File for Debug
-  if (debugMode){
+  if (options->debugMode){
     femUtils::ExportReferenceToVTKLegacy(data,std::string("mainreference.vtk"));
   }
 
@@ -65,7 +64,7 @@ int runNormalMode(femProgramOptions* options){
   mainModel->FormElementFaceList();
 
   // Export Main File for Debug
-  if (debugMode){
+  if (options->debugMode){
     mainModel->ExportToVTKLegacy(std::string("mainmodel.vtk"));
   }
 
@@ -78,11 +77,14 @@ int runNormalMode(femProgramOptions* options){
   mappingModel->FormElementFaceList();
 
   // Read Displacement Without Rotations
-  //mappingModel->ReadNodeDisplacementsFromFile(data->mappingModelResultsFileName, false);
-  mappingModel->ApplyParametricDisplacements(data);
+  if (data->mappingDisplacementType == ipUseFile){
+    mappingModel->ReadNodeDisplacementsFromFile(data->mappingModelResultsFileName, false);
+  }else if(data->mappingDisplacementType == ipUseParams){
+    mappingModel->ApplyParametricDisplacements(data);
+  }
 
   // Export Mapping Model for Debug
-  if (debugMode){
+  if (options->debugMode){
     mappingModel->ExportToVTKLegacy(std::string("mappingmodel.vtk"));
   }
 
@@ -95,28 +97,28 @@ int runNormalMode(femProgramOptions* options){
   femUtils::GetAverageNodeFromList(steNodeList,stenosisBoxCenter);
 
   // Export Mapping Model for Debug
-  if (debugMode){
+  if (options->debugMode){
     femUtils::ExportStenosisBoxToVTK(std::string("stenosisBox.vtk"),steNodeList);
-  }
+  }  
 
   // Transform Mapping Model and Displacements
   femModel* newModel;
   newModel = mappingModel->TransformModel(data,stenosisBoxCenter,stenosisBox);
 
   // Export Mapping Model for Debug
-  if (debugMode){
+  if (options->debugMode){
     newModel->ExportToVTKLegacy(std::string("transformedmappingmodel.vtk"));
   }
 
-  // Map Models
+  // Map Displacement Across Models
   double dispScaleFactor = 1.0;
-  mainModel->MapDisplacements(newModel, data, dispScaleFactor);
+  mainModel->MapDisplacements(options, data, newModel, dispScaleFactor);
 
   // Normalize Model Displacements
   mainModel->NormalizeDisplacements(0.01*data->stenosisLength);
 
   // Export Mapping Model for Debug
-  if (debugMode){
+  if (options->debugMode){
     mainModel->ExportToVTKLegacy(std::string("finalmodel.vtk"));
   }
 
@@ -138,7 +140,7 @@ int runNormalMode(femProgramOptions* options){
   // and write them to separate files
   // Get Corresponding Displacement Scaling Factor
   FILE* areaFile;
-  if(debugMode){
+  if(options->debugMode){
     areaFile = fopen("stenosisAreas.dat","w");
     fclose(areaFile);
   }
@@ -153,7 +155,7 @@ int runNormalMode(femProgramOptions* options){
     femUtils::WriteMessage(std::string("Computing Stenosis Level ") + boost::lexical_cast<std::string>(currStenosisLevel) + std::string("...\n"));
 
     // Eval the stenotic displacement factor
-    currDispFactor = mainModel->seekStenoticDisplacementFactor(data,currStenosisLevel,debugMode);
+    currDispFactor = mainModel->seekStenoticDisplacementFactor(data,currStenosisLevel,options->debugMode);
 
     // Check Volume of Undeformed Mesh
     double minVol = mainModel->CheckMinimumElementVolume(currDispFactor);
@@ -170,11 +172,6 @@ int runNormalMode(femProgramOptions* options){
       mainModel->ExportToCvPre(currDispFactor,std::string("stenosis_") + boost::lexical_cast<std::string>(currStenosisLevel),options->angleLimit);
     }
   }
-
-  // Write Application Header
-  femUtils::WriteMessage(std::string("\n"));
-  femUtils::WriteMessage(std::string("Completed!\n"));
-
   // Deallocate Pointers
   delete data;
   delete mainModel;
@@ -219,7 +216,7 @@ int simpleMapMode(femProgramOptions* options){
 
   // Map Models
   double dispScaleFactor = 1.0;
-  mainModel->MapDisplacements(mappingModel, data, dispScaleFactor);
+  mainModel->MapDisplacements(options, data, mappingModel, dispScaleFactor);
 
   // Export Mapping Model for Debug
   if (options->debugMode){

@@ -1,0 +1,28 @@
+### Main Model Coordinate File
+Cylinder.coordinates
+### Main Model Connectivity File
+Cylinder.connectivity
+### Mapping Model Coordinate File
+stenosis_model_2.coordinates
+### Mapping Model Connectivity File
+stenosis_model_2.connectivity
+### Mapping Model using Displacement File or parametric shape
+### useFile displacement file
+### useParams radius, circunferential change, circ angle from local 2 axis
+useParams 6.0 1 60.0
+### Main Model Origin
+-23.9213 9.79898 -216.071
+### Main Model Reference System - Axis 1
+0.0 0.0 1.0
+### Main Model Reference System - Axis 2
+1.0 0.0 0.0
+### Main Model Reference System - Axis 3
+0.0 1.0 0.0
+### Length of the Stenosis
+8.0
+### Target Levels of Stenosis
+-20.0
+### Current Level of stenosis in the model
+### Stenosis definition: Use area (0) or use diameter (1)
+### Use old (0) or new (1) definition of stenosis.
+0.0 1 1

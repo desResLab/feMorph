@@ -15,7 +15,7 @@ public:
   std::vector<femGridCell*> gridData;
   // Constructor and Distructor
   femGrid(femModel* model);
-  ~femGrid();
+  virtual ~femGrid();
   // Member Functions
   // To Single Index
   int ToIndexes(double* coord);

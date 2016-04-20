@@ -13,6 +13,7 @@
 #include "femModelSlice.h"
 #include "femInputData.h"
 #include "femResult.h"
+#include "femProgramOptions.h"
 
 using namespace std;
 
@@ -79,7 +80,7 @@ class femModel{
 
     // Constructor and Destructor
     femModel();
-    ~femModel();
+    virtual ~femModel();
 
     // Other Member Functions
     void EvalModelBox();
@@ -189,7 +190,7 @@ class femModel{
     // Fixed Element Connectivity
     void FixedElementConnectivities();
     // Perform Displacement Mapping
-    void MapDisplacements(femModel* MappingModel, femInputData* data, double dispScaleFactor);
+    void MapDisplacements(femProgramOptions* opts,femInputData* data,femModel* MappingModel,double dispScaleFactor);
     // Get next element when finding the enclosing one
     void getNextElement(int currElement, double* nodeCoords, int &nextElement, double &nextDistance);
     // Get Stenosis Box

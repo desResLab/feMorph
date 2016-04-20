@@ -41,11 +41,15 @@ femModel::femModel(){
   for(int loopA=0;loopA<3;loopA++){
     modelCentre[loopA] = 0.0;
   }
+  // Init
+  localToGlobalNodes = NULL;
 }
 
 // DISTRUCTOR
 femModel::~femModel(){
-  delete [] localToGlobalNodes;
+  if(localToGlobalNodes != NULL){
+    delete [] localToGlobalNodes;
+  }
 }
 
 // =================
@@ -645,17 +649,20 @@ void femModel::WriteElementConnectionsToFile(std::string fileName){
 // ===================================================
 // Map Displacements between a main and mapping models
 // ===================================================
-void femModel::MapDisplacements(femModel* MappingModel,
+void femModel::MapDisplacements(femProgramOptions* opts,
                                 femInputData* data,
+                                femModel* MappingModel,
                                 double dispScaleFactor){
   // Initialize Mapping Coords
   double nodeCoords[3] = {0.0};
-  double nodeDisps[3] = {0.0};  
+  double nodeDisps[6] = {0.0};
   // Create New Grid
   femGrid* grid = new femGrid(MappingModel);
 
   // Check If Correct
-  grid->ExportToVTKLegacy(std::string("grid.vtk"));
+  if(opts->debugMode){
+    grid->ExportToVTKLegacy(std::string("grid.vtk"));
+  }
 
   // Write Message
   femUtils::WriteMessage(std::string("Mapping Displacements ..."));
@@ -1371,6 +1378,7 @@ void femModel::ExportToVTKLegacy(std::string fileName){
     }else if(resultList[loopA]->numComponents == 3){
       fprintf(outFile,"VECTORS %s double\n",resultList[loopA]->label.c_str());
     }else{
+      fclose(outFile);
       throw femException("ERROR: Invalid number of Result Components.\n");
     }
     for(size_t loopB=0;loopB<resultList[loopA]->values.size();loopB++){
@@ -1614,9 +1622,9 @@ double femModel::seekStenoticDisplacementFactor(femInputData* data, double targe
   if (debugMode){
     debugFile = fopen("stenosisAreas.dat","a");
     defFile = fopen("stenosisDefs.dat","a");
+    // Print Stenosis Definitions header
+    fprintf(defFile,"%15s %15s %15s %15s %15s %15s\n","Ref Diam","Ref Area","Old Diam","New Diam","Old Area","New Area");
   }
-  // Print Stenosis Definitions header
-  fprintf(defFile,"%15s %15s %15s %15s %15s %15s\n","Ref Diam","Ref Area","Old Diam","New Diam","Old Area","New Area");
 
   std::vector<femModelSlice*> slices;
   std::vector<double> sliceAreas;
@@ -1650,7 +1658,9 @@ double femModel::seekStenoticDisplacementFactor(femInputData* data, double targe
     trialStenosisLevel = ExtractStenosisLevel(data,trialDispFactor,slices,sliceAreas,data->useDiameter, data->useOldDefinition,stenosisDefs);
 
     // Print slice geometry
-    femUtils::PlotSlicesToVTK(std::string("slicesIt_")+boost::lexical_cast<std::string>(currIt)+std::string(".vtk"),slices);
+    if(debugMode){
+      femUtils::PlotSlicesToVTK(std::string("slicesIt_")+boost::lexical_cast<std::string>(currIt)+std::string(".vtk"),slices);
+    }
 
     // Check if has converged
     currResidual = fabs(((targetStenosisLevel-trialStenosisLevel)/trialStenosisLevel));
@@ -1684,7 +1694,6 @@ double femModel::seekStenoticDisplacementFactor(femInputData* data, double targe
       fprintf(debugFile,"\n");
       // Print Stenosis Definitions
       fprintf(defFile,"%15.4e %15.4e %15.4e %15.4e %15.4e %15.4e\n",stenosisDefs[0],stenosisDefs[1],stenosisDefs[2],stenosisDefs[3],stenosisDefs[4],stenosisDefs[5]);
-
       // Close File
       fclose(debugFile);
       fclose(defFile);
@@ -2113,7 +2122,7 @@ void femModel::FormBoundaryFaceGroups(int &totalFaceGroups, double angleLimit){
     faceList[skinModel->elementList[loopA]->elementNumber]->group = skinModel->elementList[loopA]->propertyNumber;
   }
   // Export Model for debug
-  skinModel->ExportToVTKLegacy("debugFaceModel.vtk");
+  //skinModel->ExportToVTKLegacy("debugFaceModel.vtk");
   // Delete Temporary skin Model
   delete skinModel;
 }
@@ -2679,6 +2688,7 @@ void femModel::ExportSkinFaceGroupToVTK(std::string fileName, double dispFactor,
 void femModel::NormalizeDisplacements(double maxDisp){
   double currMaxDisp = -std::numeric_limits<double>::max();
   double currDispModule = 0.0;
+  fflush(stdout);
   for(unsigned loopA=0;loopA<nodeList.size();loopA++){
     // Find Max displacement in module
     currDispModule = sqrt(nodeList[loopA]->displacements[0]*nodeList[loopA]->displacements[0]+
@@ -2689,11 +2699,14 @@ void femModel::NormalizeDisplacements(double maxDisp){
       currMaxDisp = currDispModule;
     }
   }
-  // Get Scale Factor
-  double scaleFactor = (double)maxDisp/(double)currMaxDisp;
-  for(unsigned loopA=0;loopA<nodeList.size();loopA++){
-    for(int loopB=0;loopB<6;loopB++){
-      nodeList[loopA]->displacements[loopB] *= scaleFactor;
+  // Proceed if there are displacements
+  if(fabs(currMaxDisp) > kMathZero){
+    // Get Scale Factor
+    double scaleFactor = (double)maxDisp/(double)currMaxDisp;
+    for(unsigned loopA=0;loopA<nodeList.size();loopA++){
+      for(int loopB=0;loopB<6;loopB++){
+        nodeList[loopA]->displacements[loopB] *= scaleFactor;
+      }
     }
   }
 }
