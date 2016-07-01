@@ -17,6 +17,8 @@
 
 using namespace std;
 
+enum problemTypes {ptPoissonClassic,ptPPE,ptPoissonDistance};
+
 class femModel{
   public:
     vector<femNode*> nodeList;
@@ -65,6 +67,8 @@ class femModel{
     femIntVec iniNodeNumbers;
     femIntVec iniDofNumber;
     femDoubleVec iniDofValue;
+    // Problem Type
+    problemTypes problemType;
 
     // MPI Partitioning Information
     int totNodesInProc;

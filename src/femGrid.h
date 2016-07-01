@@ -23,6 +23,7 @@ public:
   void ToIndexArray(double* coord,int* index);
   // From inde Array to single index
   int IndexArrayToIndex(int idx0,int idx1,int idx2);
+  // Export to VTK Format
   void ExportToVTKLegacy(std::string fileName);
 };
 

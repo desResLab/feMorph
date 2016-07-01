@@ -3,6 +3,7 @@
 
 # include "femModel.h"
 # include "femTypes.h"
+# include "femException.h"
 
 // MAIN MATRIX CLASS
 class femMatrix{
@@ -14,6 +15,7 @@ class femMatrix{
     virtual void assemble(femDoubleMat elMat,femIntVec connections);
     virtual void blockAssemble(femDoubleBlockMat elMat,femIntVec connections);
     virtual void applyDirichelet(femIntVec dofs);
+    virtual void applyBlockDirichelet(femIntVec dofs, int dof){throw femException("Not Implemented.\n");}
     // I/O
     virtual void writeToFile(string fileName);
     virtual double getRowSum(int loopA);
@@ -38,6 +40,7 @@ class femDenseMatrix: public femMatrix{
     virtual void assemble(femDoubleMat elMat,femIntVec connections);
     virtual void blockAssemble(femDoubleBlockMat elMat,femIntVec connections);
     virtual void applyDirichelet(femIntVec dofs);
+    virtual void applyBlockDirichelet(femIntVec dofs, int dof){throw femException("Not Implemented.\n");}
     // I/O
     virtual void writeToFile(string fileName);
     virtual double getRowSum(int loopA);
@@ -63,8 +66,9 @@ class femSparseMatrix: public femMatrix{
     // VIRTUAL FUNCTIONS
     virtual void assemble(femDoubleMat elMat,femIntVec connections);
     virtual void blockAssemble(femDoubleBlockMat elMat,femIntVec connections);
-
+    // APPLY DIRICHELET BC
     virtual void applyDirichelet(femIntVec dofs);
+    virtual void applyBlockDirichelet(femIntVec dofs, int dof){throw femException("Not Implemented.\n");}
     // I/O
     virtual void writeToFile(string fileName);
     virtual double getRowSum(int loopA);

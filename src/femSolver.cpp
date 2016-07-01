@@ -327,9 +327,55 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
 }
 
 // ======================
+// EVAL DISTANCE FUNCTION
+// ======================
+void evalDistanceFromPoissonSolution(femVector* femSolution, femModel* model,femDoubleVec& cellDistance){
+  femDoubleVec shapeFunction;
+  femDoubleMat globShDeriv;
+  femDoubleVec elemSol;
+
+  double detJ = 0.0;
+  double cellSolution = 0;
+  double cellSolDeriv[3];
+  cellDistance.clear();
+  // Loop through the elements to get the global shape function derivative
+  for(size_t loopElement=0;loopElement<model->elementList.size();loopElement++){
+    // Collect Solution at element nodes
+    elemSol.clear();
+    for(int loopA=0;loopA<model->elementList[loopElement]->elementConnections.size();loopA++){
+      elemSol.push_back(femSolution->getComponent(model->elementList[loopElement]->elementConnections[loopA]));
+    }
+
+    // Eval Shape functions and their global derivatives at the cell centers
+    model->elementList[loopElement]->evalShapeFunction(model->nodeList,0.0,0.0,0.0,shapeFunction);
+    model->elementList[loopElement]->evalGlobalShapeFunctionDerivative(model->nodeList,0.0,0.0,0.0,detJ,globShDeriv);
+
+    // Assemble Cell Solution and its derivatives
+    cellSolution = 0;
+    cellSolDeriv[0] = 0.0;
+    cellSolDeriv[1] = 0.0;
+    cellSolDeriv[2] = 0.0;
+    for(int loopA=0;loopA<model->elementList[loopElement]->elementConnections.size();loopA++){
+      cellSolution    += shapeFunction[loopA] * elemSol[loopA];
+      cellSolDeriv[0] += globShDeriv[loopA][0] * elemSol[loopA];
+      cellSolDeriv[1] += globShDeriv[loopA][1] * elemSol[loopA];
+      cellSolDeriv[2] += globShDeriv[loopA][2] * elemSol[loopA];
+    }
+
+    // Assemble into cell distance
+    cellDistance.push_back(- sqrt(cellSolDeriv[0] * cellSolDeriv[0] + cellSolDeriv[1] * cellSolDeriv[1] + cellSolDeriv[2] * cellSolDeriv[2])
+                           + sqrt(cellSolDeriv[0] * cellSolDeriv[0] + cellSolDeriv[1] * cellSolDeriv[1] + cellSolDeriv[2] * cellSolDeriv[2] + 2.0 * cellSolution));
+  }
+}
+
+// ======================
 // SOLVE POISSON EQUATION
 // ======================
 void femPoissonSolver::solve(femOption* options, femModel* model){
+
+  // Set Average
+  const bool removeAVG = false;
+  femDoubleVec cellDistance;
 
   // Get Integration Rule
   femIntegrationRule* rule = new femIntegrationRule(irSecondOrder);
@@ -477,13 +523,14 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
   poissonVec->GlobalAssemble();
 #endif
 
-
   // APPLY DIRICHELET BOUNDARY CONDITIONS
-  //printf("Assembling Dirichelet...\n");
-  // Sparse Matrix
-  //poissonMat->applyDirichelet(model->diricheletBCNode);
-  // RHS Vector
-  //poissonVec->applyDirichelet(model->diricheletBCNode,model->diricheletBCValues);
+  if(model->diricheletBCNode.size() > 0){
+    printf("Assembling Dirichelet...\n");
+    // Sparse Matrix
+    poissonMat->applyBlockDirichelet(model->diricheletBCNode,0);
+    // RHS Vector
+    poissonVec->applyBlockDirichelet(model->diricheletBCNode,model->diricheletBCValues,0);
+  }
 
   // PRINT MATRIX AND VECTOR TO FILE
   //poissonMat->writeToFile(string("pMatrix.txt"));
@@ -512,16 +559,37 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
 
   // EVAL SOLUTION AVERAGE
   double solAVG = 0.0;
-  for(size_t loopA=0;loopA<solution->getSize();loopA++){      
-    // printf("Solution Comp: %f\n",solution->getComponent(loopA));
-    solAVG += solution->getComponent(loopA);
+  if(model->problemType == ptPPE){
+    for(size_t loopA=0;loopA<solution->getSize();loopA++){
+      // printf("Solution Comp: %f\n",solution->getComponent(loopA));
+      solAVG += solution->getComponent(loopA);
+    }
+    solAVG = solAVG/(double)solution->getSize();
+   printf("Solution Size: %d, Avg: %f\n",solution->getSize(),solAVG);
   }
-  solAVG = solAVG/(double)solution->getSize();
 
-  printf("Solution Size: %d, Avg: %f\n",solution->getSize(),solAVG);
+  // EVAL DISTANCE FUNCTION
+  femDoubleVec temp;
+  if(model->problemType == ptPoissonDistance){
+    // EVALUATE WALL DISTANCE FROM POISSON EQUATION
+    evalDistanceFromPoissonSolution(solution,model,cellDistance);
+    // ADD CELL DISTANCE SOLUTION
+    femResult* cellRes = new femResult();
+    cellRes->label = string("cellDistance");
+    cellRes->type = frElement;
+    cellRes->numComponents = 1;
+    // Assign to values
+    for(size_t loopA=0;loopA<cellDistance.size();loopA++){
+      temp.clear();
+      temp.push_back(cellDistance[loopA]);
+      cellRes->values.push_back(temp);
+    }
+    model->resultList.push_back(cellRes);
+    // Export Vector To File
+    femUtils::writeVectorToFile(string("cellDistance.txt"), cellDistance);
+  }
 
   // ADD SOLUTION TO MODEL RESULTS AND SUBTRACT AVERAGE
-  femDoubleVec temp;
   femResult* res = new femResult();
   res->label = string("PoissonResult");
   res->type = frNode;

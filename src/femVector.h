@@ -23,6 +23,7 @@ class femVector{
     virtual void blockAssemble(femDoubleBlockVec vec,femIntVec indices);
     virtual void GlobalAssemble();
     virtual void applyDirichelet(femIntVec diricheletBCNode,femDoubleVec diricheletBCValues);
+    virtual void applyBlockDirichelet(femIntVec diricheletBCNode, femDoubleVec diricheletBCValues, int dof){throw femException("ApplyBlockDirichelet not implemented.\n");}
     virtual void writeToFile(string fileName);
 };
 
@@ -44,6 +45,7 @@ class femDenseVector: public femVector{
     virtual void blockAssemble(femDoubleBlockVec vec,femIntVec indices);
     virtual void GlobalAssemble();
     virtual void applyDirichelet(femIntVec diricheletBCNode,femDoubleVec diricheletBCValues);
+    virtual void applyBlockDirichelet(femIntVec diricheletBCNode, femDoubleVec diricheletBCValues, int dof){throw femException("ApplyBlockDirichelet not implemented.\n");}
     virtual void writeToFile(string fileName);
 };
 

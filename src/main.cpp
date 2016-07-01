@@ -694,9 +694,9 @@ int solveIncompressibleNS(femProgramOptions* options){
   return 0;
 }
 
-// =========================
-// TEST ELEMENTS FORMULATION
-// =========================
+// ========================
+// TEST ELEMENT FORMULATION
+// ========================
 int testElementFormulation(femProgramOptions* options){
   // Create New Model
   femModel* model = new femModel();

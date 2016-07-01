@@ -41,7 +41,7 @@ class femTrilinosMatrix : public femMatrix{
     virtual void assemble(femDoubleMat nodeMat,femIntVec elConnections);
     virtual void blockAssemble(femDoubleBlockMat elMat,femIntVec connections);
     virtual void applyDirichelet(femIntVec dofs);
-    void         applyBlockDirichelet(femIntVec gNodesIdx, int dof);
+    virtual void applyBlockDirichelet(femIntVec gNodesIdx, int dof);
     // I/O
     virtual void   writeToFile(string fileName);
     virtual double getRowSum(int loopA);

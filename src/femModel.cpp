@@ -1372,20 +1372,22 @@ void femModel::ExportToVTKLegacy(std::string fileName){
 
   // Save All Other Result Data
   for(unsigned int loopA=0;loopA<resultList.size();loopA++){    
-    if(resultList[loopA]->numComponents == 1){
-      fprintf(outFile,"SCALARS %s double 1\n",resultList[loopA]->label.c_str());
-      fprintf(outFile,"LOOKUP_TABLE default\n");
-    }else if(resultList[loopA]->numComponents == 3){
-      fprintf(outFile,"VECTORS %s double\n",resultList[loopA]->label.c_str());
-    }else{
-      fclose(outFile);
-      throw femException("ERROR: Invalid number of Result Components.\n");
-    }
-    for(size_t loopB=0;loopB<resultList[loopA]->values.size();loopB++){
-      for(int loopC=0;loopC<resultList[loopA]->numComponents;loopC++){
-        fprintf(outFile,"%e ",resultList[loopA]->values[loopB][loopC]);
+    if(resultList[loopA]->type == frNode){
+      if(resultList[loopA]->numComponents == 1){
+        fprintf(outFile,"SCALARS %s double 1\n",resultList[loopA]->label.c_str());
+        fprintf(outFile,"LOOKUP_TABLE default\n");
+      }else if(resultList[loopA]->numComponents == 3){
+        fprintf(outFile,"VECTORS %s double\n",resultList[loopA]->label.c_str());
+      }else{
+        fclose(outFile);
+        throw femException("ERROR: Invalid number of Result Components.\n");
       }
-      fprintf(outFile,"\n");
+      for(size_t loopB=0;loopB<resultList[loopA]->values.size();loopB++){
+        for(int loopC=0;loopC<resultList[loopA]->numComponents;loopC++){
+          fprintf(outFile,"%e ",resultList[loopA]->values[loopB][loopC]);
+        }
+        fprintf(outFile,"\n");
+      }
     }
   }
 
@@ -1477,6 +1479,28 @@ void femModel::ExportToVTKLegacy(std::string fileName){
   for(unsigned int loopB=0;loopB<elSource.size();loopB++){
     fprintf(outFile,"%e\n",elSource[loopB]);
   }
+
+  // SAVE ALL OTHER RESULT DATA
+  for(unsigned int loopA=0;loopA<resultList.size();loopA++){
+    if(resultList[loopA]->type == frElement){
+      if(resultList[loopA]->numComponents == 1){
+        fprintf(outFile,"SCALARS %s double 1\n",resultList[loopA]->label.c_str());
+        fprintf(outFile,"LOOKUP_TABLE default\n");
+      }else if(resultList[loopA]->numComponents == 3){
+        fprintf(outFile,"VECTORS %s double\n",resultList[loopA]->label.c_str());
+      }else{
+        fclose(outFile);
+        throw femException("ERROR: Invalid number of Result Components.\n");
+      }
+      for(size_t loopB=0;loopB<resultList[loopA]->values.size();loopB++){
+        for(int loopC=0;loopC<resultList[loopA]->numComponents;loopC++){
+          fprintf(outFile,"%e ",resultList[loopA]->values[loopB][loopC]);
+        }
+        fprintf(outFile,"\n");
+      }
+    }
+  }
+
 
   // Close Output file
   fclose(outFile);
@@ -3671,6 +3695,7 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
   int currProp = 0;
   double currArea = 0.0;
   string elTypeString;
+  string probTypeString;
   int totNodes = 0;
   double currVelX = 0.0;
   double currVelY = 0.0;
@@ -3830,9 +3855,9 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
       elDiffusivity.push_back(temp);
     }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("NODEDIRBC")){
       try{
-        // Read Element Number: 1-Based
+        // Read Node Number
         bcNode = atoi(tokenizedString[1].c_str())-1;
-        // Read Coordinates
+        // Read Dirichelet Value
         bcValue = atof(tokenizedString[2].c_str());
       }catch(...){
         throw femException("ERROR: Invalid Element Diffusivity Format.\n");
@@ -3854,11 +3879,24 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
       sourceValues.push_back(sourceValue);
     }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("NODEDOF")){
       try{
-        // Read Element Number: 1-Based
+        // Read total Number of DOFs for this problem
         maxNodeDofs = atoi(tokenizedString[1].c_str());
       }catch(...){
         throw femException("ERROR: Invalid NODEDOF Option Format.\n");
       }
+    }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("PROBLEM")){
+        // Problem Type
+        boost::trim(tokenizedString[1]);
+        probTypeString = boost::to_upper_copy(tokenizedString[1]);
+        if(probTypeString == string("POISSON")){
+          problemType = ptPoissonClassic;
+        }else if(probTypeString == string("DISTANCE")){
+          problemType = ptPoissonDistance;
+        }else if(probTypeString == string("PPE")){
+          problemType = ptPPE;
+        }else{
+          throw femException("ERROR: Invalid PROBLEM Type.\n");
+        }
     }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("TIMESTEP")){
       try{
         // Read Time Step

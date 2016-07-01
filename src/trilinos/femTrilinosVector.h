@@ -41,6 +41,7 @@ public:
   virtual void blockAssemble(femDoubleBlockVec vec,femIntVec indices);
   virtual void GlobalAssemble();
   virtual void applyDirichelet(femIntVec diricheletBCNode,femDoubleVec diricheletBCValues);
+  virtual void applyBlockDirichelet(femIntVec diricheletBCNode,femDoubleVec diricheletBCValues,int dof);
   virtual void writeToFile(string fileName);
 
 };

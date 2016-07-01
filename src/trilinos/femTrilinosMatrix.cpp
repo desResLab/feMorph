@@ -96,44 +96,75 @@ void  femTrilinosMatrix::blockAssemble(femDoubleBlockMat nodeMat, femIntVec elCo
 
 // SET ALL THE EXTRADIAGONALS TO 0.0 AND DIAGONALS TO 1.0
 void  femTrilinosMatrix::applyBlockDirichelet(femIntVec gNodesIdx,int dof){
+
   // Convert Vector to int*
   int currNodeRow = 0;
   int currNodeCol = 0;
   int rowDOFs = 0;
   int NumColumnBlockEntries = 0;
-  int* BlockIndices = NULL;
+  int* ColBlockIndices = NULL;
   int* ColDims = NULL;
-  bool SumInto = false;
-  double* currBlock = NULL;
   double newValues[nodeDOFs*nodeDOFs];
+  int test = 0;
+
+  // Get Max Number of Block Columns Entries
+  int MaxNumBlockEntries = values->GlobalMaxNumBlockEntries();
+
+  // Allocate Column Indexes and Dimensions
+  ColBlockIndices = new int[MaxNumBlockEntries];
+  ColDims         = new int[MaxNumBlockEntries];
+
   // Loop on the Block Entries
   // Loop on Row
   for(size_t loopA=0;loopA<gNodesIdx.size();loopA++){
+
+    // Set Current Row
     currNodeRow = gNodesIdx[loopA];
+
+    // Start Extracting Global Rows - Get the indices of the available column blocks
+    test = values->BeginExtractGlobalBlockRowCopy(currNodeRow,MaxNumBlockEntries,rowDOFs,NumColumnBlockEntries,ColBlockIndices,ColDims);
+
     // Start Inserting Values in epetra block FE Matrix
-    values->BeginInsertGlobalValues(currNodeRow,(int)gNodesIdx.size(),&gNodesIdx[0]);
-    // Start Extracting Global Rows
-    values->BeginExtractGlobalBlockRowCopy (currNodeRow,nodeDOFs*nodeDOFs,rowDOFs,NumColumnBlockEntries,BlockIndices,ColDims);
-    values->ExtractEntryCopy(NumColumnBlockEntries * nodeDOFs*nodeDOFs,currBlock,nodeDOFs,SumInto);
+    test = values->BeginReplaceGlobalValues(currNodeRow,NumColumnBlockEntries,ColBlockIndices);
+
     // Loop on Column
     for(size_t loopB=0;loopB<NumColumnBlockEntries;loopB++){
-      currNodeCol = BlockIndices[loopA];
-      // Change Values
-      for(int loopC=0;loopC<nodeDOFs;loopC++){
-        for(int loopD=0;loopD<nodeDOFs;loopD++){
-          newValues[loopC*nodeDOFs + loopD] = currBlock[loopB*nodeDOFs*nodeDOFs + loopC*nodeDOFs + loopD];
+      // Get current global node index
+      currNodeCol = ColBlockIndices[loopB];
+
+      if(currNodeRow != currNodeCol){
+        // Extradiagonal should be zero
+        for(int loopC=0;loopC<nodeDOFs;loopC++){
+          for(int loopD=0;loopD<nodeDOFs;loopD++){
+            newValues[loopC*nodeDOFs + loopD] = 0.0;
+          }
+        }
+      }else{
+        // Diagonal Block
+        for(int loopC=0;loopC<nodeDOFs;loopC++){
+          for(int loopD=0;loopD<nodeDOFs;loopD++){
+            if(loopC == loopD){
+              newValues[loopC*nodeDOFs + loopD] = 1.0;
+            }else{
+              newValues[loopC*nodeDOFs + loopD] = 0.0;
+            }
+          }
         }
       }
-      // Insert New Values
       // Assign Entries to this block
       values->SubmitBlockEntry(newValues,nodeDOFs,nodeDOFs,nodeDOFs);
     }
     // Finish submitting block row entries
     values->EndSubmitEntries();
   }
+  // Free
+  delete [] ColBlockIndices;
+  delete [] ColDims;
 }
 
+// ======================================================
 // APPLY DIRICHELET CONDITIONS ON MATRIX: NOT IMPLEMENTED
+// ======================================================
 void  femTrilinosMatrix::applyDirichelet(femIntVec dofs){
   throw femException("Not Implemented.\n");
 }

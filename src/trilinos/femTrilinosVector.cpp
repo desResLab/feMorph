@@ -52,10 +52,7 @@ double femTrilinosVector::getComponent(int id){
 void femTrilinosVector::setComponent(int id, double entry){
   int currBlock = id / nodeDOFs;
   int currIndex = id % nodeDOFs;
-  double** pointer;
-  values->ExtractView(&pointer);
-  // Set Data
-  pointer[currBlock][currIndex] = entry;
+  values->ReplaceGlobalValue(currBlock,currIndex,entry);
 }
 
 // ADD COMPONENT TO A VECTOR
@@ -105,6 +102,11 @@ void femTrilinosVector::blockAssemble(femDoubleBlockVec vec,femIntVec indices){
 
 // APPLY DIRICHELET BOUNDARY CONDITIONS
 void femTrilinosVector::applyDirichelet(femIntVec diricheletBCNode,femDoubleVec diricheletBCValues){
+  throw femException("applyDirichelet not implemented for Trilinos Vectors.\n");
+}
+
+// APPLY DIRICHELET BOUNDARY CONDITIONS TO BLOCK MATRIX
+void femTrilinosVector::applyBlockDirichelet(femIntVec diricheletBCNode,femDoubleVec diricheletBCValues,int dof){
   int currIdx = 0.0;
   double currVal = 0.0;
   // Loop through the Nodes
@@ -112,9 +114,7 @@ void femTrilinosVector::applyDirichelet(femIntVec diricheletBCNode,femDoubleVec 
     currIdx = diricheletBCNode[loopA];
     currVal = diricheletBCValues[loopA];
     // Loop through the entries for every node
-    for(size_t loopB=0;loopB<nodeDOFs;loopB++){
-      values->ReplaceGlobalValue(currIdx,loopB,currVal);
-    }
+    values->ReplaceGlobalValue(currIdx,dof,currVal);
   }
 }
 

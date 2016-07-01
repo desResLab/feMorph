@@ -501,6 +501,21 @@ inline void WriteGraphToFile(std::string fileName, int vecSize, std::vector<doub
     fclose(outFile);
 }
 
+// ====================
+// WRITE VECTOR TO FILE
+// ====================
+inline void writeVectorToFile(std::string fileName, femDoubleVec vec){
+  // Open Output File
+  FILE* outFile;
+  outFile = fopen(fileName.c_str(),"w");
+  // Write Header
+  for(int loopA=0;loopA<vec.size();loopA++){
+    fprintf(outFile,"%25.10e\n",vec[loopA]);
+  }
+  // Close Output file
+  fclose(outFile);
+}
+
 // =====================================
 // CHECK IF A POINT IS INSIDE THE LIMITS
 // =====================================

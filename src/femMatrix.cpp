@@ -1,8 +1,6 @@
 # include <algorithm>
 
 # include "femMatrix.h"
-# include "femException.h"
-
 
 femMatrix::femMatrix(){
 }
