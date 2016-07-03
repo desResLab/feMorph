@@ -1454,9 +1454,11 @@ void femModel::ExportToVTKLegacy(std::string fileName){
   }
 
   // PRINT DIFFUSIVITY
-  fprintf(outFile,"VECTORS diffusivity double\n");
-  for(unsigned int loopA=0;loopA<elDiffusivity.size();loopA++){
-    fprintf(outFile,"%e %e %e\n",elDiffusivity[loopA][0],elDiffusivity[loopA][1],elDiffusivity[loopA][2]);
+  if(elDiffusivity.size() > 0){
+    fprintf(outFile,"VECTORS diffusivity double\n");
+    for(unsigned int loopA=0;loopA<elDiffusivity.size();loopA++){
+      fprintf(outFile,"%e %e %e\n",elDiffusivity[loopA][0],elDiffusivity[loopA][1],elDiffusivity[loopA][2]);
+    }
   }
 
   /*fprintf(outFile,"SCALARS cell_scalars int 1\n");

@@ -9,6 +9,8 @@
 #include "femProgramOptions.h"
 #include "femSolver.h"
 #include "femIncompressibleSolver.h"
+#include "femFFDOptions.h"
+#include "femPointGrid.h"
 
 #ifdef USE_TRILINOS
 
@@ -725,6 +727,52 @@ int testElementFormulation(femProgramOptions* options){
   return 0;
 }
 
+// =========================
+// RUN FREE-FORM DEFORMATION
+// =========================
+int runFFD(femProgramOptions* options){
+
+  // Read FFD Input File
+  femFFDOptions* ffdOpts = new femFFDOptions();
+  ffdOpts->readFromFile(options->inputFileName);
+
+  // Read VTK Model
+  femModel* model = new femModel();
+
+  // Create Model Sequence From File
+  model->ReadFromVTKLegacy(ffdOpts->inputFileName);
+
+  // Create the vector of FFD PointGrids
+  std::vector<femPointGrid*> ffdGrids;
+  for(int loopA=0;loopA<ffdOpts->ffdData.size();loopA++){
+
+    // Create a new FFD Grid with the data from file
+    femPointGrid* ffdGrid = new femPointGrid(ffdOpts->ffdData[loopA].minPoint,
+                                             ffdOpts->ffdData[loopA].totPoints,
+                                             ffdOpts->ffdData[loopA].gridAxis_S,
+                                             ffdOpts->ffdData[loopA].gridAxis_T,
+                                             ffdOpts->ffdData[loopA].gridAxis_U,
+                                             ffdOpts->ffdData[loopA].dispNodes,
+                                             ffdOpts->ffdData[loopA].dispVals);
+
+    // Add to the collection of FFD Transformations
+    ffdGrids.push_back(ffdGrid);
+  }
+
+  // Apply the deformations on the model
+  string outGrid("bernsteinGrid_");
+  for(int loopA=0;loopA<ffdGrids.size();loopA++){
+    ffdGrids[loopA]->morphModel(model);
+    ffdGrids[loopA]->ExportToVTKLegacy(outGrid + to_string(loopA+1) + string(".vtk"));
+  }
+
+  // Export Model to VTK
+  model->ExportToVTKLegacy(options->outputFileName);
+
+  // Return OK
+  return 0;
+}
+
 // ============
 // ============
 // MAIN PROGRAM
@@ -784,6 +832,9 @@ int main(int argc, char **argv){
         break;
       case rmTESTELEMENTS:
         val = testElementFormulation(options);
+        break;
+      case rmFFD:
+        val = runFFD(options);
         break;
     }
   }catch (std::exception& ex){

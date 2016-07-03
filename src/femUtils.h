@@ -86,6 +86,13 @@ inline double Do3DInternalProduct(double* v1, double* v2){
   return v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2];
 }
 
+// Mixed Product
+inline double Do3DMixedProduct(double* v1, double* v2, double* v3){
+  double v12[3];
+  Do3DExternalProduct(v1,v2,v12);
+  return Do3DInternalProduct(v12,v3);
+}
+
 // =================================
 // SORT INTEGER VECTOR - BUBBLE SORT
 // =================================
