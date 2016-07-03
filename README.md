@@ -1,7 +1,6 @@
-
+### feMorph Application
 
 ### How to Install
-
 
 #### Prerequisites
 
@@ -74,4 +73,6 @@ An **index.html** document will be created in the **docs/build/html** folder.
 
 To run the Poisson Pressure Equation solver and export the results in VTK format, use the following command
 
-  feMorph -z -f input.dat -o output.vtk
+```
+feMorph -z -f input.dat -o output.vtk
+```
