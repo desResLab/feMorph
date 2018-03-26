@@ -11,7 +11,7 @@
 
 #ifdef USE_CSPARSE
 extern "C" {
-#include "cs.h"
+#include "csparse.h"
 }
 #endif
 
@@ -62,27 +62,27 @@ femVector* femSolver::solveLinearSystem(femSparseMatrix* lhs,femDenseVector* rhs
   // Set Sparse Ordering AMD
   int sparseOrdering = 1;
   // Init Matrix
-  cs A;
+  cs* A;
   // Fill Matrix in Compressed Column Mode
   int totDofs = lhs->totCols;
   int totNonZeros = lhs->rowPtr.size();
-  A.nzmax = totNonZeros;
-  A.m = lhs->totCols;
-  A.n = lhs->totCols;
+  A->nzmax = totNonZeros;
+  A->m = lhs->totCols;
+  A->n = lhs->totCols;
 
   // Assign Matrix Structure
-  A.p = new long int[totDofs+1];
+  A->p = new int[totDofs+1];
   double* b = new double[totDofs];
-  A.i = new long int[totNonZeros];
-  A.x = new double[totNonZeros];
+  A->i = new int[totNonZeros];
+  A->x = new double[totNonZeros];
   for(int loopA=0;loopA<totDofs+1;loopA++){
-    A.p[loopA] = lhs->diagPtr[loopA];
+    A->p[loopA] = lhs->diagPtr[loopA];
   }
   for(int loopA=0;loopA<totNonZeros;loopA++){
-    A.i[loopA] = lhs->rowPtr[loopA];
-    A.x[loopA] = lhs->values[loopA];
+    A->i[loopA] = lhs->rowPtr[loopA];
+    A->x[loopA] = lhs->values[loopA];
   }
-  A.nz = -1;
+  A->nz = -1;
   // Copy rhs in PCorr
   for(int loopA=0;loopA<totDofs;loopA++){
     b[loopA] = rhs->values[loopA];
@@ -94,7 +94,8 @@ femVector* femSolver::solveLinearSystem(femSparseMatrix* lhs,femDenseVector* rhs
   // }
 
   // Solve system
-  int ok = cs_lusol(sparseOrdering,&A,b,tol);
+
+  int ok = cs_lusol(A,b,sparseOrdering,tol);
   if (ok == 0){
     std::string errorMsg("Error: Cannot Solve Linear System\n");
     throw femException(errorMsg.c_str());

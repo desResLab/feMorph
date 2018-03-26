@@ -15,7 +15,7 @@ IF(useTrilinos)
 ENDIF()
 
 # Add Compilation Flags
-SET( SCH_FLAGS "-O3" )
+SET( SCH_FLAGS "-O3 -std=c++0x" )
 SET( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${SCH_FLAGS}" )
 SET( CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${SCH_FLAGS}" )
 
@@ -24,20 +24,15 @@ SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # Add CSparse Include and Lib Folder
 IF(useCSparse)
-  # INCLUDE_DIRECTORIES("." "/home/danschi/Documents/23_Libraries/SuiteSparse/CSparse/Include")
-  # LINK_DIRECTORIES("/home/danschi/Documents/23_Libraries/SuiteSparse/CSparse/Lib")
-  INCLUDE_DIRECTORIES("." "/Users/danschi/Documents/03_software/12_CSparse/Include")
-  LINK_DIRECTORIES("/Users/danschi/Documents/03_software/12_CSparse/Lib")
+  AUX_SOURCE_DIRECTORY(${CMAKE_SOURCE_DIR}/src/csparse SRC_CSPARSE)
+  INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/src/csparse)
+  SET(SRC_LIST ${SRC_LIST} ${SRC_CSPARSE})
 ENDIF()
 
 ADD_EXECUTABLE(${PROJECT_NAME} ${SRC_LIST})
 
 IF(useMPI)
   TARGET_LINK_LIBRARIES(${PROJECT_NAME} mpich)
-ENDIF()
-
-IF(useCSparse)
-  TARGET_LINK_LIBRARIES(${PROJECT_NAME} csparse)
 ENDIF()
 
 IF(useTrilinos)
