@@ -61,8 +61,9 @@ femVector* femSolver::solveLinearSystem(femSparseMatrix* lhs,femDenseVector* rhs
   double tol = 1.0e-12;
   // Set Sparse Ordering AMD
   int sparseOrdering = 1;
+
   // Init Matrix
-  cs* A;
+  cs* A = new cs();
   // Fill Matrix in Compressed Column Mode
   int totDofs = lhs->totCols;
   int totNonZeros = lhs->rowPtr.size();
