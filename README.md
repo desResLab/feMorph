@@ -16,28 +16,22 @@ One of the following linear algebra packages:
 - Trilinos (the MPI library needs to be also installed).
 - Armadillo.
 
-First, clone the git repository in a local folder
+First, clone the git repository in a local folder. Then create a directory for out-of-source build (e.g., bin)
 
 ```
-git clone git@marsdenfileserver1.stanford.edu:schiopaz/femorph-application.git
-```
-
-Create a directory for out-of-source build (e.g., feBin)
-
-```
-mkdir feBin
+mkdir bin
 ```
 
 Enter this folder
 
 ```
-cd feBin
+cd bin
 ```
 
 run ccmake with the following command (you can alternative use the cmake GUI): 
 
 ```
-ccmake ../femorph-application/
+ccmake ../feMorph/
 ```
 
 and set the following options:
