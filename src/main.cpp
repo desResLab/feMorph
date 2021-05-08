@@ -445,6 +445,12 @@ int computeModelWSS(femProgramOptions* options){
   // Create Model Sequence From File
   model->ReadFromVTKLegacy(options->inputFileName);
 
+  // Write Message with total nodes and elements read
+  printf("\n");
+  printf("--- Total nodes found: %d\n",int(model->nodeList.size()));
+  printf("--- Total elements found: %d\n",int(model->elementList.size()));
+  printf("\n");
+
   // Fix Connectivities
   model->FixedElementConnectivities();
 
@@ -452,7 +458,9 @@ int computeModelWSS(femProgramOptions* options){
   model->FormElementFaceList();
 
   // Compute wall shear stresses
-  model->ComputeWSS();
+  // Units are assumed in CGS
+  double viscosity = 0.04;
+  model->ComputeWSS(viscosity);
 
   // Export to VTK
   model->ExportToVTKLegacy(options->outputFileName);

@@ -185,10 +185,10 @@ void femModelSequence::ComputeResultStatistics(bool computeSD){
 // ===========
 // COMPUTE WSS
 // ===========
-void femModelSequence::ComputeWSS(){
+void femModelSequence::ComputeWSS(double viscosity){
   for(size_t loopA=0;loopA<models.size();loopA++){
     femUtils::WriteMessage(std::string("Computing WSS for model ") + femUtils::intToStr(loopA+1) + "\n");
-    models[loopA]->ComputeWSS();
+    models[loopA]->ComputeWSS(viscosity);
   }
 }
 

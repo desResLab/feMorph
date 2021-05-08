@@ -1380,6 +1380,7 @@ void femModel::ExportToVTKLegacy(std::string fileName){
         fprintf(outFile,"VECTORS %s double\n",resultList[loopA]->label.c_str());
       }else{
         fclose(outFile);
+        printf("Result Name: %s, components: %d\n",resultList[loopA]->label.c_str(),resultList[loopA]->numComponents);
         throw femException("ERROR: Invalid number of Result Components.\n");
       }
       for(size_t loopB=0;loopB<resultList[loopA]->values.size();loopB++){
@@ -3112,6 +3113,10 @@ void femModel::ReadModelResultsFromVTKFile(std::string fileName){
       resY->type = frNode;
       resZ->type = frNode;
       resMOD->type = frNode;
+      resX->numComponents = 1;
+      resY->numComponents = 1;
+      resZ->numComponents = 1;
+      resMOD->numComponents = 1;
 
       // Loop until you get totResult values
       finished = false;
@@ -3328,11 +3333,12 @@ void femModel::copyModelVelocitiesToVector(std::vector<std::vector<double> > &ve
 // ===========================
 // COMPUTE WALL SHEAR STRESSES
 // ===========================
-void femModel::ComputeWSS(){
+void femModel::ComputeWSS(double viscosity){
 
   // Declare
   int currElement = 0;
   femDoubleMat velocity;
+  femDoubleVec tmp;
 
   // Shape Function Global Derivatives
   femDoubleMat shDerivs(4,std::vector<double>(3));
@@ -3366,8 +3372,43 @@ void femModel::ComputeWSS(){
   // Get Velocity Vector for the complete mesh
   copyModelVelocitiesToVector(velocity);
 
-  // Get Viscosity: IMPORTANT !!!
-  double viscosity = 0.004;
+  // Add New Velocity Gradient Result
+  femResult* velGradRes = new femResult();
+  velGradRes->label = std::string("VelGrad");
+  velGradRes->type = frElement;
+  velGradRes->numComponents = 3;
+
+  // Test Compute and export the velocity gradient
+  for(size_t loopA=0;loopA<elementList.size();loopA++){
+
+    // Eval the shape function derivatives and Jacobian
+    elementList[loopA]->evalGlobalShapeFunctionDerivative(nodeList,1.0/4.0,1.0/4.0,1.0/4.0,Jacobian,shDerivs);
+    if(Jacobian<0.0){
+      printf("Element %d, Jacobian: %e\n",currElement,Jacobian);
+      throw femException("INTERNAL: Negative Jacobian!\n");
+    }
+
+    // Get the velocity gradient
+    for(int loopB=0;loopB<kDims;loopB++){
+      for(int loopC=0;loopC<kDims;loopC++){
+        // Loop Through the element Nodes
+        velGrad[loopB][loopC] = 0.0;
+        for (int loopD=0;loopD<elementList[loopA]->numberOfNodes;loopD++){
+          // Get Velocity at node
+          currNode = elementList[loopA]->elementConnections[loopD];
+          velGrad[loopB][loopC] += shDerivs[loopD][loopC]*velocity[currNode][loopB];
+        }
+      }
+    }
+
+    tmp.clear();
+    tmp.push_back(velGrad[2][0]);
+    tmp.push_back(velGrad[2][1]);
+    tmp.push_back(velGrad[2][2]);
+    velGradRes->values.push_back(tmp);
+  }
+
+  resultList.push_back(velGradRes);
 
   // Loop on the Model Faces
   for(size_t loopA=0;loopA<faceList.size();loopA++){
@@ -3379,8 +3420,9 @@ void femModel::ComputeWSS(){
       currElement = faceList[loopA]->faceElements[0];
 
       // Eval the shape function derivatives and Jacobian
-      elementList[currElement]->evalGlobalShapeFunctionDerivative(nodeList,0.25,0.25,0.25,Jacobian,shDerivs);
+      elementList[currElement]->evalGlobalShapeFunctionDerivative(nodeList,1.0/4.0,1.0/4.0,1.0/4.0,Jacobian,shDerivs);
       if(Jacobian<0.0){
+        printf("Element %d, Jacobian: %e\n",currElement,Jacobian);
         throw femException("INTERNAL: Negative Jacobian!\n");
       }
 
@@ -3464,41 +3506,17 @@ void femModel::ComputeWSS(){
   // Write Message
   femUtils::WriteMessage(std::string("Storing Results...\n"));
 
-
-  /*// Add New Results for WSSX
+  // Add New Results for WSSX
   femResult* res = new femResult();
-  res->label = std::string("WSSX");
+  res->label = std::string("WSS");
   res->type = frNode;
+  res->numComponents = 3;
   for(size_t loopA=0;loopA<nodeList.size();loopA++){
-    res->values.push_back(globalShearStressesVector[loopA][0]);
-  }
-  resultList.push_back(res);
-  // Add New Results for WSSY
-  res = new femResult();
-  res->label = std::string("WSSY");
-  res->type = frNode;
-  for(size_t loopA=0;loopA<nodeList.size();loopA++){
-    res->values.push_back(globalShearStressesVector[loopA][1]);
-  }
-  resultList.push_back(res);
-  // Add New Results for WSSZ
-  res = new femResult();
-  res->label = std::string("WSSZ");
-  res->type = frNode;
-  for(size_t loopA=0;loopA<nodeList.size();loopA++){
-    res->values.push_back(globalShearStressesVector[loopA][2]);
-  }
-  resultList.push_back(res);
-  */
-  // Add New Results for WSSMOD
-  femDoubleVec temp;
-  femResult* res = new femResult();
-  res->label = std::string("WSSMOD");
-  res->type = frNode;
-  for(size_t loopA=0;loopA<nodeList.size();loopA++){
-    temp.clear();
-    temp.push_back(globalShearStressesModule[loopA]);
-    res->values.push_back(temp);
+    tmp.clear();
+    for(size_t loopB=0;loopB<res->numComponents;loopB++){
+      tmp.push_back(globalShearStressesVector[loopA][loopB]);
+    }
+    res->values.push_back(tmp);
   }
   resultList.push_back(res);
   /*
@@ -3517,14 +3535,19 @@ void femModel::ComputeWSS(){
 // FIX ELEMENT CONNECTIVITIES
 // ==========================
 void femModel::FixedElementConnectivities(){
+  // double newDetJ;
   // Use Sedcond Order Integration Rule
   femIntegrationRule* rule = new femIntegrationRule(irSecondOrder);
   double minDetJ = std::numeric_limits<double>::max();
   for(size_t loopA=0;loopA<elementList.size();loopA++){
+    // printf("Checking element %d\n",int(loopA));
     minDetJ = elementList[loopA]->checkMinDetJ(nodeList,rule);
     if(minDetJ<=0.0){
-      //printf("FLIPPED %f \n",minDetJ);
       elementList[loopA]->fixConnectivities(nodeList);
+      // newDetJ = elementList[loopA]->checkMinDetJ(nodeList,rule);
+      // printf("Element %d Fixed, was %e is %e\n",int(loopA),minDetJ,newDetJ);
+      // printf("Volume divided by 6 is: %e\n",elementList[loopA]->EvalVolume(0.0,nodeList)/6.0);
+      // exit(-1);
     }
   }
   // Free

@@ -220,7 +220,7 @@ class femModel{
     // Check If Two model have compatible Boxes
     bool isModelCompatible(femModel* other,double tolerance);
     // Calculate Wall Shear Stresses
-    void ComputeWSS();
+    void ComputeWSS(double viscosity);
     // Calculate Wall Shear Stresses Gradients
     void ComputeWSSGradients();
     // Apply Parametric Displacements

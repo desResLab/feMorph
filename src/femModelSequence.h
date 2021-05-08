@@ -18,7 +18,7 @@ class femModelSequence{
     // IO
     void ReadFromWeightedListFile(std::string fileName);
     // COMPUTE WALL SHEAR STRESSES
-    void ComputeWSS();
+    void ComputeWSS(double viscosity);
     // COMPUTE AV AND SD
     void ComputeResultStatistics(bool computeSD);
     void FixedElementConnectivities();

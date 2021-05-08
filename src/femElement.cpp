@@ -88,7 +88,6 @@ double femElement::checkMinDetJ(std::vector<femNode*> &nodeList, femIntegrationR
   return minDetJ;
 }
 
-
 // =====================================
 // VIRTUAL FUNCTIONS FOR FINITE ELEMENTS
 // =====================================
@@ -102,20 +101,24 @@ void femElement::evalLocalShapeFunctionDerivative(std::vector<femNode*> &nodeLis
 // ====================
 // EVAL JACOBIAN MATRIX
 // ====================
-void evalJacobianMatrixLocal(int numberOfNodes, femDoubleMat elNodeCoords, femDoubleMat shLocalDerivs, elDim dims, femDoubleMat &jacMat){
-  jacMat.resize(kDims);
-  for(int loopA=0;loopA<kDims;loopA++){
-    jacMat[loopA].resize(kDims);
-  }
+void evalJacobianMatrixLocal(int numberOfNodes, const femDoubleMat& elNodeCoords, const femDoubleMat& shLocalDerivs, elDim dims, femDoubleMat& jacMat){
+  
   // Assemble Jacobian Matrix
+  double temp = 0.0;
+  femDoubleVec row;
+  jacMat.clear();
   for(int loopA=0;loopA<kDims;loopA++){
+    row.clear();
     for(int loopB=0;loopB<kDims;loopB++){
-      jacMat[loopA][loopB] = 0.0;
+      temp = 0.0;
       for(int loopC=0;loopC<numberOfNodes;loopC++){
-        jacMat[loopA][loopB] += shLocalDerivs[loopC][loopB] * elNodeCoords[loopC][loopA];
+        temp += shLocalDerivs[loopC][loopA] * elNodeCoords[loopC][loopB];
       }
+      row.push_back(temp);
     }
+    jacMat.push_back(row);
   }
+
   // Put one on the diagonal for 1D and 2D problems
   if(dims == d2){
     // CAREFULL - IT DEPENDS ON THE PLANE OF ELEMENT DEFINITION
@@ -129,19 +132,8 @@ void evalJacobianMatrixLocal(int numberOfNodes, femDoubleMat elNodeCoords, femDo
 void femElement::evalJacobianMatrix(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3, elDim dims, femDoubleMat &jacMat){
 
   // Compute Node Coordinate Vector
-  int currNode = 0;
   femDoubleMat elNodeCoords;
-  elNodeCoords.resize(8);
-  for(int loopA=0;loopA<numberOfNodes;loopA++){
-    elNodeCoords[loopA].resize(kDims);
-  }
-  for(int loopA=0;loopA<numberOfNodes;loopA++){
-    currNode = elementConnections[loopA];
-    for(int loopB=0;loopB<kDims;loopB++){
-      elNodeCoords[loopA][loopB] = nodeList[currNode]->coords[loopB];
-      printf("Curr Coord: %f",nodeList[currNode]->coords[loopB]);
-    }
-  }
+  getElementNodeCoords(nodeList,elNodeCoords);
 
   // Compute Local Derivatives
   femDoubleMat shLocalDerivs;
@@ -159,18 +151,8 @@ double femElement::evalJacobian(std::vector<femNode*> &nodeList, double coord1, 
   bool printJac = false;
 
   // Compute Node Coordinate Vector
-  int currNode = 0;
   femDoubleMat elNodeCoords;
-  elNodeCoords.resize(numberOfNodes);
-  for(int loopA=0;loopA<numberOfNodes;loopA++){
-    elNodeCoords[loopA].resize(kDims);
-  }
-  for(int loopA=0;loopA<numberOfNodes;loopA++){
-    currNode = elementConnections[loopA];
-    for(int loopB=0;loopB<kDims;loopB++){
-      elNodeCoords[loopA][loopB] = nodeList[currNode]->coords[loopB];
-    }
-  }
+  getElementNodeCoords(nodeList,elNodeCoords);
 
   // Compute Local Derivatives
   femDoubleMat shLocalDerivs;
@@ -211,18 +193,8 @@ void femElement::evalGeometricMatrix(std::vector<femNode*> &nodeList,
                                      double coord1, double coord2, double coord3,
                                      femDoubleMat& elGeomMat){
   // Compute Node Coordinate Vector
-  int currNode = 0;
   femDoubleMat elNodeCoords;
-  elNodeCoords.resize(numberOfNodes);
-  for(int loopA=0;loopA<numberOfNodes;loopA++){
-    elNodeCoords[loopA].resize(kDims);
-  }
-  for(int loopA=0;loopA<numberOfNodes;loopA++){
-    currNode = elementConnections[loopA];
-    for(int loopB=0;loopB<kDims;loopB++){
-      elNodeCoords[loopA][loopB] = nodeList[currNode]->coords[loopB];
-    }
-  }
+  getElementNodeCoords(nodeList,elNodeCoords);
 
   // Compute Local Derivatives
   femDoubleMat shLocalDerivs;
@@ -300,32 +272,21 @@ double evalQuadraticTau(double timeStep, femDoubleMat elGeomMat,femDoubleVec vel
 void femElement::evalGlobalShapeFunctionDerivative(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3, double& detJ, femDoubleMat &globShDeriv){
 
   // Flag to print shape functions
-  bool printSF = false;
   bool printJAC = false;
 
   // Compute Node Coordinate Vector
-  int currNode = 0;
   femDoubleMat elNodeCoords;
-  elNodeCoords.resize(numberOfNodes);
-  for(int loopA=0;loopA<numberOfNodes;loopA++){
-    elNodeCoords[loopA].resize(kDims);
-  }
-  for(int loopA=0;loopA<numberOfNodes;loopA++){
-    currNode = elementConnections[loopA];
-    for(int loopB=0;loopB<kDims;loopB++){
-      elNodeCoords[loopA][loopB] = nodeList[currNode]->coords[loopB];
-    }
-  }
+  getElementNodeCoords(nodeList,elNodeCoords);
 
   // Compute Local Derivatives
   femDoubleMat shLocalDerivs;
   evalLocalShapeFunctionDerivative(nodeList,coord1,coord2,coord3,shLocalDerivs);
 
   // Print Shape Functions if requested
-  if(printSF){
-    printf("Local Shape Functions\n");
+  if(false){
+    printf("Local Shape Function Derivatives\n");
     for(int loopA=0;loopA<numberOfNodes;loopA++){
-      printf("Node %d, dx: %f, dy: %f, dz: %f\n",loopA,shLocalDerivs[loopA][0],shLocalDerivs[loopA][1],shLocalDerivs[loopA][2]);
+      printf("Node %d, dN/dx: %f, dN/dy: %f, dN/dz: %f\n",loopA,shLocalDerivs[loopA][0],shLocalDerivs[loopA][1],shLocalDerivs[loopA][2]);
     }
     printf("\n");
   }
@@ -333,6 +294,14 @@ void femElement::evalGlobalShapeFunctionDerivative(std::vector<femNode*> &nodeLi
   // Compute Jacobian Matrix
   femDoubleMat jacMat;
   evalJacobianMatrixLocal(numberOfNodes,elNodeCoords,shLocalDerivs,dims,jacMat);
+
+  if(printJAC){
+    printf("Jacobian Mat\n");
+    for(int loopA=0;loopA<kDims;loopA++){
+      printf("%12.3f %12.3f %12.3f\n",jacMat[loopA][0],jacMat[loopA][1],jacMat[loopA][2]);
+    }
+    printf("\n");
+  }
 
   // Invert Jacobian Matrix
   femDoubleMat invJacMat;
@@ -342,9 +311,23 @@ void femElement::evalGlobalShapeFunctionDerivative(std::vector<femNode*> &nodeLi
     femUtils::invert3x3Matrix(jacMat,invJacMat,detJ);
   }
 
+  if(false){
+    double temp = 0.0;
+    printf("Check Inverse\n");
+    for(int loopA=0;loopA<kDims;loopA++){
+      for(int loopB=0;loopB<kDims;loopB++){
+        temp = 0.0;
+        for(int loopC=0;loopC<kDims;loopC++){
+          temp += jacMat[loopA][loopC] * invJacMat[loopC][loopB];
+        }
+        printf("%f ",temp);
+      }
+      printf("\n");
+    }
+  }
 
   if(printJAC){
-    printf("Inv Jacobian\n");
+    printf("Inv Jacobian Mat\n");
     for(int loopA=0;loopA<kDims;loopA++){
       printf("%12.3f %12.3f %12.3f\n",invJacMat[loopA][0],invJacMat[loopA][1],invJacMat[loopA][2]);
     }
@@ -809,14 +792,17 @@ void femTri3::evalShapeFunction(std::vector<femNode*> &nodeList, double coord1, 
 void femTri3::evalLocalShapeFunctionDerivative(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3, femDoubleMat &shapeDeriv){
   femDoubleVec temp;
   // Third Component Set to Zero: CHECK!!!
+  temp.clear();
   temp.push_back(1.0);
   temp.push_back(0.0);
   temp.push_back(0.0);
   shapeDeriv.push_back(temp);
+  temp.clear();
   temp.push_back(0.0);
   temp.push_back(1.0);
   temp.push_back(0.0);
   shapeDeriv.push_back(temp);
+  temp.clear();
   temp.push_back(-1.0);
   temp.push_back(-1.0);
   temp.push_back(0.0);
@@ -1864,3 +1850,16 @@ void femElement::formNS_RHS(std::vector<femNode*> &nodeList,
 
 
 
+void  femElement::getElementNodeCoords(const std::vector<femNode*>& nodeList,femDoubleMat& nodeCoords){
+  long currNode;
+  femDoubleVec tmp;
+  nodeCoords.clear();
+  for(int loopA=0;loopA<numberOfNodes;loopA++){
+    tmp.clear();
+    currNode = elementConnections[loopA];
+    for(int loopB=0;loopB<kDims;loopB++){
+      tmp.push_back(nodeList[currNode]->coords[loopB]);
+    }
+    nodeCoords.push_back(tmp);
+  }
+}

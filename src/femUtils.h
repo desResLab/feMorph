@@ -45,12 +45,11 @@ inline void WriteMessage(std::string m){
 // ========================
 inline void WriteAppHeader(){
   WriteMessage("\n");
-  WriteMessage("------------------------------------\n");
+  WriteMessage("------------------------\n");
   WriteMessage("FEM Morphing Application\n");
-  WriteMessage("Alpha Release 0.5\n");
-  WriteMessage("Daniele Schiavazzi Ph.D., 2015\n");
-  WriteMessage("University of California, San Diego\n");
-  WriteMessage("------------------------------------\n");
+  WriteMessage("Daniele E. Schiavazzi\n");
+  WriteMessage("University of Notre Dame\n");
+  WriteMessage("------------------------\n");
   WriteMessage("\n");
 }
 
@@ -648,39 +647,60 @@ inline std::string extractFileName(std::string fullPath){
 }
 
 // INVERT 3x3 MATRIX
-inline void invert3x3Matrix(femDoubleMat mat,femDoubleMat &invMat, double &detJ){
-  double a11 = mat[0][0];
-  double a12 = mat[0][1];
-  double a13 = mat[0][2];
-  double a21 = mat[1][0];
-  double a22 = mat[1][1];
-  double a23 = mat[1][2];
-  double a31 = mat[2][0];
-  double a32 = mat[2][1];
-  double a33 = mat[2][2];
-  double A11 = a22 * a33 - a23 * a32;
-  double A22 = a33 * a11 - a31 * a13;
-  double A33 = a11 * a22 - a12 * a21;
-  double A12 = a23 * a31 - a21 * a33;
-  double A23 = a31 * a12 - a32 * a11;
-  double A31 = a12 * a23 - a13 * a22;
-  double A21 = a32 * a13 - a12 * a33;
-  double A32 = a13 * a21 - a23 * a11;
-  double A13 = a21 * a22 - a31 * a22;
-  detJ = a11 * A11 + a12 * A21 + a13 * A31;
+inline void invert3x3Matrix(femDoubleMat m,femDoubleMat &invMat, double &detJ){
+
+  double m00 = m[0][0];
+  double m01 = m[0][1];
+  double m02 = m[0][2];
+  double m10 = m[1][0];
+  double m11 = m[1][1];
+  double m12 = m[1][2];
+  double m20 = m[2][0];
+  double m21 = m[2][1];
+  double m22 = m[2][2];
+
+  // computes the inverse of a matrix m
+  detJ = m00 * (m11 * m22 - m21 * m12) -
+         m01 * (m10 * m22 - m12 * m20) +
+         m02 * (m10 * m21 - m11 * m20);
+
+  double invdet = 1 / detJ;
+
   invMat.resize(kDims);
   for(int loopA=0;loopA<kDims;loopA++){
     invMat[loopA].resize(kDims);
   }
-  invMat[0][0] = A11/detJ;
-  invMat[0][1] = A12/detJ;
-  invMat[0][2] = A13/detJ;
-  invMat[1][0] = A21/detJ;
-  invMat[1][1] = A22/detJ;
-  invMat[1][2] = A23/detJ;
-  invMat[2][0] = A31/detJ;
-  invMat[2][1] = A32/detJ;
-  invMat[2][2] = A33/detJ;
+
+  // Matrix33d minv; // inverse of matrix m
+  invMat[0][0] = (m11 * m22 - m21 * m12) * invdet;
+  invMat[0][1] = (m02 * m21 - m01 * m22) * invdet;
+  invMat[0][2] = (m01 * m12 - m02 * m11) * invdet;
+  invMat[1][0] = (m12 * m20 - m10 * m22) * invdet;
+  invMat[1][1] = (m00 * m22 - m02 * m20) * invdet;
+  invMat[1][2] = (m10 * m02 - m00 * m12) * invdet;
+  invMat[2][0] = (m10 * m21 - m20 * m11) * invdet;
+  invMat[2][1] = (m20 * m01 - m00 * m21) * invdet;
+  invMat[2][2] = (m00 * m11 - m10 * m01) * invdet;
+
+  // double A11 = a22 * a33 - a23 * a32;
+  // double A22 = a33 * a11 - a31 * a13;
+  // double A33 = a11 * a22 - a12 * a21;
+  // double A12 = a23 * a31 - a21 * a33;
+  // double A23 = a31 * a12 - a32 * a11;
+  // double A31 = a12 * a23 - a13 * a22;
+  // double A21 = a32 * a13 - a12 * a33;
+  // double A32 = a13 * a21 - a23 * a11;
+  // double A13 = a21 * a22 - a31 * a22;
+  // detJ = a11 * A11 + a12 * A21 + a13 * A31;
+  // invMat[0][0] = A11/detJ;
+  // invMat[0][1] = A12/detJ;
+  // invMat[0][2] = A13/detJ;
+  // invMat[1][0] = A21/detJ;
+  // invMat[1][1] = A22/detJ;
+  // invMat[1][2] = A23/detJ;
+  // invMat[2][0] = A31/detJ;
+  // invMat[2][1] = A32/detJ;
+  // invMat[2][2] = A33/detJ;
 }
 
 // HYPERBOLIC COTANGENT

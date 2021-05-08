@@ -16,7 +16,6 @@ enum intRuleType{irFirstOrder,irSecondOrder};
 
 // Normal Matrices and Vectors
 typedef vector<vector<double> > femDoubleMat;
-typedef vector<vector<double> > femDoubleMat;
 typedef vector<vector<int> > femIntMat;
 typedef vector<double> femDoubleVec;
 typedef vector<int> femIntVec;

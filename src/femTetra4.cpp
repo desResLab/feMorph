@@ -123,13 +123,100 @@ double femTetra4::EvalVolume(double dispFactor, std::vector<femNode*> &nodeList)
   return EvalTetVolumeFromCoordMat(coordMat);
 }
 
+bool validNodeArrangement(int nodeNum, const femDoubleMat& nodeCoords){
+  int node1,node2,node3;
+  if(nodeNum == 0){
+    node1 = 1;
+    node2 = 2;
+    node3 = 3;
+  }else if(nodeNum == 1){
+    node1 = 2;
+    node2 = 3;
+    node3 = 0;
+  }else if(nodeNum == 2){
+    node1 = 3;
+    node2 = 0;
+    node3 = 1;
+  }else if(nodeNum == 3){
+    node1 = 0;
+    node2 = 1;
+    node3 = 2;
+  }
+
+  femDoubleVec v1;
+  femDoubleVec v2;
+  femDoubleVec v3;
+  for(int loopA=0;loopA<3;loopA++){
+    v1.push_back(nodeCoords[node2][loopA]-nodeCoords[node1][loopA]);
+    v2.push_back(nodeCoords[node3][loopA]-nodeCoords[node1][loopA]);
+    v3.push_back(nodeCoords[nodeNum][loopA]-nodeCoords[node1][loopA]);
+  }
+  return (femUtils::Do3DMixedProduct(v1.data(),v2.data(),v3.data()) > 0.0);
+}
+
 // =================================================
 // SWAP ELEMENT NODES TO RESTORE A POSITIVE JACOBIAN
 // =================================================
 void femTetra4::fixConnectivities(std::vector<femNode*> &nodeList){
-  int temp = elementConnections[1];
-  elementConnections[1] = elementConnections[2];
-  elementConnections[2] = temp;
+
+  int temp;
+
+  if(true){
+
+    // Fix connectivities
+    int temp = elementConnections[1];
+    elementConnections[1] = elementConnections[0];
+    elementConnections[0] = temp;
+
+  }else{
+
+    int node1,node2;
+    // Get element node coordinates
+    femDoubleMat nodeCoords;
+    getElementNodeCoords(nodeList,nodeCoords);
+
+    bool isValidElement = false;
+    bool isValidNode = false;
+    while(!isValidElement){
+
+      isValidElement = true;
+      for(int loopA=0;loopA<numberOfNodes;loopA++){
+
+        isValidNode = validNodeArrangement(loopA,nodeCoords);
+
+        if(!isValidNode){
+
+          if(loopA == 0){
+            node1 = 2;
+            node2 = 3;
+          }else if(loopA == 1){
+            node1 = 2;
+            node2 = 3;
+          }else if(loopA == 2){
+            node1 = 1;
+            node2 = 3;
+          }else if(loopA == 3){
+            node1 = 1;
+            node2 = 2;
+          }
+
+          // Fix connectivities
+          int temp = elementConnections[node2];
+          elementConnections[node2] = elementConnections[node1];
+          elementConnections[node1] = temp;
+
+          // Update nodal coordinates
+          getElementNodeCoords(nodeList,nodeCoords);
+        }
+
+        isValidNode = validNodeArrangement(loopA,nodeCoords);
+
+        isValidElement = isValidElement && isValidNode;
+      }
+    }
+
+  }
+
 }
 
 // ========================================
@@ -222,14 +309,17 @@ void femTetra4::evalLocalShapeFunctionDerivative(std::vector<femNode*> &nodeList
   temp.push_back(0.0);
   temp.push_back(0.0);
   shapeDeriv.push_back(temp);
+  temp.clear();
   temp.push_back(0.0);
   temp.push_back(1.0);
   temp.push_back(0.0);
   shapeDeriv.push_back(temp);
+  temp.clear();
   temp.push_back(0.0);
   temp.push_back(0.0);
   temp.push_back(1.0);
   shapeDeriv.push_back(temp);
+  temp.clear();
   temp.push_back(-1.0);
   temp.push_back(-1.0);
   temp.push_back(-1.0);

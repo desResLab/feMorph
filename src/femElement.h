@@ -8,6 +8,7 @@
 # include "femTypes.h"
 # include "femIntegrationRule.h"
 # include "femTime.h"
+# include "femUtils.h"
 
 // GENERIC ELEMENT
 class femElement{
@@ -42,6 +43,9 @@ class femElement{
     double evalJacobian(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3);
     void   evalGlobalShapeFunctionDerivative(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3, double& detJ, femDoubleMat &globShDeriv);
     void   evalGeometricMatrix(std::vector<femNode*> &nodeList, double coord1, double coord2, double coord3,femDoubleMat& elGeomMat);
+    void   getElementNodeCoords(const std::vector<femNode*>& nodeList,femDoubleMat& nodeCoords);
+
+
 
     // Temporary
     void getBCCoords(double bcCoord1, double bcCoord2, double bcCoord3,
