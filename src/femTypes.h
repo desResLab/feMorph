@@ -23,4 +23,6 @@ typedef vector<int> femIntVec;
 typedef vector<vector<vector<double> > > femDoubleBlockMat;
 typedef vector<vector<double> > femDoubleBlockVec;
 
+typedef unsigned long int ulint;
+
 #endif // FEMTYPES_H

@@ -9,6 +9,7 @@
 #include "femProgramOptions.h"
 #include "femSolver.h"
 #include "femIncompressibleSolver.h"
+#include "femGPUFluidSolver.h"
 #include "femFFDOptions.h"
 #include "femPointGrid.h"
 
@@ -781,6 +782,29 @@ int runFFD(femProgramOptions* options){
   return 0;
 }
 
+
+// =============================
+// SOLVE EXPLICIT NAVIER-STOCKES 
+// =============================
+int solveExplicitNS(femProgramOptions* options){
+
+  // Create New Model
+  femModel* model = new femModel();
+
+  // Read Model From Text File
+  model->ReadFromFEMTextFile(options->inputFileName);
+
+  // CREATE NEW STEADY STATE ADVECTION-DIFFUSION SOLVER
+  femGPUFluidSolver* exNS = new femGPUFluidSolver();
+
+  // SOLVE PROBLEM
+  exNS->solve(model);
+
+  // Return
+  return 0;
+}
+
+
 // ============
 // ============
 // MAIN PROGRAM
@@ -844,6 +868,9 @@ int main(int argc, char **argv){
       case rmFFD:
         val = runFFD(options);
         break;
+      case rmEXPLICITNS:
+        val = solveExplicitNS(options);
+        break;        
     }
   }catch (std::exception& ex){
     femUtils::WriteMessage(std::string(ex.what()));

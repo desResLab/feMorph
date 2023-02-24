@@ -4298,3 +4298,41 @@ void femModel::getModelNodalTopology(femIntVec& diagPtr,femIntVec& rowPtr){
   }
 
 }
+
+// ===================
+// PRESCIBE VELOCITIES
+// ===================
+void femModel::prescribeNodeVels(double currTime,femDoubleMat& solution){
+  // Rotating Velocities for HW3
+  double nodeX = 0.0;
+  double nodeY = 0.0;
+  if(prescribedVelType == 0){
+    for(size_t loopA=0;loopA<nodeList.size();loopA++){
+      nodeX = nodeList[loopA]->coords[0];
+      nodeY = nodeList[loopA]->coords[1];
+      solution[loopA][0] = cos(M_PI * currTime / 8.0) * sin(2.0 * M_PI * nodeY) * sin(M_PI * nodeX) * sin(M_PI * nodeX);
+      solution[loopA][1] = -cos(M_PI * currTime / 8.0) * sin(2.0 * M_PI * nodeX) * sin(M_PI * nodeY) * sin(M_PI * nodeY);
+      solution[loopA][2] = 0.0;
+    }
+  }else if(prescribedVelType == 1){
+    // Constant Velocity equal to the prescribed velocity
+    // Assume all the Element Velocities are Specified
+    for(size_t loopA=0;loopA<nodeList.size();loopA++){
+        nodeX = nodeList[loopA]->coords[0];
+        nodeY = nodeList[loopA]->coords[1];
+        solution[loopA][0] =  sin(M_PI * nodeX) * cos(M_PI * nodeY);
+        solution[loopA][1] = -cos(M_PI * nodeX) * sin(M_PI * nodeY);
+        solution[loopA][2] = 0.0;
+    }
+  }else if(prescribedVelType == 2){
+    // Constant Velocity equal to the prescribed velocity
+    // Assume all the Element Velocities are Specified
+    for(size_t loopA=0;loopA<nodeList.size();loopA++){
+      solution[loopA][0] = elVelocity[loopA][0];
+      solution[loopA][1] = elVelocity[loopA][1];
+      solution[loopA][2] = elVelocity[loopA][2];
+    }
+  }
+}
+
+

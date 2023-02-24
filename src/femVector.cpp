@@ -45,6 +45,10 @@ void femVector::writeToFile(string fileName){
   throw femException("Not Implemented.\n");
 }
 
+void femVector::setToValue(double value){
+  throw femException("Not Implemented.\n");
+}
+
 // ================
 // FEM DENSE VECTOR
 // ================
@@ -115,3 +119,10 @@ void femVector::addComponent(int id, double entry){
 void femDenseVector::addComponent(int id, double entry){
   values[id] += entry;
 }
+
+void femDenseVector::setToValue(double value){
+  for(ulint loopA=0;loopA<getSize();loopA++){
+    values[loopA] = value;
+  }
+}
+

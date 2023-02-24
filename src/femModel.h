@@ -163,10 +163,11 @@ class femModel{
     bool IsInsideLimits(double* nodeCoords);
     bool CheckNormalCompatibility(int firstElement, int secondElement, double angleLimit);
 
-    // =====================================
-    // ASSIGMENT OF BOUNDARY FLOW CONDITIONS
-    // =====================================
+    // ==================================================
+    // ASSIGMENT OF INITIAL/BOUNDARY/TIME FLOW CONDITIONS
+    // ==================================================
     void CreateBoundaryConditionFile(std::string inputFile);
+    void prescribeNodeVels(double currTime,femDoubleMat& solution);
 
     // ===============
     // MODEL ENQUIRIES

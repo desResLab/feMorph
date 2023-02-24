@@ -8,6 +8,7 @@ public:
     int nodeNumber;
     double coords[3];
     double displacements[6];
+    double force[3];
     // Constructor and Destructor
     femNode(int number, double coordX, double coordY, double coordZ);
     femNode(int number, double* coords, double* disps);

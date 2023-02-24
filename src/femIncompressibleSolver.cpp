@@ -14,42 +14,6 @@
 femIncompressibleSolver::femIncompressibleSolver(){
 }
 
-// ===================
-// PRESCIBE VELOCITIES
-// ===================
-void prescribeNodeVels(femModel* model, int prescribedVelType,double currTime,femDoubleMat& solution){
-  // Rotating Velocities for HW3
-  double nodeX = 0.0;
-  double nodeY = 0.0;
-  if(prescribedVelType == 0){
-    for(size_t loopA=0;loopA<model->nodeList.size();loopA++){
-      nodeX = model->nodeList[loopA]->coords[0];
-      nodeY = model->nodeList[loopA]->coords[1];
-      solution[loopA][0] = cos(M_PI * currTime / 8.0) * sin(2.0 * M_PI * nodeY) * sin(M_PI * nodeX) * sin(M_PI * nodeX);
-      solution[loopA][1] = -cos(M_PI * currTime / 8.0) * sin(2.0 * M_PI * nodeX) * sin(M_PI * nodeY) * sin(M_PI * nodeY);
-      solution[loopA][2] = 0.0;
-    }
-  }else if(prescribedVelType == 1){
-    // Constant Velocity equal to the prescribed velocity
-    // Assume all the Element Velocities are Specified
-    for(size_t loopA=0;loopA<model->nodeList.size();loopA++){
-        nodeX = model->nodeList[loopA]->coords[0];
-        nodeY = model->nodeList[loopA]->coords[1];
-        solution[loopA][0] =  sin(M_PI * nodeX) * cos(M_PI * nodeY);
-        solution[loopA][1] = -cos(M_PI * nodeX) * sin(M_PI * nodeY);
-        solution[loopA][2] = 0.0;
-    }
-  }else if(prescribedVelType == 2){
-    // Constant Velocity equal to the prescribed velocity
-    // Assume all the Element Velocities are Specified
-    for(size_t loopA=0;loopA<model->nodeList.size();loopA++){
-      solution[loopA][0] = model->elVelocity[loopA][0];
-      solution[loopA][1] = model->elVelocity[loopA][1];
-      solution[loopA][2] = model->elVelocity[loopA][2];
-    }
-  }
-}
-
 // ===========================================
 // PERFORM ONE INCOMPRESSIBLE NS STEP IN TIME
 // ===========================================
@@ -332,7 +296,7 @@ void setInitialConditions(femModel* model, femDoubleMat& solution,femDoubleMat& 
   }
 
   // Prescribe Initial Velocities
-  prescribeNodeVels(model,model->prescribedVelType,0.0,solution);
+  model->prescribeNodeVels(0.0,solution);
 
 }
 
@@ -454,7 +418,7 @@ void femIncompressibleSolver::solve(femModel* model){
 
           // Use prescribed velocities
           printf("Update Velocities...");
-          prescribeNodeVels(model,model->prescribedVelType,currentTime,solution_n);
+          model->prescribeNodeVels(currentTime,solution_n);
           printf("Done.\n");
 
         }else{

@@ -17,6 +17,8 @@ class femVector{
     virtual double getComponent(int id);
     virtual void setComponent(int id, double entry);
     virtual void addComponent(int id, double entry);
+    // Set to value
+    virtual void setToValue(double value);
 
     // ASSEMBLE IN DENSE COLUMN FORMAT
     virtual void assemble(femDoubleVec vec,femIntVec indices);
@@ -39,6 +41,9 @@ class femDenseVector: public femVector{
     virtual double getComponent(int id);
     virtual void setComponent(int id, double entry);
     virtual void addComponent(int id, double entry);
+
+    // SET TO VALUE
+    virtual void setToValue(double value);
 
     // ASSEMBLE IN DENSE COLUMN FORMAT
     virtual void assemble(femDoubleVec vec,femIntVec indices);
