@@ -178,6 +178,7 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
 
     // One DOF per Node in Advection Diffusion
     int nodeDOFs = 1;
+    femDoubleVec temp;
 
     // Get Integration Rule
     femIntegrationRule* rule = new femIntegrationRule(irSecondOrder);
@@ -290,8 +291,12 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
       printf("Assembling Strong Boundary Conditions...\n");
       // Sparse Matrix
       advDiffMat->applyDirichelet(model->diricheletBCNode);
-      // RHS Vector
-      advDiffVec->applyDirichelet(model->diricheletBCNode,model->diricheletBCValues);
+      // RHS Vector      
+      for(ulint loopA=0;loopA<model->diricheletBCNode.size();loopA++){
+        temp.clear();
+        temp.push_back(model->diricheletBCValues[loopA][0]);
+      }
+      advDiffVec->applyDirichelet(model->diricheletBCNode,temp);
     }
 
     // PRINT LHS MATRIX
@@ -313,7 +318,6 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
 #endif
 
     // ADD SOLUTION TO MODEL RESULTS
-    femDoubleVec temp;
     femResult* res = new femResult();
     res->label = string("AdvDiffResult");
     res->type = frNode;
@@ -378,6 +382,7 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
   // Set Average
   const bool removeAVG = false;
   femDoubleVec cellDistance;
+  femDoubleVec temp;
 
   // Get Integration Rule
   femIntegrationRule* rule = new femIntegrationRule(irSecondOrder);
@@ -531,7 +536,11 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
     // Sparse Matrix
     poissonMat->applyBlockDirichelet(model->diricheletBCNode,0);
     // RHS Vector
-    poissonVec->applyBlockDirichelet(model->diricheletBCNode,model->diricheletBCValues,0);
+    temp.clear();
+    for(ulint loopA=0;loopA<model->diricheletBCNode.size();loopA++){
+      temp.push_back(model->diricheletBCValues[loopA][0]);
+    }
+    poissonVec->applyBlockDirichelet(model->diricheletBCNode,temp,0);
   }
 
   // PRINT MATRIX AND VECTOR TO FILE
@@ -571,7 +580,6 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
   }
 
   // EVAL DISTANCE FUNCTION
-  femDoubleVec temp;
   if(model->problemType == ptPoissonDistance){
     // EVALUATE WALL DISTANCE FROM POISSON EQUATION
     evalDistanceFromPoissonSolution(solution,model,cellDistance);

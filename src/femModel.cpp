@@ -157,6 +157,7 @@ void femModel::ReadDirBCFromFile(std::string fileName, bool skipFirstRow, bool n
   // Read Data From File
   std::string buffer;
   std::vector<string> tokenizedString;
+  femDoubleVec temp;
   // Initialize
   int lineCount = 0;
   int bcNode = 0;
@@ -189,7 +190,9 @@ void femModel::ReadDirBCFromFile(std::string fileName, bool skipFirstRow, bool n
 
       // Add to source Nodes and Values
       diricheletBCNode.push_back(bcNode);
-      diricheletBCValues.push_back(bcValue);
+      temp.clear();
+      temp.push_back(bcValue);
+      diricheletBCValues.push_back(temp);
     }
   }
 
@@ -1399,7 +1402,7 @@ void femModel::ExportToVTKLegacy(std::string fileName){
     dirBC[loopA] = 0.0;
   }
   for(size_t loopA=0;loopA<diricheletBCNode.size();loopA++){
-    dirBC[diricheletBCNode[loopA]] = diricheletBCValues[loopA];
+    dirBC[diricheletBCNode[loopA]] = diricheletBCValues[loopA][0];
   }
   fprintf(outFile,"SCALARS dirBC double 1\n");
   fprintf(outFile,"LOOKUP_TABLE default\n");
@@ -3722,6 +3725,11 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
   string elTypeString;
   string probTypeString;
   int totNodes = 0;
+  int velNode = 0;
+  double velX = 0.0;
+  double velY = 0.0;
+  double velZ = 0.0;
+  double veltime = 0.0;
   double currVelX = 0.0;
   double currVelY = 0.0;
   double currVelZ = 0.0;
@@ -3729,7 +3737,9 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
   double diffY = 0.0;
   double diffZ = 0.0;
   int bcNode = 0;
-  double bcValue = 0.0;
+  double bcValueX = 0.0;
+  double bcValueY = 0.0;
+  double bcValueZ = 0.0;
   double sourceValue = 0.0;
   femIntVec tmp;
   double elBCVal = 0.0;
@@ -3741,6 +3751,8 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
   int currDof = 0;
   double currValue = 0.0;
   double dofValue = 0.0;
+  double vmsDensity = 0.0;
+  double vmsViscosity = 0.0;
 
   // Read Data From File
   std::string buffer;
@@ -3883,13 +3895,53 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
         // Read Node Number
         bcNode = atoi(tokenizedString[1].c_str())-1;
         // Read Dirichelet Value
-        bcValue = atof(tokenizedString[2].c_str());
+        bcValueX = atof(tokenizedString[2].c_str());
+        if(tokenizedString.size() > 3){
+          // Multiple degrees of freedom
+          bcValueY = atof(tokenizedString[3].c_str());
+          bcValueZ = atof(tokenizedString[4].c_str());
+        }else{
+          bcValueY = 0.0;
+          bcValueZ = 0.0;
+        }
       }catch(...){
-        throw femException("ERROR: Invalid Element Diffusivity Format.\n");
+        throw femException("ERROR: Invalid NODEDIRBC Format.\n");
       }
       // Add to source Nodes and Values
       diricheletBCNode.push_back(bcNode);
-      diricheletBCValues.push_back(bcValue);
+      if(tokenizedString.size() == 3){
+        temp.clear();
+        temp.push_back(bcValueX);
+        diricheletBCValues.push_back(temp);
+      }else{
+        temp.clear();
+        temp.push_back(bcValueX);
+        temp.push_back(bcValueY);
+        temp.push_back(bcValueZ);
+        diricheletBCValues.push_back(temp);
+      }
+    }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("NODEVEL")){
+      try{
+        // Read Node Number
+        velNode = atoi(tokenizedString[1].c_str())-1;
+        // Read Node Velocities
+        velX = atof(tokenizedString[2].c_str());
+        velY = atof(tokenizedString[3].c_str());
+        velZ = atof(tokenizedString[4].c_str());
+        // Read Node Velocity Time
+        veltime = atof(tokenizedString[4].c_str());
+      }catch(...){
+        throw femException("ERROR: Invalid NODEDIRBC Format.\n");
+      }
+      // Add to source Nodes and Values
+      velNodesID.push_back(bcNode);
+      temp.clear();
+      temp.push_back(velX);
+      temp.push_back(velY);
+      temp.push_back(velZ);
+      temp.push_back(veltime);
+      velNodesVals.push_back(temp);
+
     }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("ELSOURCE")){
       try{
         // Read Element Number: 1-Based
@@ -3897,7 +3949,7 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
         // Read Coordinates
         sourceValue = atof(tokenizedString[2].c_str());
       }catch(...){
-        throw femException("ERROR: Invalid Element Diffusivity Format.\n");
+        throw femException("ERROR: Invalid ELSOURCE Format.\n");
       }
       // Add to source Nodes and Values
       sourceElement.push_back(currElNumber);
@@ -3919,6 +3971,8 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
           problemType = ptPoissonDistance;
         }else if(probTypeString == string("PPE")){
           problemType = ptPPE;
+        }else if(probTypeString == string("EXPLICITVMS")){
+          problemType = ptExplicitVMS;
         }else{
           throw femException("ERROR: Invalid PROBLEM Type.\n");
         }
@@ -3951,7 +4005,7 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
           solStages.push_back(atoi(tokenizedString[loopA].c_str()));
         }
       }catch(...){
-        throw femException("ERROR: Invalid STAGES Option Format.\n");
+        throw femException("ERROR: Invalid STAGES Format.\n");
       }
     }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("PRESCRIBEDVEL")){
       try{
@@ -3960,7 +4014,7 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
         // Read Time Step
         prescribedVelType = atof(tokenizedString[1].c_str());
       }catch(...){
-        throw femException("ERROR: Invalid PRESCRIBEDVEL Option Format.\n");
+        throw femException("ERROR: Invalid PRESCRIBEDVEL Format.\n");
       }
     }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("INI")){
       try{
@@ -3977,6 +4031,19 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
       iniNodeNumbers.push_back(currentNodeNumber);
       iniDofNumber.push_back(currDof);
       iniDofValue.push_back(dofValue);
+    }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("VMSPROPS")){
+      try{
+        // Read Node Number
+        vmsDensity = atof(tokenizedString[1].c_str()) -1;
+        // Read degree of freedom for initial condition
+        vmsViscosity = atof(tokenizedString[2].c_str());
+      }catch(...){
+        throw femException("ERROR: Invalid VMSPROPS Format.\n");
+      }
+      // Add to storage vectors
+      vmsProps.clear();
+      vmsProps.push_back(vmsDensity);
+      vmsProps.push_back(vmsViscosity);
     }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("FACENEUMANN")){
         try{
           // Read Node Number
@@ -3988,7 +4055,7 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
           }
           currValue = atof(tokenizedString[tokenizedString.size()-1].c_str());
         }catch(...){
-          throw femException("ERROR: Invalid Neumann Face Format.\n");
+          throw femException("ERROR: Invalid FACENEUMANN Format.\n");
         }
         // Add to storage vectors
         neumannBCElement.push_back(currentElNumber);
@@ -4178,6 +4245,7 @@ femModel* femModel::CreatePartition(int numPartitions){
   }else{
     throw femException("Mesh Partitioning not implemented!!!\n");
   }
+  return NULL;
 }
 #endif
 

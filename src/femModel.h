@@ -17,7 +17,7 @@
 
 using namespace std;
 
-enum problemTypes {ptPoissonClassic,ptPPE,ptPoissonDistance};
+enum problemTypes {ptPoissonClassic,ptPPE,ptPoissonDistance,ptExplicitVMS};
 
 class femModel{
   public:
@@ -40,11 +40,16 @@ class femModel{
     femDoubleMat elDiffusivity;
     // Element Density
     femDoubleVec elDensity;
+    // Properties for explicit VMS Solver
+    femDoubleVec vmsProps;
     // Element Viscosity
     femDoubleVec elViscosity;
     // Dirichelet BC Array
     femIntVec diricheletBCNode;
-    femDoubleVec diricheletBCValues;
+    vector<femDoubleVec> diricheletBCValues;
+    // Node Velocity Array
+    femIntVec velNodesID;
+    vector<femDoubleVec> velNodesVals;
     // Neumann BC Array
     femIntVec neumannBCElement;
     femIntMat neumannBCFaceNodes;

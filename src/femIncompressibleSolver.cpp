@@ -25,6 +25,7 @@ void advanceNavierStokes(long loopStep, double currTime,
                          femVector* sol){
   // Set Scheme Flag
   int schemeType = 0;
+  femDoubleVec temp;
 
   // Print Step Info
   printf("Incompressible NS Step %d, Current Time: %f\n",(int)(loopStep+1),currTime);
@@ -107,7 +108,11 @@ void advanceNavierStokes(long loopStep, double currTime,
   // Sparse Matrix
   nsLHS->applyDirichelet(model->diricheletBCNode);
   // RHS Vector
-  nsRHS->applyDirichelet(model->diricheletBCNode,model->diricheletBCValues);
+  for(ulint loopA=0;loopA<model->diricheletBCNode.size();loopA++){
+    temp.clear();
+    temp.push_back(model->diricheletBCValues[loopA][0]);
+  }
+  nsRHS->applyDirichelet(model->diricheletBCNode,temp);
 
   // SOLVE LINEAR SYSTEM OF EQUATIONS AND COMPUTE VARIABLE INCREMENT
   printf("Solution...");
@@ -140,6 +145,7 @@ void advanceAdvectionDiffusion(long loopStep, double currTime,
   double alphaM = model->alphaM;
   double alphaF = model->alphaF;
   double gamma = model->gamma;
+  femDoubleVec temp;
 
   // Get Integration Rule
   femIntegrationRule* rule = new femIntegrationRule(irSecondOrder);
@@ -243,7 +249,11 @@ void advanceAdvectionDiffusion(long loopStep, double currTime,
       // Sparse Matrix
       advDiffMat->applyDirichelet(model->diricheletBCNode);
       // RHS Vector
-      advDiffVec->applyDirichelet(model->diricheletBCNode,model->diricheletBCValues);
+      temp.clear();
+      for(ulint loopA=0;loopA<model->diricheletBCNode.size();loopA++){
+        temp.push_back(model->diricheletBCValues[loopA][0]);
+      }
+      advDiffVec->applyDirichelet(model->diricheletBCNode,temp);
     }
 
     // PRINT LHS MATRIX

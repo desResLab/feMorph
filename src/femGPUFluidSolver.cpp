@@ -314,7 +314,7 @@ void apply_drchBC(femModel* model,femDoubleMat& sol)
   {
     for (ulint loopB = 0; loopB < 3; loopB++)
     {
-      sol[model->diricheletBCNode[loopA]][loopB] = model->diricheletBCValues[loopA*3+loopB];
+      sol[model->diricheletBCNode[loopA]][loopB] = model->diricheletBCValues[loopA][loopB];
     }
   }
 }
@@ -348,6 +348,8 @@ void femGPUFluidSolver::solve(femModel* model){
   for(uint loopElement=0;loopElement<totElements;loopElement++){
     initial_assemble(loopElement, model,
                      volumes,DNs,lumpLHS);
+
+   // NEED TO UPDATE THE SUBSCALE VELOCITY AND PRESSURE!!!!
   }
 
   // =========

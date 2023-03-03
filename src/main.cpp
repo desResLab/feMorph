@@ -622,7 +622,7 @@ int solveMPISteadyStateAdvectionDiffusionEquation(femProgramOptions* options){
   double GIDVal[totDirBC];
   for(int loopA=0;loopA<totDirBC;loopA++){
     GIDs[loopA] = model->diricheletBCNode[loopA];
-    GIDVal[loopA] = model->diricheletBCValues[loopA];
+    GIDVal[loopA] = model->diricheletBCValues[loopA][0];
   }
   rhs.ReplaceGlobalValues(totDirBC,GIDs,GIDVal);
 
