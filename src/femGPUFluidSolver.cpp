@@ -182,16 +182,20 @@ void assemble_RHS(const long iElm, femModel *model,
         {
             // Get subgrid velocities in a matrix format (row - node; column - X,Y,Z)
             sdu[i][j] = sdus[(i*3+j)*nElms+iElm];
+
             // Get forcing in matrix format (row - node; column - X,Y,Z)
             f[i][j] = model->nodeList[nodeIds[i]]->force[j];
             
             // Update velocity predictor
             hdu[i][j] = 1.5*sol_n[nodeIds[i]][j] - 0.5*sol_prev[nodeIds[i]][j];
+
             // Update convective velocity with predictor plus subscale
             ha[i][j] = hdu[i][j] + sdu[i][j];
         }
+
         // Update pressure predictor
         hp[i] = 1.5*sol_n[nodeIds[i]][3] - 0.5*sol_prev[nodeIds[i]][3];
+
     }
 
     // Get element volume
@@ -262,7 +266,6 @@ void assemble_RHS(const long iElm, femModel *model,
             }
         }
 
-
         // Assemble for each point.
         for (uint a = 0; a < 4; ++a)
         {
@@ -307,18 +310,6 @@ void assemble_RHS(const long iElm, femModel *model,
     }
 }
 
-// APPLY DIRICHLET BC
-void apply_drchBC(femModel* model,femDoubleMat& sol)
-{
-  for (ulint loopA = 0; loopA < model->diricheletBCNode.size(); loopA++)
-  {
-    for (ulint loopB = 0; loopB < 3; loopB++)
-    {
-      sol[model->diricheletBCNode[loopA]][loopB] = model->diricheletBCValues[loopA][loopB];
-    }
-  }
-}
-
 // SOLVE INCOMPRESSIBLE NS WITH ADVECTION STEP
 void femGPUFluidSolver::solve(femModel* model){
 
@@ -344,9 +335,13 @@ void femGPUFluidSolver::solve(femModel* model){
   // Avoids non-zero velocities at the wall
   model->setDirichletBC(sol_n);
 
-  // for(ulint loopA=0;loopA<sol_n.size();loopA++){
-  //   printf("%ld %f %f %f %f\n",loopA,sol_n[loopA][0],sol_n[loopA][1],sol_n[loopA][2],sol_n[loopA][3]);
-  // }
+  // COPY PREVIOUS SOLUTION
+  // Update previous solution
+  for(ulint loopNode=0;loopNode<totNodes;loopNode++){
+    for(ulint loopDof=0;loopDof<model->maxNodeDofs;loopDof++){
+      sol_prev[loopNode][loopDof] = sol_n[loopNode][loopDof];
+    }
+  }
 
   // CREATE MODEL RESULTS
   // Create Result for Solution
@@ -380,7 +375,7 @@ void femGPUFluidSolver::solve(femModel* model){
   // ASSMBLE ELEMENT QTY
   femDoubleVec volumes(totElements,0.0);
   femDoubleVec DNs(totElements*model->maxNodeDofs*3,0.0);
-  femDoubleVec sdus(totNodes*model->maxNodeDofs,0.0);
+  femDoubleVec sdus(totElements*model->maxNodeDofs*3,0.0);
   femDoubleVec params(totNodes*model->maxNodeDofs,0.0);
   femDoubleMat lumpLHS;
   femUtils::matZeros(lumpLHS,totNodes,model->maxNodeDofs);
@@ -396,6 +391,9 @@ void femGPUFluidSolver::solve(femModel* model){
   // =========
   long saveCounter = 0;
   for(uint loopTime=0;loopTime<model->totalSteps;loopTime++){
+
+    // Update current time
+    currentTime += model->timeStep;
       
     // Set RHS to zero
     for(ulint loopA=0;loopA<totNodes;loopA++){
@@ -406,6 +404,7 @@ void femGPUFluidSolver::solve(femModel* model){
 
     // Assemble element contribution in global RHS vector
     for(ulint loopElement=0;loopElement<totElements;loopElement++){
+
       assemble_RHS(loopElement,model,
                    volumes,DNs,
                    sol_n,sol_prev,
@@ -434,9 +433,6 @@ void femGPUFluidSolver::solve(femModel* model){
         sol_prev[loopNode][loopDof] = sol_n[loopNode][loopDof];
       }
     }
-
-    printf("Eccolo\n");
-    fflush(stdout);
 
     // SAVE RESULTS
     if(saveCounter == model->saveEvery){      
@@ -471,17 +467,13 @@ void femGPUFluidSolver::solve(femModel* model){
       }
       model->resultList.push_back(res);
       // Export Model to Check
-      model->ExportToVTKLegacy(string("out_Step_" + femUtils::intToStr(loopTime+1) + ".vtk"));
+      model->ExportToVTKLegacy(string("out_Step_" + femUtils::intToStr(loopTime) + ".vtk"));
     }
 
     // Update counter
     saveCounter++;
-
-    // Update current time
-    currentTime += model->timeStep;
   }
 }
-
 
 //   // CREATE MODEL RESULTS
 //   // Create Result for Solution

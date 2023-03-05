@@ -13,6 +13,10 @@ femNode::femNode(int number, double coordX, double coordY, double coordZ){
   for(int loopA=0;loopA<6;loopA++){
     displacements[loopA] = 0.0;
   }
+  // Intialize Force
+  for(int loopA=0;loopA<3;loopA++){
+    force[loopA] = 0.0;
+  }  
 }
 
 // Other Constructor
@@ -22,6 +26,7 @@ femNode::femNode(int number, double* coords, double* disps){
   // Assign Node Coordinates
   for(int loopA=0;loopA<3;loopA++){
     this->coords[loopA] = coords[loopA];
+    this->force[loopA] = 0.0;
   }
   for(int loopA=0;loopA<6;loopA++){
     this->displacements[loopA] = disps[loopA];
