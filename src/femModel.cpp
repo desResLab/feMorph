@@ -3753,6 +3753,8 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
   double dofValue = 0.0;
   double vmsDensity = 0.0;
   double vmsViscosity = 0.0;
+  double vmsTau1 = 0.0;
+  double vmsTau2 = 0.0;
 
   // Read Data From File
   std::string buffer;
@@ -3929,12 +3931,12 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
         velY = atof(tokenizedString[3].c_str());
         velZ = atof(tokenizedString[4].c_str());
         // Read Node Velocity Time
-        veltime = atof(tokenizedString[4].c_str());
+        veltime = atof(tokenizedString[5].c_str());
       }catch(...){
         throw femException("ERROR: Invalid NODEDIRBC Format.\n");
       }
       // Add to source Nodes and Values
-      velNodesID.push_back(bcNode);
+      velNodesID.push_back(velNode);
       temp.clear();
       temp.push_back(velX);
       temp.push_back(velY);
@@ -4037,6 +4039,9 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
         vmsDensity = atof(tokenizedString[1].c_str()) -1;
         // Read degree of freedom for initial condition
         vmsViscosity = atof(tokenizedString[2].c_str());
+        // Stabilization coefficients - TO BE FINALIZED!!!!
+        vmsTau1 = atof(tokenizedString[3].c_str());
+        vmsTau2 = atof(tokenizedString[4].c_str());
       }catch(...){
         throw femException("ERROR: Invalid VMSPROPS Format.\n");
       }
@@ -4044,6 +4049,8 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
       vmsProps.clear();
       vmsProps.push_back(vmsDensity);
       vmsProps.push_back(vmsViscosity);
+      vmsProps.push_back(vmsTau1);
+      vmsProps.push_back(vmsTau2);
     }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("FACENEUMANN")){
         try{
           // Read Node Number
@@ -4066,6 +4073,16 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
 
   // Close File
   infile.close();
+  // Post-process node velocities in time 
+
+  // for(ulint loopA=0;loopA<velNodesVals.size();loopA++){
+  //   printf("VX: %f ",velNodesVals[loopA][0]);
+  //   printf("VY: %f ",velNodesVals[loopA][1]);
+  //   printf("VZ: %f ",velNodesVals[loopA][2]);
+  //   printf("VT: %f\n",velNodesVals[loopA][3]);
+  // }
+
+  postProcessNodeVelocities();
   // Build Parent Element List
   BuildParentElementList();
 }
@@ -4403,4 +4420,61 @@ void femModel::prescribeNodeVels(double currTime,femDoubleMat& solution){
   }
 }
 
+// Post process node velocities for easy retrieval 
+void femModel::postProcessNodeVelocities(){
 
+  int curr_node = 0;
+  int currID = 0;
+  femIntVec compactVelID;
+  femDoubleVec temp;
+  femUtils::MakeCompactList(velNodesID, compactVelID);
+  velNodesTimeVals.resize(compactVelID.size());
+  // Loop through the nodes
+  for(ulint loopA=0;loopA<velNodesID.size();loopA++){
+    curr_node = velNodesID[loopA];
+    temp = velNodesVals[loopA];
+    currID = femUtils::findVectorInverseMapping(curr_node, compactVelID);
+    velNodesTimeVals[currID].push_back(temp);
+  }
+  // overwrite velNodesID using unique nodes
+  velNodesID = compactVelID;
+  // for(ulint loopA=0;loopA<velNodesID.size();loopA++){
+  //   printf("Vel Node: %d\n",velNodesID[loopA]);
+  //   for(ulint loopB=0;loopB<velNodesTimeVals[loopA].size();loopB++){
+  //     printf("VX: %f ",velNodesTimeVals[loopA][loopB][0]);
+  //     printf("VY: %f ",velNodesTimeVals[loopA][loopB][1]);
+  //     printf("VZ: %f ",velNodesTimeVals[loopA][loopB][2]);
+  //     printf("V Time: %f\n",velNodesTimeVals[loopA][loopB][3]);
+  //   }
+  //   printf("\n");
+  // }
+}
+
+// =========================
+// SET VELOCITIES FOR INLETS
+// =========================
+void femModel::setNodeVelocity(double currTime,femDoubleMat& sol){
+  // Loop over the nodes with prescribed velocities
+  int curr_node = 0;
+  femDoubleVec curr_vel;
+  femDoubleMat table;
+  for(ulint loopA=0;loopA<velNodesID.size();loopA++){ 
+    curr_node = velNodesID[loopA];    
+    table = velNodesTimeVals[loopA];
+    curr_vel = femUtils::interpTableData(currTime, table);
+    // Assume the velocities are in the first three DoFs
+    sol[curr_node][0] = curr_vel[0];
+    sol[curr_node][1] = curr_vel[1];
+    sol[curr_node][2] = curr_vel[2];
+  }
+}
+
+void femModel::setDirichletBC(femDoubleMat& sol){
+  int curr_node = 0;
+  for(ulint loopA=0;loopA<diricheletBCNode.size();loopA++){
+    curr_node = diricheletBCNode[loopA];
+    sol[curr_node][0] = diricheletBCValues[loopA][0];
+    sol[curr_node][1] = diricheletBCValues[loopA][1];
+    sol[curr_node][2] = diricheletBCValues[loopA][2];
+  }
+}

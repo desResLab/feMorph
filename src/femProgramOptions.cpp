@@ -110,7 +110,7 @@ int femProgramOptions::getCommadLineOptions(int argc, char **argv){
         break;
       case 'y':
         runMode = rmEXPLICITNS;
-        inputFileName = "inputMesh.dat";
+        inputFileName = "model.txt";
         break;
       case '?':
         if (optopt == 'f'){

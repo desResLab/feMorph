@@ -130,6 +130,19 @@ inline void Normalize3DVector(double* vector){
   }
 }
 
+// =======================
+// Allocate and Initialize
+// =======================
+inline void matZeros(femDoubleMat& mat,int row_size,int column_size){
+  mat.resize(row_size);
+  for(int loopA=0;loopA<row_size;loopA++){
+    mat[loopA].resize(column_size);
+    for(int loopB=0;loopB<column_size;loopB++){
+      mat[loopA][loopB] = 0.0;
+    }
+  }
+}
+
 // =================================================
 // General Rotation Around a Vector with quaternions
 // The Angle is in degrees
@@ -430,8 +443,15 @@ inline void PlotSlicesToVTK(std::string fileName, std::vector<femModelSlice*> &s
 // ====================================================================
 // Make list compact by eliminating double entries: NOTE: order changed
 // ====================================================================
-inline void MakeCompactList(std::vector<int> inputList, std::vector<int> &compactList){
+inline void MakeCompactList(const std::vector<int>& list, std::vector<int> &compactList){
+  
+  // Check list size
+  if(list.size() == 0){
+    throw femException("Empty list in femUtils::MakeCompactList.\n");
+  }
+
   // Sort list
+  std::vector<int> inputList(list);
   std::sort(inputList.begin(),inputList.end());
 
   // Create compact copy
@@ -457,7 +477,7 @@ inline void MakeCompactList(std::vector<int> inputList, std::vector<int> &compac
 // ==============================================
 // Find inverse mapping defined by integer vector
 // ==============================================
-inline int findVectorInverseMapping(int value, std::vector<int> list){
+inline int findVectorInverseMapping(int value, const std::vector<int>& list){
   int count = 0;
   bool found = false;
   while((!found)&&(count<(int)list.size())){
@@ -468,7 +488,7 @@ inline int findVectorInverseMapping(int value, std::vector<int> list){
     }
   }
   if(!found){
-    throw new femException("Internal: could not find mapping in findVectorInverseMapping.\n");
+    throw femException("Internal: could not find mapping in findVectorInverseMapping.\n");
   }
   // Return
   return count;
@@ -747,6 +767,51 @@ inline string floatToStr(float a){
   std::stringstream ss;
   ss << a;
   return ss.str();
+}
+
+inline femDoubleVec interpVelocity(const double time, const double time1, const femDoubleVec& vel1, 
+                                                      const double time2, const femDoubleVec& vel2, 
+                                                      int dims=3){
+  // Assume 3D velocities
+  // Assume time1 < time < time2
+  femDoubleVec res(dims,0.0);
+  for(ulint loopA=0;loopA<dims;loopA++){
+    res[loopA] = vel1[loopA] + ((vel2[loopA] - vel1[loopA])/(time2 - time1))*(time-time1);
+  }
+  return res;
+}
+
+inline femDoubleVec interpTableData(double time, const femDoubleMat& table, int time_idx=3){
+  
+  bool found = false;
+  ulint count = 1;
+  while((!found)&&(count<table.size())){
+    found = (time >= table[count-1][time_idx]) && (time < table[count][time_idx]);
+    if(!found){
+      count++;
+    }
+  }
+  // If not found than terminate
+  if(!found){
+    printf("Time: %f\n",time);
+    for(ulint loopA=0;loopA<table.size();loopA++){
+      printf("VX: %f ",table[loopA][0]);
+      printf("VY: %f ",table[loopA][1]);
+      printf("VZ: %f ",table[loopA][2]);
+      printf("V Time: %f\n",table[loopA][3]);
+    }
+    throw femException("Could not find time in femUtils::interpTableData.\n");
+  }
+  // Get the two velocities
+  femDoubleVec vel1(time_idx,0.0);
+  femDoubleVec vel2(time_idx,0.0);
+  for(ulint loopA=0;loopA<time_idx;loopA++){
+    vel1[loopA] = table[count-1][loopA];
+    vel2[loopA] = table[count][loopA];
+  }
+  // Return interpolated velocity
+  femDoubleVec res = interpVelocity(time, table[count-1][time_idx], vel1, table[count][time_idx], vel2);
+  return res;
 }
 
 }

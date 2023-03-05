@@ -105,7 +105,7 @@ void initial_assemble(const uint iElm, const femModel *model,
     for (uint i = 0; i < 3; ++i)
     {
       for (uint j = 0; j < 4; ++j)
-      {        
+      {       
         DNs[(i*4+j)*nElms+iElm] = lDN[0][j]*invJac[0][i] + lDN[1][j]*invJac[1][i] + lDN[2][j]*invJac[2][i];
       }
     }
@@ -331,25 +331,64 @@ void femGPUFluidSolver::solve(femModel* model){
 
   // Declare main variables - Set to zero
   femDoubleMat sol_n;
+  femUtils::matZeros(sol_n,totNodes,model->maxNodeDofs);
   femDoubleMat sol_prev;
+  femUtils::matZeros(sol_prev,totNodes,model->maxNodeDofs);
   femDoubleMat rhs;
-  
-  // SET PRESCRIBED VELOCITIES
-  model->prescribeNodeVels(currentTime,sol_n);
+  femUtils::matZeros(rhs,totNodes,model->maxNodeDofs);
+
+  // SET INITIAL INFLOW VELOCITIES
+  model->setNodeVelocity(currentTime,sol_n);
+
+  // SET WALL BOUNDARY CONDITIONS
+  // Avoids non-zero velocities at the wall
+  model->setDirichletBC(sol_n);
+
+  // for(ulint loopA=0;loopA<sol_n.size();loopA++){
+  //   printf("%ld %f %f %f %f\n",loopA,sol_n[loopA][0],sol_n[loopA][1],sol_n[loopA][2],sol_n[loopA][3]);
+  // }
+
+  // CREATE MODEL RESULTS
+  // Create Result for Solution
+  femResult* res = new femResult();
+  femDoubleVec temp;
+  res->label = string("velocity");
+  res->type = frNode;
+  res->numComponents = 3;
+  // Assign to values
+  for(size_t loopA=0;loopA<sol_n.size();loopA++){
+    temp.clear();
+    temp.push_back(sol_n[loopA][0]);
+    temp.push_back(sol_n[loopA][1]);
+    temp.push_back(sol_n[loopA][2]);
+    res->values.push_back(temp);
+  }
+  model->resultList.push_back(res);
+  res = new femResult();
+  res->label = string("pressure");
+  res->type = frNode;
+  res->numComponents = 1;
+  // Assign to values
+  for(size_t loopA=0;loopA<sol_n.size();loopA++){
+    temp.clear();
+    temp.push_back(sol_n[loopA][3]);
+    res->values.push_back(temp);
+  }
+  model->resultList.push_back(res);
+  model->ExportToVTKLegacy(string("out_Step_" + femUtils::intToStr(0) + ".vtk"));
 
   // ASSMBLE ELEMENT QTY
   femDoubleVec volumes(totElements,0.0);
-  femDoubleVec DNs(totNodes*model->maxNodeDofs,0.0);
+  femDoubleVec DNs(totElements*model->maxNodeDofs*3,0.0);
   femDoubleVec sdus(totNodes*model->maxNodeDofs,0.0);
   femDoubleVec params(totNodes*model->maxNodeDofs,0.0);
   femDoubleMat lumpLHS;
+  femUtils::matZeros(lumpLHS,totNodes,model->maxNodeDofs);
 
   // Assemble initial quantities
   for(uint loopElement=0;loopElement<totElements;loopElement++){
     initial_assemble(loopElement, model,
                      volumes,DNs,lumpLHS);
-
-   // NEED TO UPDATE THE SUBSCALE VELOCITY AND PRESSURE!!!!
   }
 
   // =========
@@ -359,58 +398,85 @@ void femGPUFluidSolver::solve(femModel* model){
   for(uint loopTime=0;loopTime<model->totalSteps;loopTime++){
       
     // Set RHS to zero
-    for(ulint loopA=0;loopA < totNodes;loopA++){
-      for(ulint loopB=0;loopB < 4;loopB++){
+    for(ulint loopA=0;loopA<totNodes;loopA++){
+      for(ulint loopB=0;loopB<model->maxNodeDofs;loopB++){
         rhs[loopA][loopB] = 0.0;
       }
     }
 
     // Assemble element contribution in global RHS vector
-    for(ulint loopElement=0; loopElement < totElements; loopElement++){
-
+    for(ulint loopElement=0;loopElement<totElements;loopElement++){
       assemble_RHS(loopElement,model,
-                  volumes,DNs,
-                  sol_n,sol_prev,
-                  sdus,params,
-                  rhs);
-
+                   volumes,DNs,
+                   sol_n,sol_prev,
+                   sdus,params,
+                   rhs);
     }
+
+    // NEED TO UPDATE THE SUBSCALE VELOCITY AND PRESSURE!!!!
+
 
     // Update main variables
     for(ulint loopNode=0;loopNode<totNodes;loopNode++){
-      for(ulint loopDof=0;loopDof<3;loopDof++){
+      for(ulint loopDof=0;loopDof<model->maxNodeDofs;loopDof++){
         sol_n[loopNode][loopDof] = sol_prev[loopNode][loopDof] - model->timeStep * rhs[loopNode][loopDof] / lumpLHS[loopNode][loopDof];        
       }
     }
 
-    // APPLY DIRICHLET BC
-    apply_drchBC(model,sol_n);
+    // APPLY INLET VELOCITIES
+    model->setNodeVelocity(currentTime,sol_n);
+    // SET DIRICHLET BC
+    model->setDirichletBC(sol_n);
 
     // Update previous solution
     for(ulint loopNode=0;loopNode<totNodes;loopNode++){
-      for(ulint loopDof=0;loopDof<3;loopDof++){
+      for(ulint loopDof=0;loopDof<model->maxNodeDofs;loopDof++){
         sol_prev[loopNode][loopDof] = sol_n[loopNode][loopDof];
       }
     }
 
+    printf("Eccolo\n");
+    fflush(stdout);
+
     // SAVE RESULTS
-    if(saveCounter == model->saveEvery){
+    if(saveCounter == model->saveEvery){      
       // Restore saveCounters
       saveCounter = 0;
+      // Reset result list
+      model->resultList.clear();
+      // SAVE VELOCITY
+      res = new femResult();
+      res->label = string("velocity");
+      res->type = frNode;
+      res->numComponents = 3;
       // Assign to values
       for(size_t loopA=0;loopA<sol_n.size();loopA++){
-        model->resultList[0]->values[loopA][0] = sol_n[loopA][4];
-        model->resultList[1]->values[loopA][0] = sol_n[loopA][0];
-        model->resultList[1]->values[loopA][1] = sol_n[loopA][1];
-        model->resultList[1]->values[loopA][2] = sol_n[loopA][2];
+        temp.clear();
+        temp.push_back(sol_n[loopA][0]);
+        temp.push_back(sol_n[loopA][1]);
+        temp.push_back(sol_n[loopA][2]);
+        res->values.push_back(temp);
       }
+      model->resultList.push_back(res);
+      // SAVE PRESSURE
+      res = new femResult();
+      res->label = string("pressure");
+      res->type = frNode;
+      res->numComponents = 1;
+      // Assign to values
+      for(size_t loopA=0;loopA<sol_n.size();loopA++){
+        temp.clear();
+        temp.push_back(sol_n[loopA][3]);
+        res->values.push_back(temp);
+      }
+      model->resultList.push_back(res);
       // Export Model to Check
       model->ExportToVTKLegacy(string("out_Step_" + femUtils::intToStr(loopTime+1) + ".vtk"));
     }
-    // Update the solution vector 
 
     // Update counter
     saveCounter++;
+
     // Update current time
     currentTime += model->timeStep;
   }

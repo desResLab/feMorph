@@ -50,6 +50,7 @@ class femModel{
     // Node Velocity Array
     femIntVec velNodesID;
     vector<femDoubleVec> velNodesVals;
+    vector<femDoubleMat> velNodesTimeVals;
     // Neumann BC Array
     femIntVec neumannBCElement;
     femIntMat neumannBCFaceNodes;
@@ -173,6 +174,8 @@ class femModel{
     // ==================================================
     void CreateBoundaryConditionFile(std::string inputFile);
     void prescribeNodeVels(double currTime,femDoubleMat& solution);
+    void setNodeVelocity(double currTime,femDoubleMat& sol);
+    void setDirichletBC(femDoubleMat& sol);
 
     // ===============
     // MODEL ENQUIRIES
@@ -181,6 +184,11 @@ class femModel{
     double CheckMinimumElementMixProduct(double dispFactor);
     void   EvalModelQualityDistributions(std::string fileName, double* limitBox);
     void   BuildParentElementList();
+
+    // =====================
+    // MODEL POST-PROCESSING
+    // =====================
+    void postProcessNodeVelocities();
 
     // ==============
     // MODEL TOPOLOGY
