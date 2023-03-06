@@ -17,10 +17,55 @@ const double lDN[3][4] = {{-1.0, 1.0, 0.0, 0.0},
 femGPUFluidSolver::femGPUFluidSolver(){
 }
 
-/* Initialize the solver, calculate volume, global DN, for each element;
-   Assemble the mass matrix.
- */
+// Compute element residual projection
+femDoubleMat eval_ortho_proj(const femIntVec& conns, const femDoubleMat& rhs, const double tau_v, const double Ve){
+  femDoubleMat ortho_rhs;
+  femUtils::matZeros(ortho_rhs,4,3);
+  double integral_num = 0.0;
+  double integral_den = 0.0;
+  double wGp = 0.0;
+  double rhs_gauss = 0.0;
+  double rhs_ln = 0.0;
 
+  // loop through the nodes (shape function)
+  for(ulint loopA=0;loopA<4;loopA++){
+    // loop over the global coordinates X,Y,Z
+    for(ulint loopB=0;loopB<3;loopB++){
+
+      integral_num = 0.0;
+      integral_den = 0.0;
+      // Loop over the gauss point
+      for(ulint iGp=0;iGp<4;iGp++){
+
+        // Get Gauss point weight  
+        wGp = w[iGp] * Ve;
+
+        // Get rhs*lN and lN at the current gauss point
+        rhs_gauss = 0.0;
+        rhs_ln = 0.0;
+        for(ulint i=0;i<4;i++){
+          rhs_gauss += rhs[conns[i]][loopB]*lN[i][loopA];
+          rhs_ln += lN[i][loopA];
+        }
+
+        // Sum gauss point contribution to integral
+        integral_num += tau_v*rhs_gauss*rhs_ln*wGp;
+        integral_den += rhs_ln*wGp;
+
+      }
+      // Assign value to orthogonal 
+      if(fabs(integral_den) > kMathZero){
+        ortho_rhs[loopA][loopB] = integral_num/integral_den;
+      }else{
+        throw femException("Zero integral_den in eval_ortho_proj.\n");
+      }
+    }
+  }
+  return ortho_rhs;
+}
+
+//Initialize the solver, calculate volume, global DN, for each element;
+//Assemble the mass matrix.
 void initial_assemble(const uint iElm, const femModel *model,
                       femDoubleVec& volumes, femDoubleVec& DNs, femDoubleMat& lumpLHS)
 {
@@ -28,7 +73,7 @@ void initial_assemble(const uint iElm, const femModel *model,
     long nElms = model->elementList.size();
 
     long nodeIds[4];
-    double nodeCoords[4][3]; // (4,3)
+    double nodeCoords[4][3];
 
     double jac[3][3];
     double cof[3][3];
@@ -128,6 +173,9 @@ void assemble_RHS(const long iElm, femModel *model,
                   const femDoubleMat& sol_n, const femDoubleMat& sol_prev,
                   // sdus sub-grid velocity for the entire mesh
                   const femDoubleVec& sdus, const femDoubleVec& params,
+                  femDoubleMat& sdu,
+                  // Return convective velocity
+                  femDoubleMat& ha,
                   // return rhs
                   femDoubleMat& RHS)
 {
@@ -135,15 +183,15 @@ void assemble_RHS(const long iElm, femModel *model,
     long nNodes = model->nodeList.size();
     long nElms = model->elementList.size();
 
-    long nodeIds[4];
+    long   nodeIds[4];
     double Ve;
     double DN[3][4]; // 3*4
     
     double f[4][3];
-    double sdu[4][3];
+    // double sdu[4][3];
     double hdu[4][3]; // 4*3
     double hp[4];
-    double ha[4][3];
+    // double ha[4][3];
     double gradHdu[3][3]; // 3*3
 
     double wGp;
@@ -159,8 +207,8 @@ void assemble_RHS(const long iElm, femModel *model,
     double lRes[4][4];
 
     // parameters
-    double nu = params[2];
-    double invEpsilon = params[4];
+    double nu = params[1];
+    double invEpsilon = params[2];
 
     // Memory clear first.
     for (uint i = 0; i < 4; ++i)
@@ -171,6 +219,7 @@ void assemble_RHS(const long iElm, femModel *model,
         }
     }
 
+    // UPDATE NODAL VARIABLES BEFORE GAUSS POINT LOOP
     // Loop on element nodes
     for (uint i = 0; i < 4; ++i)
     {
@@ -195,7 +244,6 @@ void assemble_RHS(const long iElm, femModel *model,
 
         // Update pressure predictor
         hp[i] = 1.5*sol_n[nodeIds[i]][3] - 0.5*sol_prev[nodeIds[i]][3];
-
     }
 
     // Get element volume
@@ -295,7 +343,6 @@ void assemble_RHS(const long iElm, femModel *model,
             }
 
             // Assemble last d.o.f. for pressure.
-            // Should sduhDN be just DN????
             lRes[a][3] += wGp*(trGradHdu*lN[iGp][a] - sduhDN)*invEpsilon;
         }
     }
@@ -327,6 +374,8 @@ void femGPUFluidSolver::solve(femModel* model){
   femUtils::matZeros(sol_prev,totNodes,model->maxNodeDofs);
   femDoubleMat rhs;
   femUtils::matZeros(rhs,totNodes,model->maxNodeDofs);
+  // ELEMENT-BASED SUB-GRID SCALE VELOCITY INITIALIZED TO ZERO
+  femDoubleVec sdus(totElements*4*3,0.0);
 
   // SET INITIAL INFLOW VELOCITIES
   model->setNodeVelocity(currentTime,sol_n);
@@ -370,13 +419,11 @@ void femGPUFluidSolver::solve(femModel* model){
     res->values.push_back(temp);
   }
   model->resultList.push_back(res);
-  model->ExportToVTKLegacy(string("out_Step_" + femUtils::intToStr(0) + ".vtk"));
+  model->ExportToVTKLegacy(string("out_Step_" + femUtils::intToStr(0) + ".vtk"),false);
 
   // ASSMBLE ELEMENT QTY
   femDoubleVec volumes(totElements,0.0);
   femDoubleVec DNs(totElements*model->maxNodeDofs*3,0.0);
-  femDoubleVec sdus(totElements*model->maxNodeDofs*3,0.0);
-  femDoubleVec params(totNodes*model->maxNodeDofs,0.0);
   femDoubleMat lumpLHS;
   femUtils::matZeros(lumpLHS,totNodes,model->maxNodeDofs);
 
@@ -386,10 +433,65 @@ void femGPUFluidSolver::solve(femModel* model){
                      volumes,DNs,lumpLHS);
   }
 
+  // WRITE CFL MESSAGE
+  // Compute minimum element length
+  double min_el_h = std::numeric_limits<double>::max();
+  for(uint loopElement=0;loopElement<totElements;loopElement++){
+    if(pow(6.0*volumes[loopElement],1.0/3.0) < min_el_h){
+      min_el_h = pow(6.0*volumes[loopElement],1.0/3.0);
+    }
+  }
+  // Get maximum velocity 
+  double max_ini_el_u = 0.0;
+  for(uint loopNode=0;loopNode<totNodes;loopNode++){
+    if(sqrt(sol_n[loopNode][0]*sol_n[loopNode][0] + sol_n[loopNode][1]*sol_n[loopNode][1] + sol_n[loopNode][2]*sol_n[loopNode][2]) > max_ini_el_u){
+      max_ini_el_u = sqrt(sol_n[loopNode][0]*sol_n[loopNode][0] + sol_n[loopNode][1]*sol_n[loopNode][1] + sol_n[loopNode][2]*sol_n[loopNode][2]);
+    }
+  }
+
+  printf("--- CFL Condition\n");
+  printf("Minium element length: %e\n",min_el_h);
+  printf("Maximum initial velocity : %e\n",max_ini_el_u);
+  printf("CFL number based on assigned initial velocity: %.3f\n",max_ini_el_u*model->timeStep/min_el_h);
+  printf("\n");
+
+  // VARIABLES FOR TIME LOOP
+  long saveCounter = 0;
+  femDoubleMat ha;
+  femUtils::matZeros(ha,4,3);
+  double temp_double = 0.0;
+  double max_conv_a = 0.0;
+  femDoubleMat sdu;
+  femUtils::matZeros(sdu,4,3);
+  // Viscosity
+  double nu = model->vmsProps[1];
+  // characteristic length
+  double el_h = 0.0;
+  // Stabilization constants
+  double c1 = 4.0;
+  double c2 = 2.0;
+  double tau1 = 0.0;
+  double tau2 = 0.0;
+  double tau_v = 0.0;
+  double tau_p = 0.0;
+  femDoubleMat ortho_rhs;
+  // Store element velocity and pressure residual at element centroid
+  femDoubleMat el_u_res;
+  femUtils::matZeros(el_u_res,totElements,3);
+  femDoubleVec el_p_res(totElements,0.0);
+  // Centroid velocity and pressure residual norms
+  double el_u_res_norm = 0.0;
+  double el_p_res_norm = 0.0;
+  // Store subgid velocity at element centroid
+  femDoubleMat el_u_sdus;
+  femUtils::matZeros(el_u_sdus,totElements,3);
+  double curr_u_res = 0.0;
+  long int curr_node = 0;
+  femIntVec conns;
+
   // =========
   // TIME LOOP
   // =========
-  long saveCounter = 0;
   for(uint loopTime=0;loopTime<model->totalSteps;loopTime++){
 
     // Update current time
@@ -401,21 +503,98 @@ void femGPUFluidSolver::solve(femModel* model){
         rhs[loopA][loopB] = 0.0;
       }
     }
+    
+    // INITIALIZE ELEMENT RESIDUALS FOR PLOTTING
+    for(ulint loopA=0;loopA<totElements;loopA++){
+      el_p_res[loopA] = 0.0;
+      for(ulint loopB=0;loopB<3;loopB++){
+        el_u_res[loopA][loopB] = 0.0;
+        el_u_sdus[loopA][loopB] = 0.0;
+      }
+    }
 
     // Assemble element contribution in global RHS vector
     for(ulint loopElement=0;loopElement<totElements;loopElement++){
 
+      // ASSEMLE ELEMENT RESIDUAL
       assemble_RHS(loopElement,model,
                    volumes,DNs,
                    sol_n,sol_prev,
-                   sdus,params,
-                   rhs);
+                   sdus,model->vmsProps,
+                   // returns
+                   sdu,ha,rhs);       
+
+      // COMPUTE RESIDUALS AT ELEMENT CENTROID
+      for(ulint loopA=0;loopA<4;loopA++){
+        curr_node = model->elementList[loopElement]->elementConnections[loopA];
+        for(ulint loopB=0;loopB<3;loopB++){
+          el_u_res[loopElement][loopB] += rhs[curr_node][loopB]*0.25;
+        }
+        el_p_res[loopElement] += rhs[curr_node][3]*0.25;
+      }
+
+      // COMPUTE SUBGRID VELOCITY AT ELEMENT CENTROID
+      for(ulint loopA=0;loopA<4;loopA++){
+        for(ulint loopB=0;loopB<3;loopB++){
+          el_u_sdus[loopElement][loopB] += sdu[loopA][loopB]*0.25;
+        }
+      }
+
+      // COMPUTE STABILIZATION CONSTANTS FOR CURRENT ELEMENT
+      // Max velocity module
+      max_conv_a = 0.0;
+      for(ulint loopA=0;loopA<4;loopA++){
+        temp_double = sqrt(ha[loopA][0]*ha[loopA][0] + ha[loopA][1]*ha[loopA][1] + ha[loopA][2]*ha[loopA][2]);
+        if(temp_double > max_conv_a){
+          max_conv_a = temp_double;
+        }
+      }
+      
+      // Compute characteristic length
+      el_h = pow(6.0*volumes[loopElement],1.0/3.0); // Cubit root of 6 times the volume
+      // Compute tau1
+      tau1 = 1.0/(((c1*nu)/(el_h*el_h)) + ((c2*max_conv_a)/(el_h)));
+      tau2 = ((el_h*el_h)/(c1*tau1));
+      tau_v = 1.0/((1.0/model->timeStep) + (1.0/tau1));
+      tau_p = 1.0/((1.0/model->timeStep) + (1.0/tau2));
+
+      // COMPUTE RESIDUAL PROJECTION
+      conns.clear();
+      for(ulint loopA=0;loopA<4;loopA++){
+        conns.push_back(model->elementList[loopElement]->elementConnections[loopA]);
+      }
+      ortho_rhs = eval_ortho_proj(conns,rhs,tau_v,volumes[loopElement]);
+
+      // REMOVE PROJECTION FROM ORIGINAL RESIDUAL
+      for(ulint loopA=0;loopA<4;loopA++){
+        for(ulint loopB=0;loopB<3;loopB++){
+          ortho_rhs[loopA][loopB] = rhs[conns[loopA]][loopB] - ortho_rhs[loopA][loopB];
+        }
+      }
+
+      // UPDATE SUBGRID VELOCITIES
+      // Loop on the element nodes
+      for(ulint loopA=0;loopA<4;loopA++){
+        for(ulint loopB=0;loopB<3;loopB++){
+          sdus[(loopA*3+loopB)*totElements+loopElement] = (tau_v/model->timeStep)*sdus[(loopA*3+loopB)*totElements+loopElement] - ortho_rhs[loopA][loopB];
+        }
+      } 
     }
 
-    // NEED TO UPDATE THE SUBSCALE VELOCITY AND PRESSURE!!!!
+    // COMPUTE MAX RESIDUAL NORMS
+    el_u_res_norm = 0.0;
+    el_p_res_norm = 0.0;
+    for(ulint loopElement=0;loopElement<totElements;loopElement++){
+      curr_u_res = sqrt(el_u_res[loopElement][0]*el_u_res[loopElement][0] + el_u_res[loopElement][1]*el_u_res[loopElement][1] + el_u_res[loopElement][2]*el_u_res[loopElement][2]);
+      if(curr_u_res > el_u_res_norm){
+        el_u_res_norm = curr_u_res;
+      }
+      if(fabs(el_p_res[loopElement]) > el_p_res_norm){
+        el_p_res_norm = fabs(el_p_res[loopElement]);
+      }
+    }
 
-
-    // Update main variables
+    // UPDATE MAIN VARIABLES
     for(ulint loopNode=0;loopNode<totNodes;loopNode++){
       for(ulint loopDof=0;loopDof<model->maxNodeDofs;loopDof++){
         sol_n[loopNode][loopDof] = sol_prev[loopNode][loopDof] - model->timeStep * rhs[loopNode][loopDof] / lumpLHS[loopNode][loopDof];        
@@ -426,6 +605,13 @@ void femGPUFluidSolver::solve(femModel* model){
     model->setNodeVelocity(currentTime,sol_n);
     // SET DIRICHLET BC
     model->setDirichletBC(sol_n);
+
+    // WRITE MESSAGES
+    if(loopTime == 0){
+      printf("STARTING TIME LOOP\n");
+      printf("%10s %20s %20s %20s\n","TIME LOOP","TIME [s]","MAX RES NORM U","MAX RES NORM P");
+    }
+    printf("%10d %20.8f %20.3e %20.3e\n",loopTime+1,currentTime,el_u_res_norm,el_p_res_norm);
 
     // Update previous solution
     for(ulint loopNode=0;loopNode<totNodes;loopNode++){
@@ -466,29 +652,54 @@ void femGPUFluidSolver::solve(femModel* model){
         res->values.push_back(temp);
       }
       model->resultList.push_back(res);
-      // Export Model to Check
-      model->ExportToVTKLegacy(string("out_Step_" + femUtils::intToStr(loopTime) + ".vtk"));
+      // SAVE VELOCITY RESIDUAL 
+      res = new femResult();
+      res->label = string("res_v");
+      res->type = frElement;
+      res->numComponents = 3;
+      // Assign to values
+      for(size_t loopA=0;loopA<totElements;loopA++){
+        temp.clear();
+        temp.push_back(el_u_res[loopA][0]);
+        temp.push_back(el_u_res[loopA][1]);
+        temp.push_back(el_u_res[loopA][2]);
+        res->values.push_back(temp);
+      }
+      model->resultList.push_back(res);
+      // SAVE PRESSURE RESIDUAL 
+      res = new femResult();
+      res->label = string("res_p");
+      res->type = frElement;
+      res->numComponents = 1;
+      // Assign to values
+      for(size_t loopA=0;loopA<totElements;loopA++){
+        temp.clear();
+        temp.push_back(el_p_res[loopA]);
+        res->values.push_back(temp);
+      }
+      model->resultList.push_back(res);
+      // SAVE SUBGRID VELOCITY
+      res = new femResult();
+      res->label = string("subgrid_u");
+      res->type = frElement;
+      res->numComponents = 3;
+      // Assign to values
+      for(size_t loopA=0;loopA<totElements;loopA++){
+        temp.clear();
+        temp.push_back(el_u_sdus[loopA][0]);
+        temp.push_back(el_u_sdus[loopA][1]);
+        temp.push_back(el_u_sdus[loopA][2]);
+        res->values.push_back(temp);
+      }
+      model->resultList.push_back(res);
+      // EXPORT MODEL
+      model->ExportToVTKLegacy(string("out_Step_" + femUtils::intToStr(loopTime) + ".vtk"),false);
     }
 
     // Update counter
     saveCounter++;
   }
 }
-
-//   // CREATE MODEL RESULTS
-//   // Create Result for Solution
-//   femResult* res = new femResult();
-//   res->label = string("INSSolution");
-//   res->type = frNode;
-//   res->numComponents = 1;
-//   // Assign to values
-//   for(size_t loopA=0;loopA<solution_n.size();loopA++){
-//     temp.clear();
-//     temp.push_back(solution_n[loopA][4]);
-//     res->values.push_back(temp);
-//   }
-//   model->resultList.push_back(res);
-
 
 
 

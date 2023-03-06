@@ -67,7 +67,7 @@ def write_problem(out_file_name):
   # Nodal DOFs
   f.write('NODEDOF 4\n')  
   # Timestep
-  f.write('TIMESTEP 0.01 3 1\n')  
+  f.write('TIMESTEP 0.01 10 1\n')  
   f.close()
 
 def write_nd(nodes,out_file_name):
@@ -108,7 +108,8 @@ def write_inlet(inlet_nodes,vel_idx,vel_time,vels,out_file_name):
 # # Write properties to file
 def write_prop(out_file_name):
  f = open(out_file_name,"a")
- f.write('VMSPROPS 1.06 0.04 1.0 1.0\n')
+ # f.write('# max vel: 20 cm/s  - artss: 5\n')
+ f.write('VMSPROPS 1.06 0.04 1.0e4\n')
  f.close()
  
 # =========

@@ -145,7 +145,7 @@ class femModel{
     // Node List Manipulation
     int GetNodeIDFromNumber(int number);
     // Export Model to VTK Legacy
-    void ExportToVTKLegacy(std::string fileName);
+    void ExportToVTKLegacy(std::string fileName, const bool write_message = true);
     // Export to cvPRE
     void ExportToCvPre(double dispFactor, std::string pathName, double angleLimit);
     void WriteCvPreFile(std::string fileName);

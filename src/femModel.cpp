@@ -1291,7 +1291,7 @@ void femModel::CopyPropertyTo(femModel* otherModel){
 // ==========================
 // EXPORT MODEL TO VTK LEGACY
 // ==========================
-void femModel::ExportToVTKLegacy(std::string fileName){
+void femModel::ExportToVTKLegacy(std::string fileName, const bool write_message){
   // Allocate Normals and Initialize
   femDoubleMat normal(elementList.size(),std::vector<double>(3));
   for(size_t loopA=0;loopA<elementList.size();loopA++){
@@ -1303,8 +1303,10 @@ void femModel::ExportToVTKLegacy(std::string fileName){
   double currNormal[3] = {0.0};  
 
   // Write Message
-  femUtils::WriteMessage(std::string("(Debug) Exporting Model to VTK file ")+fileName+std::string("..."));
-
+  if(write_message){
+    femUtils::WriteMessage(std::string("Exporting Model to VTK file ")+fileName+std::string("..."));
+  }
+  
   // Open Output File
   FILE* outFile;
   outFile = fopen(fileName.c_str(),"w");
@@ -1512,7 +1514,9 @@ void femModel::ExportToVTKLegacy(std::string fileName){
   fclose(outFile);
 
   // Write Message
-  femUtils::WriteMessage(std::string("Done.\n"));
+  if(write_message){
+    femUtils::WriteMessage(std::string("Done.\n"));
+  }
 }
 
 
@@ -3753,8 +3757,7 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
   double dofValue = 0.0;
   double vmsDensity = 0.0;
   double vmsViscosity = 0.0;
-  double vmsTau1 = 0.0;
-  double vmsTau2 = 0.0;
+  double vmsInvEps = 0.0;
 
   // Read Data From File
   std::string buffer;
@@ -3933,7 +3936,7 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
         // Read Node Velocity Time
         veltime = atof(tokenizedString[5].c_str());
       }catch(...){
-        throw femException("ERROR: Invalid NODEDIRBC Format.\n");
+        throw femException("ERROR: Invalid NODEVEL Format.\n");
       }
       // Add to source Nodes and Values
       velNodesID.push_back(velNode);
@@ -3987,7 +3990,7 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
         // Save Interval
         saveEvery = atoi(tokenizedString[3].c_str());
       }catch(...){
-        throw femException("ERROR: Invalid TIMESTEP Option Format.\n");
+        throw femException("ERROR: Invalid TIMESTEP Format.\n");
       }
     }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("TIMEINTEGRATION")){
       try{
@@ -3998,7 +4001,7 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
         // Read gamma
         gamma = atof(tokenizedString[3].c_str());
       }catch(...){
-        throw femException("ERROR: Invalid TIMEINTEGRATION Option Format.\n");
+        throw femException("ERROR: Invalid TIMEINTEGRATION Format.\n");
       }
     }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("STAGES")){
       try{
@@ -4027,7 +4030,7 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
         // Read Value of initial conditions
         dofValue = atof(tokenizedString[3].c_str());
       }catch(...){
-        throw femException("ERROR: Invalid Initial conditions format Format.\n");
+        throw femException("ERROR: Invalid INI Format.\n");
       }
       // Add to storage vectors
       iniNodeNumbers.push_back(currentNodeNumber);
@@ -4039,9 +4042,8 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
         vmsDensity = atof(tokenizedString[1].c_str()) -1;
         // Read degree of freedom for initial condition
         vmsViscosity = atof(tokenizedString[2].c_str());
-        // Stabilization coefficients - TO BE FINALIZED!!!!
-        vmsTau1 = atof(tokenizedString[3].c_str());
-        vmsTau2 = atof(tokenizedString[4].c_str());
+        // Inverse Artifical Compressibility
+        vmsInvEps = atof(tokenizedString[3].c_str());
       }catch(...){
         throw femException("ERROR: Invalid VMSPROPS Format.\n");
       }
@@ -4049,8 +4051,7 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
       vmsProps.clear();
       vmsProps.push_back(vmsDensity);
       vmsProps.push_back(vmsViscosity);
-      vmsProps.push_back(vmsTau1);
-      vmsProps.push_back(vmsTau2);
+      vmsProps.push_back(vmsInvEps);
     }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("FACENEUMANN")){
         try{
           // Read Node Number
@@ -4073,16 +4074,10 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
 
   // Close File
   infile.close();
+
   // Post-process node velocities in time 
-
-  // for(ulint loopA=0;loopA<velNodesVals.size();loopA++){
-  //   printf("VX: %f ",velNodesVals[loopA][0]);
-  //   printf("VY: %f ",velNodesVals[loopA][1]);
-  //   printf("VZ: %f ",velNodesVals[loopA][2]);
-  //   printf("VT: %f\n",velNodesVals[loopA][3]);
-  // }
-
   postProcessNodeVelocities();
+
   // Build Parent Element List
   BuildParentElementList();
 }

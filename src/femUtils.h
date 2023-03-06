@@ -70,6 +70,7 @@ inline void WriteAppHelp(){
   WriteMessage("-x               Compute model expectations from weighted model list.\n");
   WriteMessage("-t               Defile tolerance for face list matching function.\n");
   WriteMessage("-d               Activates debug mode.\n");
+  WriteMessage("-y               Runs explicit VMS fluid solver on model.txt.\n");
   WriteMessage("-h               This help.\n");
 }
 
