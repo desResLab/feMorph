@@ -47,8 +47,8 @@ def read_bct_vtp(bct_vtp_file):
       vel_idx.append(loopA)
       vels.append(vtk_to_numpy(bct.GetPointData().GetArray(loopA)))
       # Set initial velocities to zero for ramp
-      if(curr_time == 0.0):
-        vels[-1][:] = 0.0
+      # if(curr_time == 0.0):
+      #   vels[-1][:] = 0.0
   return inlet_nodes,vel_idx,vel_time,vels
 
 def read_wall(ext_file):
@@ -78,7 +78,7 @@ def write_problem(out_file_name):
   # Nodal DOFs
   f.write('NODEDOF 4\n')  
   # Timestep
-  f.write('TIMESTEP 0.001 3000 100\n')
+  f.write('TIMESTEP 0.0001 5000 100\n')
   f.close()
 
 def write_nd(nodes,out_file_name):
@@ -126,7 +126,7 @@ def write_outlet(outlet_nodes,out_file_name):
 def write_prop(out_file_name):
  f = open(out_file_name,"a")
  # density, viscosity, epsilon^-1, c1, c2
- f.write('VMSPROPS 1.06 0.04 2000.0 4.0 2.0\n')
+ f.write('VMSPROPS 1.06 0.04 10.0 4.0 2.0\n')
  f.close()
  
 # =========
@@ -135,17 +135,18 @@ def write_prop(out_file_name):
 if __name__ == "__main__":
 
   # Set file name
-  vtu_file      = 'mesh-complete/mesh-complete.mesh.vtu'
-  bct_vtp_file  = 'bct.vtp'
-  wall_file     = 'mesh-complete/walls_combined.vtp'
-  outlet_file   = 'mesh-complete/mesh-surfaces/outlet.vtp'
+  vtu_file      = 'cube_medium.vtu'
+  bct_vtp_file  = 'top_bc.vtp'
+  wall_file     = 'walls_bc.vtp'
+  # No outlet boundary conditions
+  # outlet_file   = ''
   out_file_name = 'model.txt'
 
   # Read Qtys
   nodes,elements                    = read_nd_el(vtu_file)
   inlet_nodes,vel_idx,vel_time,vels = read_bct_vtp(bct_vtp_file)
   wall_nodes                        = read_wall(wall_file)
-  outlet_nodes                      = read_outlet(outlet_file)
+  # outlet_nodes                      = read_outlet(outlet_file)
 
   # # Write to model file
   write_problem(out_file_name)
@@ -157,7 +158,7 @@ if __name__ == "__main__":
   write_inlet(inlet_nodes,vel_idx,vel_time,vels,out_file_name)
 
   # Write outlet pressure conditions
-  write_outlet(outlet_nodes,out_file_name)
+  # write_outlet(outlet_nodes,out_file_name)
 
   # Write propo
   write_prop(out_file_name)

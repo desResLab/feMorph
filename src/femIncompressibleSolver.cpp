@@ -267,10 +267,14 @@ void advanceAdvectionDiffusion(long loopStep, double currTime,
     fflush(stdout);
     femSolver linSolver;
 #ifdef USE_ARMADILLO
-    sol = linSolver.solveLinearSystem((femDenseMatrix*)advDiffMat,(femDenseVector*)advDiffVec);
+    printf("Solver not available. Solution Terminated.\n");
+    exit(-1);
+    // sol = linSolver.solveLinearSystem((femDenseMatrix*)advDiffMat,(femDenseVector*)advDiffVec);
 #endif
 #ifdef USE_CSPARSE
-    sol = linSolver.solveLinearSystem((femSparseMatrix*)advDiffMat,(femDenseVector*)advDiffVec);
+    printf("Solver not available. Solution Terminated.\n");
+    exit(-1);
+    // sol = linSolver.solveLinearSystem((femSparseMatrix*)advDiffMat,(femDenseVector*)advDiffVec);
 #endif
 #ifdef USE_TRILINOS
     sol = linSolver.solveLinearSystem(model->totNodesInProc,(femTrilinosMatrix*)advDiffMat,(femTrilinosVector*)advDiffVec,1);

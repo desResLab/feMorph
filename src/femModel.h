@@ -51,6 +51,9 @@ class femModel{
     femIntVec velNodesID;
     vector<femDoubleVec> velNodesVals;
     vector<femDoubleMat> velNodesTimeVals;
+    // Zero Traction Boundary conditions
+    femIntVec presNodesID;
+    femDoubleVec presNodesValue;
     // Neumann BC Array
     femIntVec neumannBCElement;
     femIntMat neumannBCFaceNodes;

@@ -26,7 +26,8 @@ class femSolver{
     // SOLVE PROBLEM
     virtual void solve(femOption* options, femModel* model);
 #ifdef USE_ARMADILLO
-    femVector* solveLinearSystem(femDenseMatrix* poissonMat,femDenseVector* poissonVec);
+    femDoubleVec solveLinearSystem(femDenseMatrix* poissonMat,femDenseVector* poissonVec);
+    femDoubleVec solveLinearSystem(ulint row_count, ulint col_count, const femDoubleMat& mat,femDoubleVec& vec);
 #endif
 #ifdef USE_CSPARSE
     femVector* solveLinearSystem(femSparseMatrix* lhs,femDenseVector* rhs);

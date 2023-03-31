@@ -50,6 +50,31 @@ femDoubleVec femSolver::solveLinearSystem(femDenseMatrix* poissonMat,femDenseVec
   // Return Result
   return result;
 }
+
+femDoubleVec femSolver::solveLinearSystem(ulint row_count, ulint col_count, const femDoubleMat& mat,femDoubleVec& vec){
+  // Initialize Armadillo Matrix
+  arma::mat A(row_count,col_count);
+  for(int loopA=0;loopA<row_count;loopA++){
+    for(int loopB=0;loopB<col_count;loopB++){
+      A(loopA,loopB) = mat[loopA][loopB];
+    }
+  }
+  // Fill RHS Vector
+  arma::vec b(row_count);
+  for(size_t loopA=0;loopA<row_count;loopA++){
+    b(loopA) = vec[loopA];
+  }
+  // printf("Solving...\n");
+  // Solve Linear Set of equations
+  arma::vec x = arma::solve(A, b);
+  // Return
+  femDoubleVec result;
+  for(int loopA=0;loopA<x.size();loopA++){
+    result.push_back(x[loopA]);
+  }
+  // Return Result
+  return result;
+}
 #endif
 
 #ifdef USE_CSPARSE
@@ -308,10 +333,14 @@ void femSteadyStateAdvectionDiffusionSolver::solve(femOption* options, femModel*
     // SOLVE LINEAR SYSTEM OF EQUATIONS
     femVector* solution;
 #ifdef USE_ARMADILLO
-    solution = solveLinearSystem((femDenseMatrix*)advDiffMat,(femDenseVector*)advDiffVec);
+    printf("Solver not available. Solution Terminated.\n");
+    exit(-1);
+    // solution = solveLinearSystem((femDenseMatrix*)advDiffMat,(femDenseVector*)advDiffVec);
 #endif
 #ifdef USE_CSPARSE
-    solution = solveLinearSystem((femSparseMatrix*)advDiffMat,(femDenseVector*)advDiffVec);
+    printf("Solver not available. Solution Terminated.\n");
+    exit(-1);
+    // solution = solveLinearSystem((femSparseMatrix*)advDiffMat,(femDenseVector*)advDiffVec);
 #endif
 #ifdef USE_TRILINOS
     solution = solveLinearSystem(model->totNodesInProc,(femTrilinosMatrix*)advDiffMat,(femTrilinosVector*)advDiffVec,nodeDOFs);
@@ -559,9 +588,13 @@ void femPoissonSolver::solve(femOption* options, femModel* model){
   printf("Solving Linear System...\n");
   fflush(stdout);
 #ifdef USE_ARMADILLO
-  solution = solveLinearSystem((femDenseMatrix*)poissonMat,(femDenseVector*)poissonVec);
+  printf("Solver not available. Solution Terminated.\n");
+  exit(-1);
+  // solution = solveLinearSystem((femDenseMatrix*)poissonMat,(femDenseVector*)poissonVec);
 #endif
 #ifdef USE_CSPARSE
+  printf("Solver not available. Solution Terminated.\n");
+  exit(-1);
   solution = solveLinearSystem((femSparseMatrix*)poissonMat,(femDenseVector*)poissonVec);
 #endif
 #ifdef USE_TRILINOS

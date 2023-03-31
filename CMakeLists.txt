@@ -51,5 +51,5 @@ endif()
 ADD_SUBDIRECTORY("./src/")
 
 # ADD COMPILER FLAGS
-ADD_DEFINITIONS("-m64 -O3 -std=c++0x -Werror")
+ADD_DEFINITIONS("-O0 -Wall -fsanitize=bounds")
 

@@ -1400,15 +1400,25 @@ void femModel::ExportToVTKLegacy(std::string fileName, const bool write_message)
   // PRINT DIRICHELET BOUNDARY CONDITIONS
   femDoubleVec dirBC;
   dirBC.resize(nodeList.size());
+  // Reset list
   for(size_t loopA=0;loopA<nodeList.size();loopA++){
     dirBC[loopA] = 0.0;
   }
+  // Add nodes with prescibed velocities (inlets) - 2
+  for(size_t loopA=0;loopA<velNodesID.size();loopA++){
+    dirBC[velNodesID[loopA]] = 2.0;
+  }
+  // Add nodes with zero traction BC - 3
+  for(size_t loopA=0;loopA<presNodesID.size();loopA++){
+    dirBC[presNodesID[loopA]] = 3.0;
+  }
+  // Add Dirichlet BC (walls) - 1
   for(size_t loopA=0;loopA<diricheletBCNode.size();loopA++){
-    dirBC[diricheletBCNode[loopA]] = diricheletBCValues[loopA][0];
+    dirBC[diricheletBCNode[loopA]] = 1.0;
   }
   fprintf(outFile,"SCALARS dirBC double 1\n");
   fprintf(outFile,"LOOKUP_TABLE default\n");
-  for(unsigned int loopB=0;loopB<dirBC.size();loopB++){
+  for(unsigned int loopB=0;loopB<nodeList.size();loopB++){
     fprintf(outFile,"%e\n",dirBC[loopB]);
   }
 
@@ -3758,6 +3768,8 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
   double vmsDensity = 0.0;
   double vmsViscosity = 0.0;
   double vmsInvEps = 0.0;
+  double vms_c1 = 0.0;
+  double vms_c2 = 0.0;
 
   // Read Data From File
   std::string buffer;
@@ -3947,6 +3959,19 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
       temp.push_back(veltime);
       velNodesVals.push_back(temp);
 
+    }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("NODEPRES")){
+      try{
+        // Read Node Number
+        velNode = atoi(tokenizedString[1].c_str())-1;
+        // Read Node Velocities
+        velX = atof(tokenizedString[2].c_str());
+      }catch(...){
+        throw femException("ERROR: Invalid NODEPRES Format.\n");
+      }
+      // Add to source Nodes and Values
+      presNodesID.push_back(velNode);
+      presNodesValue.push_back(velX);
+
     }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("ELSOURCE")){
       try{
         // Read Element Number: 1-Based
@@ -4044,6 +4069,9 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
         vmsViscosity = atof(tokenizedString[2].c_str());
         // Inverse Artifical Compressibility
         vmsInvEps = atof(tokenizedString[3].c_str());
+        // C1 and C2
+        vms_c1 = atof(tokenizedString[4].c_str());
+        vms_c2 = atof(tokenizedString[5].c_str());
       }catch(...){
         throw femException("ERROR: Invalid VMSPROPS Format.\n");
       }
@@ -4052,6 +4080,8 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
       vmsProps.push_back(vmsDensity);
       vmsProps.push_back(vmsViscosity);
       vmsProps.push_back(vmsInvEps);
+      vmsProps.push_back(vms_c1);
+      vmsProps.push_back(vms_c2);
     }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("FACENEUMANN")){
         try{
           // Read Node Number
@@ -4418,6 +4448,10 @@ void femModel::prescribeNodeVels(double currTime,femDoubleMat& solution){
 // Post process node velocities for easy retrieval 
 void femModel::postProcessNodeVelocities(){
 
+  if(velNodesID.size() == 0){
+    return;
+  }
+
   int curr_node = 0;
   int currID = 0;
   femIntVec compactVelID;
@@ -4433,16 +4467,6 @@ void femModel::postProcessNodeVelocities(){
   }
   // overwrite velNodesID using unique nodes
   velNodesID = compactVelID;
-  // for(ulint loopA=0;loopA<velNodesID.size();loopA++){
-  //   printf("Vel Node: %d\n",velNodesID[loopA]);
-  //   for(ulint loopB=0;loopB<velNodesTimeVals[loopA].size();loopB++){
-  //     printf("VX: %f ",velNodesTimeVals[loopA][loopB][0]);
-  //     printf("VY: %f ",velNodesTimeVals[loopA][loopB][1]);
-  //     printf("VZ: %f ",velNodesTimeVals[loopA][loopB][2]);
-  //     printf("V Time: %f\n",velNodesTimeVals[loopA][loopB][3]);
-  //   }
-  //   printf("\n");
-  // }
 }
 
 // =========================

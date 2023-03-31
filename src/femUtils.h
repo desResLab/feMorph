@@ -783,7 +783,19 @@ inline femDoubleVec interpVelocity(const double time, const double time1, const 
 }
 
 inline femDoubleVec interpTableData(double time, const femDoubleMat& table, int time_idx=3){
+
+  femDoubleVec vel1(time_idx,0.0);
+  femDoubleVec vel2(time_idx,0.0);
+
+  // If time is greater than table: return last value as a constant
+  if(time >= table[table.size()-1][time_idx]){
+    for(ulint loopA=0;loopA<time_idx;loopA++){
+      vel1[loopA] = table[table.size()-1][loopA];
+    }
+    return vel1;
+  }
   
+  // Otherwise look for values less than and greater than current time
   bool found = false;
   ulint count = 1;
   while((!found)&&(count<table.size())){
@@ -804,14 +816,43 @@ inline femDoubleVec interpTableData(double time, const femDoubleMat& table, int 
     throw femException("Could not find time in femUtils::interpTableData.\n");
   }
   // Get the two velocities
-  femDoubleVec vel1(time_idx,0.0);
-  femDoubleVec vel2(time_idx,0.0);
   for(ulint loopA=0;loopA<time_idx;loopA++){
     vel1[loopA] = table[count-1][loopA];
     vel2[loopA] = table[count][loopA];
   }
   // Return interpolated velocity
   femDoubleVec res = interpVelocity(time, table[count-1][time_idx], vel1, table[count][time_idx], vel2);
+  return res;
+}
+
+inline double getMaxModule(const femDoubleVec& vec){
+  double res = 0.0;
+  for(ulint i=0;i<vec.size();i++){
+    if(fabs(vec[i] > res)){
+      res = fabs(vec[i]);
+    }
+  }
+  return res;
+}
+
+inline double getMaxModule(const femDoubleMat& mat, int dim1, int dim2){
+  // Compute the norm over dimension 2
+  femDoubleVec temp;
+  double sum = 0.0;
+  for(ulint a=0;a<dim1;a++){
+    sum = 0.0;
+    for(ulint i=0;i<dim2;i++){
+      sum += mat[a][i]*mat[a][i];
+    }
+    temp.push_back(sqrt(sum));
+  }
+  // Take the maximum over dimension 1
+  double res = 0.0;
+  for(ulint a=0;a<dim1;a++){
+    if(temp[a] > res){
+      res = temp[a];
+    }
+  }
   return res;
 }
 
