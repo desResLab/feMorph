@@ -9,7 +9,7 @@
 #include "femProgramOptions.h"
 #include "femSolver.h"
 #include "femIncompressibleSolver.h"
-#include "femGPUFluidSolver.h"
+#include "femVMSExplicitFluidSolver.h"
 #include "femFFDOptions.h"
 #include "femPointGrid.h"
 
@@ -795,7 +795,7 @@ int solveExplicitNS(femProgramOptions* options){
   model->ReadFromFEMTextFile(options->inputFileName);
 
   // CREATE NEW STEADY STATE ADVECTION-DIFFUSION SOLVER
-  femGPUFluidSolver* exNS = new femGPUFluidSolver();
+  femVMSExplicitFluidSolver* exNS = new femVMSExplicitFluidSolver();
 
   // SOLVE PROBLEM
   exNS->solve(model);

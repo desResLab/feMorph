@@ -4017,6 +4017,15 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
       }catch(...){
         throw femException("ERROR: Invalid TIMESTEP Format.\n");
       }
+    }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("DUALSTEP")){
+      try{
+        // Read Time Step
+        dual_step = atof(tokenizedString[1].c_str());
+        // Read Total number of Steps
+        tot_dual_steps = atoi(tokenizedString[2].c_str());
+      }catch(...){
+        throw femException("ERROR: Invalid TIMESTEP Format.\n");
+      }
     }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("TIMEINTEGRATION")){
       try{
         // Read alphaM parameter

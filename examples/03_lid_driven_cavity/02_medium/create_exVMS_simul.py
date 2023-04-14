@@ -78,7 +78,8 @@ def write_problem(out_file_name):
   # Nodal DOFs
   f.write('NODEDOF 4\n')  
   # Timestep
-  f.write('TIMESTEP 0.0001 5000 100\n')
+  f.write('TIMESTEP 1.0e-6 2 1\n')
+  f.write('DUALSTEP 1.0e-9 50\n')
   f.close()
 
 def write_nd(nodes,out_file_name):

@@ -1,4 +1,4 @@
-#include "femGPUFluidSolver.h"
+#include "femVMSExplicitFluidSolver.h"
 
 // Explicit VMS Solver
 const double alpha = 0.58541020;
@@ -13,7 +13,7 @@ const double lDN[3][4] = {{-1.0, 1.0, 0.0, 0.0},
                           {-1.0, 0.0, 0.0, 1.0}};
                           
 // CONSTRUCTOR
-femGPUFluidSolver::femGPUFluidSolver(){
+femVMSExplicitFluidSolver::femVMSExplicitFluidSolver(){
 }
 
 // Initialize the solver, calculate volume, global DN, for each element;
@@ -102,13 +102,18 @@ void assemble_RHS(const long iElm, const long loopTime, femModel *model,
                   const femDoubleVec& params,
                   // Return local element-based copy of subgrid-scale velocities
                   femDoubleMat& sdu,
+                  // Return local element-based copy of subgrid-scale pressure
+                  femDoubleVec& sgp,
                   // Return convective velocity
                   femDoubleMat& ha,
                   // return rhs
-                  femDoubleMat& RHS){
+                  femDoubleMat& RHS,
+                  // Return max norms
+                  femDoubleVec& maxNorms){
 
   long nNodes = model->nodeList.size();
   long nElms = model->elementList.size();
+  double dt = model->timeStep;
 
   long   nodeIds[4];
   double Ve;
@@ -117,9 +122,17 @@ void assemble_RHS(const long iElm, const long loopTime, femModel *model,
   double f[4][3];
   // double sdu[4][3];
   double hdu[4][3]; // 4*3
+  double u_prev[4][3]; // 4*3
   double hp[4];
+  double p_prev[4];
   // double ha[4][3];
   double gradHdu[3][3]; // 3*3
+  // Current and previous velocities at the current Gauss point
+  double u_gp_curr[3];
+  double u_gp_prev[3];
+  // Current and previous pressure at the current Gauss point
+  double p_gp_curr = 0.0;
+  double p_gp_prev = 0.0;
 
   double wGp;
   double hah[4][3];
@@ -133,6 +146,8 @@ void assemble_RHS(const long iElm, const long loopTime, femModel *model,
   double sduhDN;
   double lRes[4][4];
 
+  femDoubleMat u_acc_term;
+  femUtils::matZeros(u_acc_term,4,3);
   femDoubleMat u_diff_term;
   femUtils::matZeros(u_diff_term,4,3);
   femDoubleMat u_conv_term;
@@ -145,15 +160,18 @@ void assemble_RHS(const long iElm, const long loopTime, femModel *model,
   femUtils::matZeros(u_forcing_term,4,3);
   femDoubleMat p_sg_mom_term;
   femUtils::matZeros(p_sg_mom_term,4,3);
+  femDoubleVec p_acc_term(4,0.0);
   femDoubleVec p_grad_term(4,0.0);
   femDoubleVec p_sg_term(4,0.0);
   
-  double sgp = 0.0;
+  double sgp_gp = 0.0;
 
+  double u_acc_norm       = 0.0;
   double u_diff_norm      = 0.0;
   double u_conv_norm      = 0.0;
   double u_pressgrad_norm = 0.0;
   double u_conv_sg_norm   = 0.0;
+  double p_sg_mom_norm    = 0.0;
   double u_forcing_norm   = 0.0;
   double p_grad_norm      = 0.0;
   double p_sg_norm        = 0.0;
@@ -197,12 +215,19 @@ void assemble_RHS(const long iElm, const long loopTime, femModel *model,
           
           // Compute velocity predictor at nodes
           hdu[i][j] = 1.5*sol_n[nodeIds[i]][j] - 0.5*sol_prev[nodeIds[i]][j];
+
+          // Compute previous velocity at nodes
+          u_prev[i][j] = sol_n[nodeIds[i]][j];
           
           // Value of subgrid velocity at the Gauss points
           sdu[i][j] = sdus[(i*3+j)*nElms+iElm];
       }
       // Compute pressure predictor at nodes
       hp[i] = 1.5*sol_n[nodeIds[i]][3] - 0.5*sol_prev[nodeIds[i]][3];
+      // Compute pressure solution at n-th step
+      p_prev[i] = sol_n[nodeIds[i]][3];
+      // Compute local sub-grid pressure at the Gauss Points
+      sgp[i] = sgps[i*nElms+iElm];
   }
 
   // Get element volume
@@ -222,9 +247,9 @@ void assemble_RHS(const long iElm, const long loopTime, femModel *model,
                         + DN[j][1]*hdu[1][i] \
                         + DN[j][2]*hdu[2][i] \
                         + DN[j][3]*hdu[3][i];
-      }
-      // Trace at the Gauss Points
-      trGradHdu += gradHdu[i][i];
+    }
+    // Trace at the Gauss Points
+    trGradHdu += gradHdu[i][i];
   }
 
   // Loop through Gaussian points to do numerical integration.
@@ -234,17 +259,29 @@ void assemble_RHS(const long iElm, const long loopTime, femModel *model,
     wGp = w[iGp] * Ve;
 
     // Get sub-grid pressure at current Gauss Point
-    sgp = sgps[(iGp)*nElms + iElm];
+    sgp_gp = sgp[iGp];
 
     // Forcing and convective velocity at iGp.
     for (uint i = 0; i < 3; ++i){
 
       hah[iGp][i] = 0.0;
       fh[i] = 0.0;
+      // i-th velocity component at current Gauss point
+      u_gp_curr[i] = 0.0;
+      u_gp_prev[i] = 0.0;
+      // pressure at current Gauss point
+      p_gp_curr = 0.0;
+      p_gp_prev = 0.0;
 
       for (uint j = 0; j < 4; ++j){
         // From velocity predictor
         hah[iGp][i] += hdu[j][i] * lN[iGp][j];
+        // Current and previous velocities
+        u_gp_curr[i] += hdu[j][i] * lN[iGp][j];
+        u_gp_prev[i] += u_prev[j][i] * lN[iGp][j];
+        // Current and previous pressures
+        p_gp_curr = hp[j] * lN[iGp][j];
+        p_gp_prev = p_prev[j] * lN[iGp][j];
         // From nodal forcing
         fh[i] += f[j][i] * lN[iGp][j];
       }
@@ -279,6 +316,10 @@ void assemble_RHS(const long iElm, const long loopTime, femModel *model,
           
       // Assemble first 3 d.o.f.s.
       for (uint i = 0; i < 3; ++i){
+        // Acceleration term
+        u_acc_term[a][i] += wGp*((u_gp_curr[i] - u_gp_prev[i])/dt)*lN[iGp][a];
+        lRes[a][i] += wGp*((u_gp_curr[i] - u_gp_prev[i])/dt)*lN[iGp][a];
+
         // Diffusion Term
         for (uint j = 0; j < 3; ++j){
          u_diff_term[a][i] += wGp*nu*(gradHdu[i][j])*DN[j][a];
@@ -297,13 +338,17 @@ void assemble_RHS(const long iElm, const long loopTime, femModel *model,
         lRes[a][i] += - wGp*sdu[iGp][i]*ahDN;
 
         // SG pressure term
-        p_sg_mom_term[a][i] =  - wGp*sgp*DN[i][a];
-        lRes[a][i] += - wGp*sgp*DN[i][a];
+        p_sg_mom_term[a][i] = - wGp*sgp_gp*DN[i][a];
+        lRes[a][i] += - wGp*sgp_gp*DN[i][a];
 
         // Forcing Term
         u_forcing_term[a][i] += - wGp*fh[i]*lN[iGp][a];
         lRes[a][i] += - wGp*fh[i]*lN[iGp][a];
       }
+
+      // Assemble last d.o.f. for pressure.
+      p_acc_term[a] += wGp*((p_gp_curr - p_gp_prev)/dt)*lN[iGp][a];
+      lRes[a][3]    += wGp*((p_gp_curr - p_gp_prev)/dt)*lN[iGp][a];
 
       // Assemble last d.o.f. for pressure.
       p_grad_term[a] += wGp*trGradHdu*lN[iGp][a]*invEpsilon;
@@ -316,24 +361,30 @@ void assemble_RHS(const long iElm, const long loopTime, femModel *model,
 
   // Display residual components for current element
   // Compute the norm for vector quantities
-  // u_diff_norm      = femUtils::getMaxModule(u_diff_term, 4, 3);
-  // u_conv_norm      = femUtils::getMaxModule(u_conv_term, 4, 3);
-  // u_pressgrad_norm = femUtils::getMaxModule(u_pressgrad_term, 4, 3);
-  // u_conv_sg_norm   = femUtils::getMaxModule(u_conv_sg_term, 4, 3);
-  // u_forcing_norm   = femUtils::getMaxModule(u_forcing_term, 4, 3);
-  // p_grad_norm      = femUtils::getMaxModule(p_grad_term);
-  // p_sg_norm        = femUtils::getMaxModule(p_sg_term);
-
-  // if(loopTime > 2){
-  //   printf("%s %s %s %s %s %s %s\n","u_diff_norm","u_conv_norm","u_pressgrad_norm","u_conv_sg_norm","u_forcing_norm","p_grad_norm","p_sg_norm");
-  //   printf("%6.3e %6.3e %6.3e %6.3e %6.3e %6.3e %6.3e\n",u_diff_norm,
-  //                                                       u_conv_norm,
-  //                                                       u_pressgrad_norm,
-  //                                                       u_conv_sg_norm,
-  //                                                       u_forcing_norm,
-  //                                                       p_grad_norm,
-  //                                                       p_sg_norm);
-  // }
+  // MOMENTUM
+  // u_acc_norm      
+  maxNorms[0] = femUtils::getMaxModule(u_acc_term, 4, 3);
+  // u_diff_norm      
+  maxNorms[1] = femUtils::getMaxModule(u_diff_term, 4, 3);
+  // u_conv_norm      
+  maxNorms[2] = femUtils::getMaxModule(u_conv_term, 4, 3);
+  // u_pressgrad_norm 
+  maxNorms[3] = femUtils::getMaxModule(u_pressgrad_term, 4, 3);
+  // u_conv_sg_norm   
+  maxNorms[4] = femUtils::getMaxModule(u_conv_sg_term, 4, 3);
+  // u_conv_sg_norm   
+  maxNorms[5] = femUtils::getMaxModule(u_conv_sg_term, 4, 3);
+  // p_sg_mom_norm    
+  maxNorms[6] = femUtils::getMaxModule(p_sg_mom_term, 4, 3);
+  // u_forcing_norm   
+  maxNorms[7] = femUtils::getMaxModule(u_forcing_term, 4, 3);
+  // CONTINUITY
+  // p_acc_norm
+  maxNorms[8] = femUtils::getMaxModule(p_acc_term);
+  // p_grad_norm      
+  maxNorms[9] = femUtils::getMaxModule(p_grad_term);
+  // p_sg_norm        
+  maxNorms[10] = femUtils::getMaxModule(p_sg_term);
 
   // Assemble to global RHS.
   for (uint a = 0; a < 4; ++a){
@@ -348,19 +399,20 @@ void assemble_RHS(const long iElm, const long loopTime, femModel *model,
  * projRHS: (4*4*NElms, 1) global RHS of projection calculation, needs sync
  * sdus: (4, 3, nElms) velocity subscales evaluated at integration point of each element
  */
-void assemble_projRes(const long iElm, 
-                      const femModel *model,
-                      const femDoubleVec& volumes, 
-                      const femDoubleVec& DNs,
-                      const femDoubleMat& sol_n, 
-                      const femDoubleMat& sol_prev, 
-                      const femDoubleVec& char_length, 
-                      const femDoubleVec& params, 
-                      // return
-                      femDoubleVec& elmTaus, 
-                      femDoubleVec& sdus, 
-                      femDoubleVec& sgps,
-                      femDoubleVec& projRHS){
+void assemble_projRes_explicit(bool proj_res_at_nodes,
+                               const long iElm,
+                               const femModel *model,
+                               const femDoubleVec& volumes, 
+                               const femDoubleVec& DNs,
+                               const femDoubleMat& sol_n, 
+                               const femDoubleMat& sol_prev, 
+                               const femDoubleVec& char_length, 
+                               const femDoubleVec& params, 
+                               // return
+                              femDoubleVec& elmTaus, 
+                              femDoubleVec& sdus, 
+                              femDoubleVec& sgps,
+                              femDoubleVec& projRHS){
 
   long nodeIds[4];
   double Ve;
@@ -384,6 +436,7 @@ void assemble_projRes(const long iElm,
   double proj_den[4][4];
   double maxA = 0.0;
   double tau_u = 0.0;
+  double tau_p = 0.0;
 
   // parameters
   double nu = params[1]/params[0];
@@ -498,6 +551,7 @@ void assemble_projRes(const long iElm,
         proj_den[a][i] += wGp*lN[iGp][a];
       }
       // Assemble the degree of freedom for the pressure
+      // CHECK!!!
       projL[a][3] += wGp*(invEps * divu)*lN[iGp][a];
       proj_den[a][3] += wGp*lN[iGp][a];
     }
@@ -505,32 +559,38 @@ void assemble_projRes(const long iElm,
 
   // Assemble to global projection RHS.
   // Update the projection for pressure gradient component.
-  // NOT SURE I UNDERSTAND - WHY PRESSURE GRADIENT AT THE CENTROID!!!
   for (uint a = 0; a < 4; ++a){    
     for (uint i = 0; i < 4; ++i){
       // Added the Pressure degree of freedom
       // Element-based
-      projRHS[(a*4+i)*nElms+iElm] += projL[a][i]/proj_den[a][i];
+      if(proj_res_at_nodes){
+        projRHS[nodeIds[a]*4+i] += projL[a][i]/proj_den[a][i];
+      }else{
+        projRHS[(a*4+i)*nElms+iElm] += projL[a][i]/proj_den[a][i];
+      }
     }
   }
 
   // Calculate the elemental tau value.
   tau_u = 1.0/(c1*nu/(insDiameter*insDiameter) + c2*maxA/insDiameter);
+  tau_p = (insDiameter*insDiameter)/(c1*tau_u);
   elmTaus[0*nElms + iElm] = 1.0/(1.0/dt + 1.0/tau_u);
-  elmTaus[1*nElms + iElm] = (insDiameter*insDiameter)/tau_u;
+  elmTaus[1*nElms + iElm] = 1.0/(1.0/dt + 1.0/tau_p);
+  // elmTaus[1*nElms + iElm] = tau_p;
 }
 
 /* 
 Update the velocity subscale.
 */
-  void update_subscales(bool include_sg_p,
-                        const long iElm, 
-                        const femModel *model,
-                        const femDoubleVec& elmTaus,                        
-                        const femDoubleVec& projRHS, 
-                        // returns
-                        femDoubleVec& sdus,
-                        femDoubleVec& sgps){
+  void update_subscales_explicit(bool include_sg_p,
+                                 bool proj_res_at_nodes,
+                                 const long iElm, 
+                                 const femModel *model,
+                                 const femDoubleVec& elmTaus,                        
+                                 const femDoubleVec& projRHS, 
+                                 // returns
+                                 femDoubleVec& sdus,
+                                 femDoubleVec& sgps){
 
   long nodeIds[4];
   double projL[4][4];
@@ -547,7 +607,11 @@ Update the velocity subscale.
 
     // Reading projection values at vertices - include pressure
     for (uint j = 0; j < 4; ++j){
-      projL[i][j] = projRHS[(i*4+j)*nElms+iElm];
+      if(proj_res_at_nodes){
+        projL[i][j] = projRHS[nodeIds[i]*4+j];
+      }else{
+        projL[i][j] = projRHS[(i*4+j)*nElms+iElm];
+      }
     }
   }
 
@@ -559,7 +623,6 @@ Update the velocity subscale.
               + projL[3][i]*lN[iGp][3];
           
       sdus[(iGp*3+i)*nElms+iElm] = (sdus[(iGp*3+i)*nElms+iElm] + projIGp)*tau1;
-
     }
     projIGp = projL[0][3]*lN[iGp][0] \
             + projL[1][3]*lN[iGp][1] \
@@ -625,13 +688,144 @@ void apply_linear_outletBC(const long nNodes,
   duP[2*nNodes+outletIndices[idx]] = 2.0 * sndExValue - exValue;
 }
 
+void eval_centroid_residuals(ulint iElm, femModel* model,
+                             const femDoubleMat& residual,
+                             femDoubleMat& el_u_res,
+                             femDoubleVec& el_p_res){
+  ulint curr_node = 0;
+  for(ulint loopA=0;loopA<4;loopA++){
+    curr_node = model->elementList[iElm]->elementConnections[loopA];
+    for(ulint loopB=0;loopB<3;loopB++){
+      el_u_res[iElm][loopB] += residual[curr_node][loopB]*0.25;
+    }
+    el_p_res[iElm] += residual[curr_node][3]*0.25;
+  }
+}
+
+void eval_centroid_subgrid(ulint iElm,
+                           const femDoubleMat& sdu,
+                           const femDoubleVec& sgp,
+                           femDoubleMat& el_u_sdus,
+                           femDoubleVec& el_p_sdus){
+  for(ulint loopA=0;loopA<4;loopA++){
+    for(ulint loopB=0;loopB<3;loopB++){
+      el_u_sdus[iElm][loopB] += sdu[loopA][loopB]*0.25;
+    }
+    el_p_sdus[iElm] += sgp[loopA]*0.25;
+  }
+}
+
+void update_solution(femModel* model,
+                     const femDoubleMat& sol_tau,
+                     femDoubleMat& sol_n,
+                     femDoubleMat& sol_prev){
+
+  ulint totNodes = model->nodeList.size();
+  femDoubleMat sol_temp;
+  femUtils::matZeros(sol_temp,totNodes,4);
+  // STORE CURRENT SOLUTION
+  for(ulint i=0;i<totNodes;i++){
+    for(ulint j=0;j<4;j++){
+      sol_temp[i][j] = sol_n[i][j];
+    }      
+  }
+  // UPDATE SOLUTIONS
+  for(ulint i=0;i<totNodes;i++){
+    for(ulint j=0;j<4;j++){
+      sol_n[i][j]  = sol_tau[i][j];
+    }      
+  }
+  // UPDATE PREVIOUS SOLUTION
+  for(ulint i=0;i<totNodes;i++){
+    for(ulint j=0;j<model->maxNodeDofs;j++){
+      sol_prev[i][j] = sol_temp[i][j];
+    }
+  }
+}
+
+void update_dual_solution(femModel* model,
+                          const femDoubleMat& residual,
+                          const femDoubleVec& nd_mass,
+                          const femDoubleMat& sol_n,
+                          femDoubleMat& sol_tau){
+
+  ulint totNodes = model->nodeList.size();
+  // UPDATE SOLUTIONS
+  for(ulint i=0;i<totNodes;i++){
+    for(ulint j=0;j<4;j++){
+      sol_tau[i][j] = sol_n[i][j] - model->dual_step * residual[i][j] / nd_mass[i];
+    }      
+  }
+}
+
+void eval_residual_norms(ulint totElements,
+                         const femDoubleMat& el_u_res,
+                         const femDoubleVec& el_p_res,
+                         double& el_u_res_norm,
+                         double& el_p_res_norm){
+  double curr_u_res = 0.0;
+  el_u_res_norm = 0.0;
+  el_p_res_norm = 0.0;
+  for(ulint loopElement=0;loopElement<totElements;loopElement++){
+    curr_u_res = sqrt(el_u_res[loopElement][0]*el_u_res[loopElement][0] 
+                    + el_u_res[loopElement][1]*el_u_res[loopElement][1] 
+                    + el_u_res[loopElement][2]*el_u_res[loopElement][2]);
+    if(curr_u_res > el_u_res_norm){
+      el_u_res_norm = curr_u_res;
+    }
+    if(fabs(el_p_res[loopElement]) > el_p_res_norm){
+      el_p_res_norm = fabs(el_p_res[loopElement]);
+    }
+  }
+}
+
+void update_norms(const femDoubleVec& curr_norms,
+                  femDoubleVec& norms){
+  for(ulint i=0;i<curr_norms.size();i++){
+    if(curr_norms[i] > norms[i]){
+      norms[i] = curr_norms[i];
+    }
+  }
+}
+
+void eval_nodal_residual_norms(const femDoubleMat& residual,
+                               const femDoubleVec& nd_mass,
+                               double& u_res_node,
+                               double& p_res_node){
+  u_res_node = 0.0;
+  p_res_node = 0.0;                                
+  double u_norm = 0.0;
+  double p_norm = 0.0;
+  double den = 0.0;
+  for(ulint i=0;i<residual.size();i++){
+    // den = nd_mass[i];
+    den = 1.0;
+    u_norm = sqrt((residual[i][0]/den)*(residual[i][0]/den)
+                + (residual[i][1]/den)*(residual[i][1]/den)
+                + (residual[i][2]/den)*(residual[i][2]/den));
+    p_norm = fabs(residual[i][3]/den);
+    if(u_norm > u_res_node){
+      u_res_node = u_norm;
+    }
+    if(p_norm > p_res_node){
+      p_res_node = p_norm;
+    }
+  }
+}
+
 // ===================
 // EXPLICIT VMS SOLVER
 // ===================
-void femGPUFluidSolver::solve(femModel* model){
+void femVMSExplicitFluidSolver::solve(femModel* model){
 
   // HARDCODED OPTIONS
-  bool include_sg_p = true;
+  // include sub-grid pressure
+  bool include_sg_p = false;
+  // assemble projected residual at nodes instead of 
+  // keeping it separate at the elements
+  bool proj_res_at_nodes = false;
+  // implicit or explicit sub-grid velocity/pressure updates
+  bool use_explicit_sg_update = true;
 
   // SET UP INITIAL CONDITIONS
   double currentTime = 0.0;
@@ -641,12 +835,15 @@ void femGPUFluidSolver::solve(femModel* model){
   long totElements = model->elementList.size();
 
   // Declare main variables - Set to zero
+  // Main solution at t_n+1
   femDoubleMat sol_n;
   femUtils::matZeros(sol_n,totNodes,model->maxNodeDofs);
+  // Dual solution at t_n+1
+  femDoubleMat sol_tau;
+  femUtils::matZeros(sol_tau,totNodes,model->maxNodeDofs);
+  // Previous soluton at t_n
   femDoubleMat sol_prev;
   femUtils::matZeros(sol_prev,totNodes,model->maxNodeDofs);
-  femDoubleMat sol_incr;
-  femUtils::matZeros(sol_incr,totNodes,model->maxNodeDofs);  
   // ELEMENT-BASED RESIDUAL VECTOR
   femDoubleMat rhs;
   femUtils::matZeros(rhs,totNodes,4);
@@ -712,7 +909,7 @@ void femGPUFluidSolver::solve(femModel* model){
   femDoubleMat globShDeriv;
   double curr_vol;
   for(uint loopElement=0;loopElement<totElements;loopElement++){
-    // volumes/DNs checked OK
+    // volumes/DNs
     initial_assemble(loopElement, model,
                      char_length,volumes,DNs,nd_mass);
   }
@@ -731,6 +928,7 @@ void femGPUFluidSolver::solve(femModel* model){
   femUtils::matZeros(ha,4,3);
   femDoubleMat sdu;
   femUtils::matZeros(sdu,4,3);
+  femDoubleVec sgp(4,0.0);
   // Viscosity
   double nu = model->vmsProps[1]/model->vmsProps[0];
   // characteristic length
@@ -739,8 +937,15 @@ void femGPUFluidSolver::solve(femModel* model){
   double c1 = model->vmsProps[3];
   double c2 = model->vmsProps[4];
   femDoubleVec elmTaus(totElements*2,0.0);
-  // Projected residual - Element-based - Considers velocities and pressures
-  femDoubleVec projRHS(totElements*4*4);
+  // PROJECTED RESIDUAL
+  femDoubleVec projRHS;
+  if(proj_res_at_nodes){
+    // Node-based projected residual
+    projRHS.resize(totNodes*4);
+  }else{
+    // Element-based projected residual
+    projRHS.resize(totElements*4*4);
+  }
   // Store element velocity and pressure residual at element centroid
   femDoubleMat el_u_res;
   femUtils::matZeros(el_u_res,totElements,3);
@@ -751,7 +956,7 @@ void femGPUFluidSolver::solve(femModel* model){
   // Store subgid velocity at element centroid
   femDoubleMat el_u_sdus;
   femUtils::matZeros(el_u_sdus,totElements,3);
-  double curr_u_res = 0.0;
+  femDoubleVec el_p_sdus(totElements,0.0);
   long int curr_node = 0;
   femIntVec conns;  
   double curr_cfl = 0.0;
@@ -763,6 +968,16 @@ void femGPUFluidSolver::solve(femModel* model){
   femDoubleVec sol;
   double curr_sum = 0.0;
 
+  int loopTau = 0;
+  bool tau_converged = false;
+
+  // Store element norms
+  femDoubleVec maxNorms(11,0.0);
+  femDoubleVec elNorms(11,0.0);
+
+  double u_res_node = 0.0;
+  double p_res_node = 0.0;
+
   // =========
   // TIME LOOP
   // =========
@@ -771,151 +986,184 @@ void femGPUFluidSolver::solve(femModel* model){
     // Update current time
     currentTime += model->timeStep;
 
-    for(ulint i=0;i<totNodes;i++){
-      for(ulint j=0;j<4;j++){
-        rhs[i][j] = 0.0;
-      }      
-    }
+    // =========
+    // DUAL LOOP
+    // =========
+    loopTau = 0;
+    tau_converged = false;
+    while(!tau_converged){
 
-    for(ulint loopB=0;loopB<projRHS.size();loopB++){
-      projRHS[loopB] = 0.0;
-    }
-    
-    // INITIALIZE ELEMENT RESIDUALS FOR PLOTTING
-    for(ulint loopA=0;loopA<totElements;loopA++){
-      el_p_res[loopA] = 0.0;
-      for(ulint loopB=0;loopB<3;loopB++){
-        el_u_res[loopA][loopB] = 0.0;
-        el_u_sdus[loopA][loopB] = 0.0;
+      // Increment dual step
+      loopTau++;
+
+      // INIT RESIDUAL AND PROJECTED RESIDUAL
+      for(ulint i=0;i<totNodes;i++){
+        for(ulint j=0;j<4;j++){
+          rhs[i][j] = 0.0;
+        }      
       }
-    }
-
-    // Element Loop
-    for(ulint loopElement=0;loopElement<totElements;loopElement++){
-
-      // ASSEMLE ELEMENT RESIDUAL
-      assemble_RHS(loopElement,loopTime,model,
-                   volumes,DNs,
-                   sol_n,sol_prev,
-                   // Sub-grid velocities and pressures at all elements and Gauss points
-                   sdus,sgps,
-                   model->vmsProps,
-                   // returns
-                   // Local element-based Subgrid velocity at Gauss points
-                   sdu,
-                   // Local element-based convective velocity at Gauss points
-                   ha,
-                   // Element-based nodal residual
-                   rhs);     
-
-      // COMPUTE RESIDUALS AT ELEMENT CENTROID
-      for(ulint loopA=0;loopA<4;loopA++){
-        curr_node = model->elementList[loopElement]->elementConnections[loopA];
-        for(ulint loopB=0;loopB<3;loopB++){
-          el_u_res[loopElement][loopB] += rhs[curr_node][loopB]*0.25;
-        }
-        el_p_res[loopElement] += rhs[curr_node][3]*0.25;
-      }
-
-      // COMPUTE SUBGRID VELOCITY AT ELEMENT CENTROID - SDU computed at Gauss Points!!!
-      for(ulint loopA=0;loopA<4;loopA++){
-        for(ulint loopB=0;loopB<3;loopB++){
-          el_u_sdus[loopElement][loopB] += sdu[loopA][loopB]*0.25;
-        }
+      for(ulint loopB=0;loopB<projRHS.size();loopB++){
+        projRHS[loopB] = 0.0;
       }
       
-      // Compute Projected Residual
-      assemble_projRes(loopElement,model,
-                       volumes,DNs,
-                       sol_n,sol_prev, 
-                       char_length, model->vmsProps,
-                       // return
-                       // Element stabilization coefficients
-                       elmTaus, 
-                       // Updated Subgrid scale with residual subtracted
-                       sdus, 
-                       // Updated Subgrid pressure with residual subtracted
-                       sgps,
-                       // Projected residual
-                       projRHS);
-
-      // Update Subgrid scale velocity
-      update_subscales(include_sg_p,
-                       loopElement, 
-                       model,
-                       elmTaus,
-                       projRHS, 
-                       // returns
-                       sdus,
-                       sgps);
-
-    } // End of Element loop
-
-    for(ulint i=0;i<totNodes;i++){
-      for(ulint j=0;j<4;j++){
-        sol_n[i][j]  = sol_prev[i][j] - model->timeStep * rhs[i][j] / nd_mass[i];
-      }      
-    }
-
-    // COMPUTE MAX RESIDUAL NORMS
-    el_u_res_norm = 0.0;
-    el_p_res_norm = 0.0;
-    for(ulint loopElement=0;loopElement<totElements;loopElement++){
-      curr_u_res = sqrt(el_u_res[loopElement][0]*el_u_res[loopElement][0] 
-                      + el_u_res[loopElement][1]*el_u_res[loopElement][1] 
-                      + el_u_res[loopElement][2]*el_u_res[loopElement][2]);
-      if(curr_u_res > el_u_res_norm){
-        el_u_res_norm = curr_u_res;
+      // INITIALIZE ELEMENT RESIDUALS FOR PLOTTING
+      for(ulint loopA=0;loopA<totElements;loopA++){
+        el_p_res[loopA] = 0.0;
+        el_p_sdus[loopA] = 0.0;
+        for(ulint loopB=0;loopB<3;loopB++){
+          el_u_res[loopA][loopB] = 0.0;
+          el_u_sdus[loopA][loopB] = 0.0;
+        }
       }
-      if(fabs(el_p_res[loopElement]) > el_p_res_norm){
-        el_p_res_norm = fabs(el_p_res[loopElement]);
-      }
-    }
 
-    // APPLY INLET VELOCITIES
-    model->setNodeVelocity(currentTime,sol_n);
-    // APPLY OUTLET BC
-    apply_zeroTraction(model,sol_n);
+      // Element Loop - Assembling residual
+      for(ulint loopElement=0;loopElement<totElements;loopElement++){
+
+        // ASSEMLE ELEMENT RESIDUAL
+        assemble_RHS(loopElement,loopTime,model,
+                    volumes,DNs,
+                    sol_tau,sol_n,
+                    // Sub-grid velocities and pressures at all elements and Gauss points
+                    sdus,sgps,
+                    model->vmsProps,
+                    // returns
+                    // Local element-based Subgrid velocity and pressure at Gauss points
+                    sdu,sgp,
+                    // Local element-based convective velocity at Gauss points
+                    ha,
+                    // Element-based nodal residual
+                    rhs,
+                    maxNorms);
+
+        update_norms(maxNorms,elNorms);
+
+        // COMPUTE RESIDUALS AT ELEMENT CENTROID
+        eval_centroid_residuals(loopElement,model,rhs,
+                                // Returns
+                                el_u_res,el_p_res);
+
+        // COMPUTE SUBGRID VELOCITY AT ELEMENT CENTROID - SDU are stored at Gauss Points
+        eval_centroid_subgrid(loopElement,sdu,sgp,
+                              el_u_sdus,el_p_sdus);
+      }
+
+      if(!use_explicit_sg_update){
+        // UPDATE SOLUTION HERE FOR IMPLICIT ALGORITHM
+        update_dual_solution(model,
+                             rhs,nd_mass,
+                             sol_n,
+                             // Return
+                             sol_tau);
+      }
+
+      // Element Loop - Assembling projected residual
+      for(ulint loopElement=0;loopElement<totElements;loopElement++){
+
+        assemble_projRes_explicit(proj_res_at_nodes,
+                                  loopElement,model,
+                                  volumes,DNs,
+                                  sol_tau,sol_n, 
+                                  char_length, model->vmsProps,
+                                  // return
+                                  // Element stabilization coefficients
+                                  elmTaus, 
+                                  // Updated Subgrid scale with residual subtracted
+                                  sdus, 
+                                  // Updated Subgrid pressure with residual subtracted
+                                  sgps,
+                                  // Projected residual
+                                  projRHS);
+      }
+
+      // TEST - UPDATE SUBGRID AFTER ASSEMBLING PROJECTED RESIDUAL AT NODES!!!!
+      for(ulint loopElement=0;loopElement<totElements;loopElement++){    
+          // Update Subgrid scale velocity
+          update_subscales_explicit(include_sg_p,
+                                    proj_res_at_nodes,
+                                    loopElement, 
+                                    model,
+                                    elmTaus,
+                                    projRHS, 
+                                    // returns
+                                    sdus,
+                                    sgps);
+      }
+
+      if(use_explicit_sg_update){
+        // UPDATE SOLUTION HERE FOR EXPLICIT ALGORITHM
+        update_dual_solution(model,
+                             rhs,nd_mass,
+                             sol_n,
+                             // Return
+                             sol_tau);
+      }
+
+      // COMPUTE MAX RESIDUAL NORMS
+      eval_residual_norms(totElements, 
+                          el_u_res,el_p_res,
+                          el_u_res_norm,el_p_res_norm);
+
+      // COMPUTE MAX RESIDUAL NORMS - FROM NODES
+      eval_nodal_residual_norms(rhs,nd_mass,
+                                u_res_node,p_res_node);
+
+      // APPLY INLET VELOCITIES
+      model->setNodeVelocity(currentTime,sol_tau);
+      // APPLY OUTLET BC
+      apply_zeroTraction(model,sol_tau);
+      
+      // APPLY OUTLET BC - NO OUTLET BC FOR NOW
+      // apply_outletBC(nNodes,nOutlet,
+      //                 outletIndices, outletNghbrNodeIds, 
+      //                 const double *outletNghbrsNs, const double *preDuP, 
+      //                 double *duP);
+
+      // apply_linear_outletBC(nNodes,
+      //                       nOutlet, outletIndices,
+      //                       outletNghbrNodeIds, outletNghbrsNs, 
+      //                       outletNeiNghbrNodeIds, outletNeiNghbrsNs, 
+      //                       preDuP, duP);
+
+      // SET DIRICHLET BC
+      model->setDirichletBC(sol_tau);
+
+      // GET CFL
+      // WRITE CFL MESSAGE
+      // Get maximum velocity 
+      double max_ini_el_u = 0.0;
+      for(uint loopNode=0;loopNode<totNodes;loopNode++){
+        if(sqrt(sol_n[loopNode][0]*sol_n[loopNode][0] + sol_n[loopNode][1]*sol_n[loopNode][1] + sol_n[loopNode][2]*sol_n[loopNode][2]) > max_ini_el_u){
+          max_ini_el_u = sqrt(sol_n[loopNode][0]*sol_n[loopNode][0] + sol_n[loopNode][1]*sol_n[loopNode][1] + sol_n[loopNode][2]*sol_n[loopNode][2]);
+        }
+      }
+      curr_cfl = max_ini_el_u*model->timeStep/min_el_h;
+
+      // WRITE MESSAGES
+      if(loopTime == 0){
+        printf("--- STARTING TIME LOOP\n");
+        printf("%9s %20s %20s %20s %10s\n","ITERATION","TIME [s]","MAX RES NORM U","MAX RES NORM P","CFL");
+      }
+      printf("%d.%d %20.8f %20.3e %20.3e %10.3f\n",loopTime,loopTau,currentTime,el_u_res_norm,el_p_res_norm,curr_cfl);
+      // Print Nodal Norms
+      printf("Nodal Norms: %.3e %.3e\n",u_res_node,p_res_node);
+      // Print Element Norms
+      printf("Element Norms: ");
+      for(int i=0;i<elNorms.size();i++){
+        printf("%.3e ",elNorms[i]);
+      }
+      printf("\n");
+      
+
+      // Check convergence for tau step
+      tau_converged = (loopTau > model->tot_dual_steps);
     
-    // APPLY OUTLET BC - NO OUTLET BC FOR NOW
-    // apply_outletBC(nNodes,nOutlet,
-    //                 outletIndices, outletNghbrNodeIds, 
-    //                 const double *outletNghbrsNs, const double *preDuP, 
-    //                 double *duP);
+    } // End of dual time step
 
-    // apply_linear_outletBC(nNodes,
-    //                       nOutlet, outletIndices,
-    //                       outletNghbrNodeIds, outletNghbrsNs, 
-    //                       outletNeiNghbrNodeIds, outletNeiNghbrsNs, 
-    //                       preDuP, duP);
-
-    // SET DIRICHLET BC
-    model->setDirichletBC(sol_n);
-
-    // GET CFL
-    // WRITE CFL MESSAGE
-    // Get maximum velocity 
-    double max_ini_el_u = 0.0;
-    for(uint loopNode=0;loopNode<totNodes;loopNode++){
-      if(sqrt(sol_n[loopNode][0]*sol_n[loopNode][0] + sol_n[loopNode][1]*sol_n[loopNode][1] + sol_n[loopNode][2]*sol_n[loopNode][2]) > max_ini_el_u){
-        max_ini_el_u = sqrt(sol_n[loopNode][0]*sol_n[loopNode][0] + sol_n[loopNode][1]*sol_n[loopNode][1] + sol_n[loopNode][2]*sol_n[loopNode][2]);
-      }
-    }
-    curr_cfl = max_ini_el_u*model->timeStep/min_el_h;
-
-    // WRITE MESSAGES
-    if(loopTime == 0){
-      printf("--- STARTING TIME LOOP\n");
-      printf("%9s %20s %20s %20s %10s\n","TIME LOOP","TIME [s]","MAX RES NORM U","MAX RES NORM P","CFL");
-    }
-    printf("%9d %20.8f %20.3e %20.3e %10.3f\n",loopTime,currentTime,el_u_res_norm,el_p_res_norm,curr_cfl);
-
-    // Update previous solution
-    for(ulint loopNode=0;loopNode<totNodes;loopNode++){
-      for(ulint loopDof=0;loopDof<model->maxNodeDofs;loopDof++){
-        sol_prev[loopNode][loopDof] = sol_n[loopNode][loopDof];
-      }
-    }
+    // UPDATE SOLUTION
+    update_solution(model,
+                    sol_tau,
+                    // Return
+                    sol_n,sol_prev);
 
     // SAVE RESULTS
     if(saveCounter == model->saveEvery){      
@@ -923,6 +1171,7 @@ void femGPUFluidSolver::solve(femModel* model){
       saveCounter = 0;
       // Reset result list
       model->resultList.clear();
+
       // SAVE VELOCITY
       res = new femResult();
       res->label = string("velocity");
@@ -937,6 +1186,7 @@ void femGPUFluidSolver::solve(femModel* model){
         res->values.push_back(temp);
       }
       model->resultList.push_back(res);
+
       // SAVE PRESSURE
       res = new femResult();
       res->label = string("pressure");
@@ -964,6 +1214,7 @@ void femGPUFluidSolver::solve(femModel* model){
         res->values.push_back(temp);
       }
       model->resultList.push_back(res);
+
       // SAVE PRESSURE RESIDUAL 
       res = new femResult();
       res->label = string("res_p");
@@ -976,6 +1227,7 @@ void femGPUFluidSolver::solve(femModel* model){
         res->values.push_back(temp);
       }
       model->resultList.push_back(res);
+
       // SAVE SUBGRID VELOCITY
       res = new femResult();
       res->label = string("subgrid_u");
@@ -990,6 +1242,20 @@ void femGPUFluidSolver::solve(femModel* model){
         res->values.push_back(temp);
       }
       model->resultList.push_back(res);
+
+      // SAVE SUBGRID PRESSURE
+      res = new femResult();
+      res->label = string("subgrid_p");
+      res->type = frElement;
+      res->numComponents = 1;
+      // Assign to values
+      for(size_t loopA=0;loopA<totElements;loopA++){
+        temp.clear();
+        temp.push_back(el_p_sdus[loopA]);
+        res->values.push_back(temp);
+      }
+      model->resultList.push_back(res);
+
       // EXPORT MODEL
       model->ExportToVTKLegacy(string("out_Step_" + femUtils::intToStr(loopTime) + ".vtk"),false);
     }

@@ -67,6 +67,9 @@ class femModel{
     double alphaM;
     double alphaF;
     double gamma;
+    // Dual time stepping
+    double dual_step;
+    int tot_dual_steps;
     // Solution Stages
     femIntVec solStages;
     // Use Prescribed Velocities
