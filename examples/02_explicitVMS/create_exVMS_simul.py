@@ -76,9 +76,10 @@ def write_problem(out_file_name):
   # Problem Type
   f.write('PROBLEM EXPLICITVMS\n')
   # Nodal DOFs
-  f.write('NODEDOF 4\n')  
+  f.write('NODEDOF 4\n')
   # Timestep
-  f.write('TIMESTEP 0.001 3000 100\n')
+  f.write('TIMESTEP 0.01 5000 10\n')
+  f.write('DUALSTEP 1.0e-3 0\n')
   f.close()
 
 def write_nd(nodes,out_file_name):
@@ -126,7 +127,7 @@ def write_outlet(outlet_nodes,out_file_name):
 def write_prop(out_file_name):
  f = open(out_file_name,"a")
  # density, viscosity, epsilon^-1, c1, c2
- f.write('VMSPROPS 1.06 0.04 2000.0 4.0 2.0\n')
+ f.write('VMSPROPS 1.06 0.04 400.0 4.0 2.0\n')
  f.close()
  
 # =========
