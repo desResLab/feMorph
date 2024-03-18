@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <iostream>
 #include <boost/lexical_cast.hpp>
 
 #include "femModel.h"
@@ -9,9 +10,10 @@
 #include "femProgramOptions.h"
 #include "femSolver.h"
 #include "femIncompressibleSolver.h"
-#include "femVMSExplicitFluidSolver.h"
+#include "femSUPGExplicitFluidSolver.h"
 #include "femFFDOptions.h"
 #include "femPointGrid.h"
+#include "femException.h"
 
 #ifdef USE_TRILINOS
 
@@ -29,8 +31,6 @@
 #include "Epetra_FECrsMatrix.h"
 
 #endif
-
-
 
 // ====================
 // Normal Model Running
@@ -782,7 +782,6 @@ int runFFD(femProgramOptions* options){
   return 0;
 }
 
-
 // =============================
 // SOLVE EXPLICIT NAVIER-STOCKES 
 // =============================
@@ -795,7 +794,8 @@ int solveExplicitNS(femProgramOptions* options){
   model->ReadFromFEMTextFile(options->inputFileName);
 
   // CREATE NEW STEADY STATE ADVECTION-DIFFUSION SOLVER
-  femVMSExplicitFluidSolver* exNS = new femVMSExplicitFluidSolver();
+  // femVMSExplicitFluidSolver* exNS = new femVMSExplicitFluidSolver();
+  femSUPGExplicitFluidSolver* exNS = new femSUPGExplicitFluidSolver();
 
   // SOLVE PROBLEM
   exNS->solve(model);
@@ -803,7 +803,6 @@ int solveExplicitNS(femProgramOptions* options){
   // Return
   return 0;
 }
-
 
 // ============
 // ============
@@ -872,7 +871,7 @@ int main(int argc, char **argv){
         val = solveExplicitNS(options);
         break;        
     }
-  }catch (std::exception& ex){
+  }catch(femException ex){
     femUtils::WriteMessage(std::string(ex.what()));
     femUtils::WriteMessage(std::string("\n"));
     femUtils::WriteMessage(std::string("Program Terminated.\n"));

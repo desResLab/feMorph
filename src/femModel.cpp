@@ -3771,9 +3771,24 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
   double vms_c1 = 0.0;
   double vms_c2 = 0.0;
 
+  // Explicit solver options
+  bool ex_opts_use_euler  = true;
+  bool ex_opts_use_B_hat  = true;
+  bool ex_opts_include_K1 = true;
+  bool ex_opts_include_K2 = true;
+  bool ex_opts_include_K3 = true;
+  bool ex_opts_include_K4 = true;
+
+  // Exit condition for the solver
+  double exit_cond = 0.0;
+
   // Read Data From File
   std::string buffer;
+  ulint line_count = 0;
   while (std::getline(infile,buffer)){
+    // Increment line_count
+    line_count++;
+    // printf("Reading line %ld\n",line_count);
     // Trim String
     boost::trim(buffer);
     // Tokenize String
@@ -3988,6 +4003,25 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
       try{
         // Read total Number of DOFs for this problem
         maxNodeDofs = atoi(tokenizedString[1].c_str());
+        // Read Global Fixed DOFs
+        if(tokenizedString.size() > 2){            
+            boost::trim(tokenizedString[2]);
+            glob_fixed_dofs = boost::to_upper_copy(tokenizedString[2]);
+
+            printf("%s\n",glob_fixed_dofs.c_str());
+
+            if((glob_fixed_dofs != string("NONE")) &&
+               (glob_fixed_dofs != string("X"))    &&
+               (glob_fixed_dofs != string("Y"))    &&
+               (glob_fixed_dofs != string("Z"))    &&
+               (glob_fixed_dofs != string("XY"))   &&
+               (glob_fixed_dofs != string("YZ"))   &&
+               (glob_fixed_dofs != string("XZ"))){
+              
+              throw femException("ERROR: Invalid GLOBAL FIXED DOFs String.\n");
+            }
+        }
+
       }catch(...){
         throw femException("ERROR: Invalid NODEDOF Option Format.\n");
       }
@@ -4006,6 +4040,23 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
         }else{
           throw femException("ERROR: Invalid PROBLEM Type.\n");
         }
+
+    }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("OUTPUT")){
+        // Output file
+        boost::trim(tokenizedString[1]);
+        sol_file_prefix = tokenizedString[1];
+        if((sol_file_prefix == string(""))||(sol_file_prefix == string(" "))){
+          throw femException("ERROR: Invalid solution file prefix.\n");
+        }          
+
+    }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("LOGFILE")){
+        // Output file
+        boost::trim(tokenizedString[1]);
+        log_file = tokenizedString[1];
+        if((log_file == string(""))||(log_file == string(" "))){
+          throw femException("ERROR: Invalid log file name.\n");
+        }          
+
     }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("TIMESTEP")){
       try{
         // Read Time Step
@@ -4058,7 +4109,7 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
     }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("INI")){
       try{
         // Read Node Number
-        currentNodeNumber = atoi(tokenizedString[1].c_str()) -1;
+        currentNodeNumber = atoi(tokenizedString[1].c_str()) - 1;
         // Read degree of freedom for initial condition
         currDof = atoi(tokenizedString[2].c_str());
         // Read Value of initial conditions
@@ -4070,10 +4121,21 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
       iniNodeNumbers.push_back(currentNodeNumber);
       iniDofNumber.push_back(currDof);
       iniDofValue.push_back(dofValue);
+
+    // EXIT CONDITION FOR SOLVER
+    }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("EXITCOND")){
+      try{
+        // Read Node Number
+        exit_cond = atof(tokenizedString[1].c_str());
+      }catch(...){
+        throw femException("ERROR: Invalid EXITCOND Format.\n");
+      }
+      exit_condition = exit_cond;
+
     }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("VMSPROPS")){
       try{
         // Read Node Number
-        vmsDensity = atof(tokenizedString[1].c_str()) -1;
+        vmsDensity = atof(tokenizedString[1].c_str());
         // Read degree of freedom for initial condition
         vmsViscosity = atof(tokenizedString[2].c_str());
         // Inverse Artifical Compressibility
@@ -4085,12 +4147,32 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
         throw femException("ERROR: Invalid VMSPROPS Format.\n");
       }
       // Add to storage vectors
-      vmsProps.clear();
       vmsProps.push_back(vmsDensity);
       vmsProps.push_back(vmsViscosity);
       vmsProps.push_back(vmsInvEps);
       vmsProps.push_back(vms_c1);
       vmsProps.push_back(vms_c2);
+    // Options for explicit solver
+    }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("EXOPTS")){
+      try{
+        // GET SOLVER OPTIONS
+        ex_opts_use_euler  = (atoi(tokenizedString[1].c_str()) != 0);
+        ex_opts_use_B_hat  = (atoi(tokenizedString[2].c_str()) != 0);
+        ex_opts_include_K1 = (atoi(tokenizedString[3].c_str()) != 0);
+        ex_opts_include_K2 = (atoi(tokenizedString[4].c_str()) != 0);
+        ex_opts_include_K3 = (atoi(tokenizedString[5].c_str()) != 0);
+        ex_opts_include_K4 = (atoi(tokenizedString[6].c_str()) != 0);
+      }catch(...){
+        throw femException("ERROR: Invalid EXOPTS Format.\n");
+      }
+      // Add to storage vectors
+      exOpts.push_back(ex_opts_use_euler);
+      exOpts.push_back(ex_opts_use_B_hat);
+      exOpts.push_back(ex_opts_include_K1);
+      exOpts.push_back(ex_opts_include_K2);
+      exOpts.push_back(ex_opts_include_K3);
+      exOpts.push_back(ex_opts_include_K4);
+    // Neumann condition on element faces
     }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("FACENEUMANN")){
         try{
           // Read Node Number
@@ -4487,14 +4569,16 @@ void femModel::setNodeVelocity(double currTime,femDoubleMat& sol){
   femDoubleVec curr_vel;
   femDoubleMat table;
   for(ulint loopA=0;loopA<velNodesID.size();loopA++){ 
-    curr_node = velNodesID[loopA];    
+    curr_node = velNodesID[loopA];        
     table = velNodesTimeVals[loopA];
     curr_vel = femUtils::interpTableData(currTime, table);
     // Assume the velocities are in the first three DoFs
     sol[curr_node][0] = curr_vel[0];
     sol[curr_node][1] = curr_vel[1];
     sol[curr_node][2] = curr_vel[2];
+    // printf("time: %f, current Node: %d, vx: %f, vy: %f, vz: %f\n",currTime,curr_node,curr_vel[0],curr_vel[1],curr_vel[2]);
   }
+  // getchar();
 }
 
 void femModel::setDirichletBC(femDoubleMat& sol){

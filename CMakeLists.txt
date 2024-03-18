@@ -3,10 +3,10 @@ PROJECT(feMorph)
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
 
 # ADD OPTIONS
-OPTION(useMPI "useMPI" ON)
+OPTION(useMPI "useMPI" OFF)
 OPTION(useCSparse "useCSparse" OFF)
-OPTION(useTrilinos "useTrilinos" ON)
-OPTION(useArmadillo "useArmadillo" OFF)
+OPTION(useTrilinos "useTrilinos" OFF)
+OPTION(useArmadillo "useArmadillo" ON)
 
 # SET MUTUALLY EXCLUSIVE SOLVERS
 IF(useTrilinos)
@@ -51,5 +51,5 @@ endif()
 ADD_SUBDIRECTORY("./src/")
 
 # ADD COMPILER FLAGS
-ADD_DEFINITIONS("-O0 -Wall -fsanitize=bounds")
+ADD_DEFINITIONS("-O3 -Wall -fsanitize=bounds")
 

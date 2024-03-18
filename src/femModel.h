@@ -42,6 +42,8 @@ class femModel{
     femDoubleVec elDensity;
     // Properties for explicit VMS Solver
     femDoubleVec vmsProps;
+    // Explicit Solver Options
+    femDoubleVec exOpts;
     // Element Viscosity
     femDoubleVec elViscosity;
     // Dirichelet BC Array
@@ -81,6 +83,10 @@ class femModel{
     femDoubleVec iniDofValue;
     // Problem Type
     problemTypes problemType;
+    // Exit Condition
+    double exit_condition;
+    // Globally Fixed Dofs
+    string glob_fixed_dofs;
 
     // MPI Partitioning Information
     int totNodesInProc;
@@ -93,6 +99,12 @@ class femModel{
     double modelCentre[3];
     double weight1;
     double weight2;
+
+    // Prefix for solution file
+    string sol_file_prefix;
+
+    // Log file name
+    string log_file;
 
     // Constructor and Destructor
     femModel();

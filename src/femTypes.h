@@ -11,6 +11,9 @@ enum femResultType{frNode,frElement};
 // ENTITY DIMENSION
 enum elDim{d1,d2,d3};
 
+// ENTITY DIMENSION
+enum explicit_alg{eaForwardEuler,eaAdamsBashforth};
+
 // TYPE OF INTEGRATION RULES
 enum intRuleType{irFirstOrder,irSecondOrder};
 
