@@ -1,6 +1,7 @@
 import os
 import itertools
 from create_fem_file_re100 import create_simulation_input
+import shutil
 
 all_vals = [[1,2,3], # dt
             [1.0,10.0,100.0], # alpha
@@ -13,8 +14,8 @@ all_vals = [[1,2,3], # dt
 
 all_combos = list(itertools.product(*all_vals))
 
-# for loopA in range(len(all_combos)):
-for loopA in range(2):
+for loopA in range(len(all_combos)):
+# for loopA in range(2):
 
     params_dict = {}
     params_dict['dt']         = all_combos[loopA][0]
@@ -35,3 +36,10 @@ for loopA in range(2):
 
     # Create run file
     create_simulation_input(params_dict,out_fld)
+
+    # Copy run script
+    shutil.copy('run_simul_crc.sh', out_fld)
+
+    print('cd '+out_fld)
+    print('sh run_simul_crc.sh')
+    print('cd ..')
