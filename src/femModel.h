@@ -51,6 +51,7 @@ class femModel{
     vector<femDoubleVec> diricheletBCValues;
     // Node Velocity Array
     femIntVec velNodesID;
+    femIntVec velNodesDir;
     vector<femDoubleVec> velNodesVals;
     vector<femDoubleMat> velNodesTimeVals;
     // Zero Traction Boundary conditions

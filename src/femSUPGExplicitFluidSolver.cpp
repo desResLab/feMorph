@@ -8,7 +8,7 @@ void write_log_header(string file_name){
     // Append to file
     FILE* fptr = fopen(file_name.c_str(), "a");
     // Write some text to the file
-    fprintf(fptr, "%5s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s\n","IT",
+    fprintf(fptr, "%5s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s\n","IT",
                                                                                           "Time",
                                                                                           "min X","max X",
                                                                                           "min Y","max Y",
@@ -17,12 +17,13 @@ void write_log_header(string file_name){
                                                                                           "min lambda","max lambda",
                                                                                           "CFL v",
                                                                                           "CFL a",
+                                                                                          "CFL l",
                                                                                           "E_min","E_max",
                                                                                           "nu_min","nu_max");
     // Close the file
     fclose(fptr); 
     // Write to screen
-    printf("%5s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s\n","IT",
+    printf("%5s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s %10s\n","IT",
                                                                                           "Time",
                                                                                           "min X","max X",
                                                                                           "min Y","max Y",
@@ -31,10 +32,10 @@ void write_log_header(string file_name){
                                                                                           "min lamda","max lamda",
                                                                                           "CFL v",
                                                                                           "CFL a",
+                                                                                          "CFL l",
                                                                                           "E_min","E_max",
                                                                                           "nu_min","nu_max");
 }
-
 
 // ASSEMBLE IN GLOBAL STIFFNESS MATRIX
 void assemble_in_glob(femModel* model, const int loopElement, const femDoubleMat& K_mat,femDoubleMat& glob_K){
@@ -382,8 +383,8 @@ void eval_bulk_modulus(const femDoubleVec& u_gp,
                         double rho, double mu, double alpha, 
                         double dt,
                         const femDoubleMat& elGeomMat,
-                        double l_X,double l_Y,double l_Z,
-                        double& lam){
+                        double& lam,
+                        double& regime){
 
     femDoubleMat invG;
     femUtils::matZeros(invG,3,3);
@@ -428,7 +429,15 @@ void eval_bulk_modulus(const femDoubleVec& u_gp,
 
     // Compute the resulting alpha
     // lam = alpha * rho * max(limit_1,max(limit_2,limit_3));
-    lam = alpha * rho * max(limit_1,limit_2);
+    // lam = alpha * rho * max(limit_1,limit_2);
+    lam = alpha * max(limit_1,limit_2);
+    // printf("limit1: %f, limit2: %f\n",limit_1,limit_2);
+    // getchar();
+    if(limit_1 > limit_2){
+      regime = 1;
+    }else{
+      regime = 2;
+    }
 }
 
 // ===============================
@@ -740,6 +749,45 @@ void get_el_lengths(femModel* model,int curr_el,double& len_X,double& len_Y,doub
   len_Z = max_Z - min_Z;
 }
 
+// ==================================
+// GET ELEMENT CHARACTERISTIC LENGTHS
+// ==================================
+
+void get_el_lengths_from_G(const femDoubleVec& u_gp, 
+                           const femDoubleMat& elGeomMat,
+                           double& el_len){
+
+    femDoubleMat invG;
+    femUtils::matZeros(invG,3,3);
+    double detJ = 0.0;
+    femDoubleVec invGu(3,0.0);
+    femDoubleVec u_one(3,0.0);
+
+    // Compute inverse of geometric matrix
+    femUtils::invert3x3Matrix(elGeomMat,invG,detJ);
+
+    // Compute the velocity norm
+    double u_norm = femUtils::DoEucNorm(u_gp);
+    u_one[0] = u_gp[0]/u_norm;
+    u_one[1] = u_gp[1]/u_norm;
+    u_one[2] = u_gp[2]/u_norm;
+
+    // Multiply by the inverse
+    for(int loopA=0;loopA<3;loopA++){
+      invGu[loopA] = 0.0;
+      for(int loopB=0;loopB<3;loopB++){
+        invGu[loopA] += invG[loopA][loopB] * u_one[loopB];
+      }
+    }
+
+    // Re-multiply by the velocity
+    el_len = 0.0;
+    for(int loopA=0;loopA<3;loopA++){
+      el_len += invGu[loopA] * u_one[loopA];
+    }
+    el_len = 2.0*sqrt(el_len);
+
+}
 // ===================
 // EXPLICIT VMS SOLVER
 // ===================
@@ -755,6 +803,7 @@ void femSUPGExplicitFluidSolver::solve(femModel* model){
 
   // USE CONSTANT LAM EQUAL TO ALPHA
   bool use_constant_lamda = false;
+  bool include_K1_plus = false;
 
   // GET LIMIT ON 
   double max_allowed_vel = model->exit_condition;
@@ -834,11 +883,14 @@ void femSUPGExplicitFluidSolver::solve(femModel* model){
 
   // MEAN VALUE OF THE BULK MODULUS OVER THE ELEMENTS
   femDoubleVec el_lam(totElements,0.0);
+  femDoubleVec el_regime(totElements,0.0);
 
-  // SET WALL BOUNDARY CONDITIONS
-  model->setDirichletBC(sol_p);
+  // FOR LDC - WALLS ARE COMPLETELY ZERO VEL
+  // WITH THIS ORDER
   // SET INITIAL INFLOW VELOCITIES
   model->setNodeVelocity(currentTime,sol_p);  
+  // SET WALL BOUNDARY CONDITIONS
+  model->setDirichletBC(sol_p);
 
   // POST-PROCESS PRESSURE
   compute_pressure(model,el_lam,sol_p,pres_n);
@@ -878,6 +930,8 @@ void femSUPGExplicitFluidSolver::solve(femModel* model){
 
   femDoubleMat K1_mat;
   femUtils::matZeros(K1_mat,8*3,8*3);
+  femDoubleMat K1_plus_mat;
+  femUtils::matZeros(K1_plus_mat,8*3,8*3);
   femDoubleMat K2_mat;
   femUtils::matZeros(K2_mat,8*3,8*3);
   femDoubleMat K3_mat;
@@ -929,28 +983,26 @@ void femSUPGExplicitFluidSolver::solve(femModel* model){
   double cfl_nu_min = 0.0;
   double cfl_nu_max = 0.0;
   // Element characteristic lengths
-  double el_len_X = 0.0;
-  double el_len_Y = 0.0;
-  double el_len_Z = 0.0;
+  double el_len = 0.0;
   // Viscous CFL
-  double v_CFL_X = 0.0;
-  double v_CFL_Y = 0.0;
-  double v_CFL_Z = 0.0;
   double v_CFL = 0.0;
   // Advective CFL
-  double a_CFL_X = 0.0;
-  double a_CFL_Y = 0.0;
-  double a_CFL_Z = 0.0;
   double a_CFL = 0.0;
+  // Lambda-based CFL
+  double l_CFL = 0.0;
   // Maximum adv and visc CFL
   double v_CFL_max = 0.0;
   double a_CFL_max = 0.0;
+  double l_CFL_max = 0.0;
   // Maximum structural CFL
   double el_cfl_E = 0.0;
   double el_cfl_nu = 0.0;
   // Max and min K matrix norms
   double min_K_norm = 0.0;
   double max_K_norm = 0.0;
+  // Init regime
+  double gp_regime = 0.0;
+  double div_u_gp = 0.0;
 
   // ==============================================
   // PRELIMIANRY ASSEMBLY OF THE LUMPED BUBNOV MASS
@@ -1010,6 +1062,7 @@ void femSUPGExplicitFluidSolver::solve(femModel* model){
         }else{
             el_lam[loopA] = 0.0;
         }
+        el_regime[loopA] = 0.0;
     }
 
     // Init max and min stabilization coefficient 
@@ -1065,22 +1118,11 @@ void femSUPGExplicitFluidSolver::solve(femModel* model){
           C_mat[loopA][loopB] = 0.0;
           // Contributions
           K1_mat[loopA][loopB] = 0.0;
+          K1_plus_mat[loopA][loopB] = 0.0;
           K2_mat[loopA][loopB] = 0.0;
           K3_mat[loopA][loopB] = 0.0;
           K4_mat[loopA][loopB] = 0.0;
         }
-      }
-
-      // GET CHARACTERISTIC LENGTHS IN X,Y,Z FOR CURRENT ELEMENT
-      get_el_lengths(model,loopElement,el_len_X,el_len_Y,el_len_Z);
-
-      //COMPUTE THE VISCOUS CFL
-      v_CFL_X = 2.0*(mu/rho)*(model->timeStep/(el_len_X*el_len_X));
-      v_CFL_Y = 2.0*(mu/rho)*(model->timeStep/(el_len_Y*el_len_Y));
-      v_CFL_Z = 2.0*(mu/rho)*(model->timeStep/(el_len_Z*el_len_Z));
-      v_CFL   = sqrt(v_CFL_X*v_CFL_X + v_CFL_Y*v_CFL_Y + v_CFL_Z*v_CFL_Z);
-      if(v_CFL > v_CFL_max){
-        v_CFL_max = v_CFL;
       }
 
       // COMPUTE AVERAGE B MATRIX
@@ -1120,19 +1162,18 @@ void femSUPGExplicitFluidSolver::solve(femModel* model){
 
         // printf("Velocity at Gauss point %d, %f %f %f\n",igp,u_gp[0],u_gp[1],u_gp[2]);
 
-        // Compute advective CFL at current Gauss point
-        a_CFL_X = fabs(u_gp[0]*model->timeStep)/(el_len_X);
-        a_CFL_Y = fabs(u_gp[1]*model->timeStep)/(el_len_Y);
-        a_CFL_Z = fabs(u_gp[2]*model->timeStep)/(el_len_Z);
-        a_CFL   = sqrt(a_CFL_X*a_CFL_X + a_CFL_Y*a_CFL_Y + a_CFL_Z*a_CFL_Z);
-        if(a_CFL > a_CFL_max){
-          a_CFL_max = a_CFL;
-        }
-
         // Eval Current Shape Derivatives Matrix
         model->elementList[loopElement]->evalGlobalShapeFunctionDerivative(model->nodeList,
                                                                            gps[igp][0],gps[igp][1],gps[igp][2],
                                                                            detJ,shapeDeriv);
+
+        // Eval divergence of the velocity at current Gauss point
+        div_u_gp = 0.0;
+        for(ulint loopA=0;loopA<tot_el_nodes;loopA++){
+          div_u_gp += shapeDeriv[loopA][0]*el_sol_p[loopA*3 + 0] +
+                      shapeDeriv[loopA][1]*el_sol_p[loopA*3 + 1] + 
+                      shapeDeriv[loopA][2]*el_sol_p[loopA*3 + 2];
+        }
 
         //femUtils::printMatrix(shapeDeriv);
         //getchar();
@@ -1145,6 +1186,21 @@ void femSUPGExplicitFluidSolver::solve(femModel* model){
         model->elementList[loopElement]->evalGeometricMatrix(model->nodeList,
                                                              gps[igp][0],gps[igp][1],gps[igp][2],
                                                              elGeomMat);
+
+        // GET CHARACTERISTIC LENGTHS IN X,Y,Z FOR CURRENT ELEMENT
+        get_el_lengths_from_G(u_gp,elGeomMat,el_len);
+
+        // Compute advective CFL at current Gauss point
+        a_CFL   = fabs(u_gp[0]*model->timeStep)/(el_len);
+        if(a_CFL > a_CFL_max){
+          a_CFL_max = a_CFL;
+        }
+
+        //COMPUTE THE VISCOUS CFL
+        v_CFL = 2.0*(mu/rho)*(model->timeStep/(el_len*el_len));
+        if(v_CFL > v_CFL_max){
+          v_CFL_max = v_CFL;
+        }
 
         // femUtils::printMatrix(elGeomMat);
         // getchar();
@@ -1163,8 +1219,7 @@ void femSUPGExplicitFluidSolver::solve(femModel* model){
         // COMPUTE LOCAL BULK MODULUS
         if(!use_constant_lamda){
             eval_bulk_modulus(u_gp,rho,mu,alpha,model->timeStep,elGeomMat,
-                              el_len_X,el_len_Y,el_len_Z,
-                              gp_lam);
+                              gp_lam,gp_regime);
         }else{
             gp_lam = el_lam[loopElement];
         }
@@ -1176,6 +1231,15 @@ void femSUPGExplicitFluidSolver::solve(femModel* model){
         }
         // Add Integral of lam over the current element
         el_lam[loopElement] += gp_lam * detJ * gpw[igp];
+
+        // Add local regime to element array
+        el_regime[loopElement] += gp_regime;
+
+        //COMPUTE NEW CFL
+        l_CFL = 2.0*(gp_lam)*(model->timeStep/(el_len*el_len));
+        if(l_CFL > l_CFL_max){
+          l_CFL_max = l_CFL;
+        }
 
         //printf("%e %e\n",tau_SUPG,nu_C);
         //getchar();
@@ -1266,12 +1330,21 @@ void femSUPGExplicitFluidSolver::solve(femModel* model){
             // STIFFNESS MATRIX
             // ================
 
-            // BUBNOV STIFFNESS
+            // BUBNOV STIFFNESS - CONVECTION FIRST TERM
             temp_1 = 0.0;
             for(ulint loopC=0;loopC<3;loopC++){
               temp_1 += rho * L_mat[loopC][loopA] * US_mat[loopC][loopB] * detJ * gpw[igp];
             }
             K1_mat[loopA][loopB] += temp_1;
+
+            // BUBNOV STIFFNESS - SECOND TERM FOR DIVERGENCE DIFFERENT FROM ZERO
+            temp_1 = 0.0;
+            for(ulint loopC=0;loopC<3;loopC++){
+              if(div_u_gp > 0.0){
+                temp_1 += rho * L_mat[loopC][loopA] * div_u_gp * L_mat[loopC][loopB] * detJ * gpw[igp];
+              }
+            }
+            K1_plus_mat[loopA][loopB] += temp_1;
 
             // INCOMPRESSIBLE ELASTIC-TYPE STIFFNESS
             temp_1 = 0.0;
@@ -1311,6 +1384,11 @@ void femSUPGExplicitFluidSolver::solve(femModel* model){
                 // BUBNOV CONVECTION
                 K_mat[loopA][loopB] += K1_mat[loopA][loopB];
               }
+              if(include_K1_plus){
+                // BUBNOV CONVECTION
+                K_mat[loopA][loopB] += K1_plus_mat[loopA][loopB];
+              }
+
               if(include_K2){
                 // DIFFUSION BDB
                 K_mat[loopA][loopB] += K2_mat[loopA][loopB];
@@ -1363,6 +1441,10 @@ void femSUPGExplicitFluidSolver::solve(femModel* model){
 
       // Normalize the integral of lam over the element
       el_lam[loopElement] = (el_lam[loopElement]/el_volume);
+
+      // Add local regime to element array
+      el_regime[loopElement] = el_regime[loopElement]/rule->getTotGP(tot_el_nodes,d3);
+
 
       // COMPUTE THE STRUCTURAL EQUIVALENT E,nu FOR THE CURRENT ELEMENT
       el_cfl_E = (mu*(3*el_lam[loopElement] + 2*mu))/(el_lam[loopElement] + mu);
@@ -1431,10 +1513,12 @@ void femSUPGExplicitFluidSolver::solve(femModel* model){
       }
     }
 
-    // SET WALL BOUNDARY CONDITIONS
-    model->setDirichletBC(sol_n);
+    // FOR LDC - WALLS ARE COMPLETELY ZERO VEL
+    // WITH THIS ORDER
     // SET BOUNDARY CONDITIONS FOR SOL_N
     model->setNodeVelocity(currentTime,sol_n);
+    // SET WALL BOUNDARY CONDITIONS
+    model->setDirichletBC(sol_n);
 
     // POST-PROCESS PRESSURE
     compute_pressure(model,el_lam,sol_n,pres_n);
@@ -1514,7 +1598,7 @@ void femSUPGExplicitFluidSolver::solve(femModel* model){
                          min_vel_Z,max_vel_Z);
 
     // PRINT ITERATION MESSAGE
-    printf("%5ld %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3f %10.3f %10.3e %10.3e %10.3e %10.3e\n",loopTime,
+    printf("%5ld %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3f %10.3f %10.3f %10.3e %10.3e %10.3e %10.3e\n",loopTime,
                                                                                                   currentTime,
                                                                                                   min_vel_X,max_vel_X,
                                                                                                   min_vel_Y,max_vel_Y,
@@ -1523,13 +1607,14 @@ void femSUPGExplicitFluidSolver::solve(femModel* model){
                                                                                                   min_lam,max_lam,
                                                                                                   v_CFL_max,
                                                                                                   a_CFL_max,
+                                                                                                  l_CFL_max,
                                                                                                   cfl_E_min,cfl_E_max,
                                                                                                   cfl_nu_min,cfl_nu_max);
     fflush(stdout);
     FILE* fptr = fopen(model->log_file.c_str(), "a");
     
     // Write some text to the file
-    fprintf(fptr, "%5ld %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3f %10.3f %10.3e %10.3e %10.3e %10.3e\n",loopTime,
+    fprintf(fptr, "%5ld %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3f %10.3f %10.3f %10.3e %10.3e %10.3e %10.3e\n",loopTime,
                                                                                                   currentTime,
                                                                                                   min_vel_X,max_vel_X,
                                                                                                   min_vel_Y,max_vel_Y,
@@ -1538,6 +1623,7 @@ void femSUPGExplicitFluidSolver::solve(femModel* model){
                                                                                                   min_lam,max_lam,
                                                                                                   v_CFL_max,
                                                                                                   a_CFL_max,
+                                                                                                  l_CFL_max,
                                                                                                   cfl_E_min,cfl_E_max,
                                                                                                   cfl_nu_min,cfl_nu_max);
     // Close the file
@@ -1594,6 +1680,32 @@ void femSUPGExplicitFluidSolver::solve(femModel* model){
       for(size_t loopA=0;loopA<totElements;loopA++){
         res_temp.clear();
         res_temp.push_back(pres_n[loopA]);
+        res->values.push_back(res_temp);
+      }
+      model->resultList.push_back(res);
+
+      // SAVE LAMBDA
+      res = new femResult();
+      res->label = string("lambda");
+      res->type = frElement;
+      res->numComponents = 1;
+      // Assign to values
+      for(size_t loopA=0;loopA<totElements;loopA++){
+        res_temp.clear();
+        res_temp.push_back(el_lam[loopA]);
+        res->values.push_back(res_temp);
+      }
+      model->resultList.push_back(res);
+
+      // SAVE REGIME
+      res = new femResult();
+      res->label = string("regime");
+      res->type = frElement;
+      res->numComponents = 1;
+      // Assign to values
+      for(size_t loopA=0;loopA<totElements;loopA++){
+        res_temp.clear();
+        res_temp.push_back(el_regime[loopA]);
         res->values.push_back(res_temp);
       }
       model->resultList.push_back(res);

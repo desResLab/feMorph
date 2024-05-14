@@ -3744,6 +3744,7 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
   double velY = 0.0;
   double velZ = 0.0;
   double veltime = 0.0;
+  double veldir = 0.0;
   double currVelX = 0.0;
   double currVelY = 0.0;
   double currVelZ = 0.0;
@@ -3962,6 +3963,13 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
         velZ = atof(tokenizedString[4].c_str());
         // Read Node Velocity Time
         veltime = atof(tokenizedString[5].c_str());
+        if(tokenizedString.size() > 6){
+          // Integer for direction
+          // 0 to 6 where 0=X, 1=Y, 2=Z, 3=XY, 4=YZ, 5=XZ, 6=XYZ
+          veldir = atof(tokenizedString[6].c_str());
+        }else{
+          veldir = 6.0;
+        }
       }catch(...){
         throw femException("ERROR: Invalid NODEVEL Format.\n");
       }
@@ -3972,6 +3980,7 @@ void femModel::ReadFromFEMTextFile(std::string fileName){
       temp.push_back(velY);
       temp.push_back(velZ);
       temp.push_back(veltime);
+      temp.push_back(veldir);
       velNodesVals.push_back(temp);
 
     }else if(boost::to_upper_copy(tokenizedString[0]) == std::string("NODEPRES")){
@@ -4544,7 +4553,8 @@ void femModel::postProcessNodeVelocities(){
   }
 
   int curr_node = 0;
-  int currID = 0;
+  int currID    = 0;
+  double veldir = 0.0;
   femIntVec compactVelID;
   femDoubleVec temp;
   femUtils::MakeCompactList(velNodesID, compactVelID);
@@ -4552,7 +4562,12 @@ void femModel::postProcessNodeVelocities(){
   // Loop through the nodes
   for(ulint loopA=0;loopA<velNodesID.size();loopA++){
     curr_node = velNodesID[loopA];
-    temp = velNodesVals[loopA];
+    temp.clear();
+    for(ulint loopB=0;loopB<4;loopB++){
+      temp.push_back(velNodesVals[loopA][loopB]);
+    }
+    // Add direction
+    velNodesDir.push_back(int(velNodesVals[loopA][4]));
     currID = femUtils::findVectorInverseMapping(curr_node, compactVelID);
     velNodesTimeVals[currID].push_back(temp);
   }
@@ -4566,19 +4581,55 @@ void femModel::postProcessNodeVelocities(){
 void femModel::setNodeVelocity(double currTime,femDoubleMat& sol){
   // Loop over the nodes with prescribed velocities
   int curr_node = 0;
+  int veldir = 0;
   femDoubleVec curr_vel;
   femDoubleMat table;
   for(ulint loopA=0;loopA<velNodesID.size();loopA++){ 
     curr_node = velNodesID[loopA];        
     table = velNodesTimeVals[loopA];
+    veldir = velNodesDir[loopA];
     curr_vel = femUtils::interpTableData(currTime, table);
-    // Assume the velocities are in the first three DoFs
-    sol[curr_node][0] = curr_vel[0];
-    sol[curr_node][1] = curr_vel[1];
-    sol[curr_node][2] = curr_vel[2];
-    // printf("time: %f, current Node: %d, vx: %f, vy: %f, vz: %f\n",currTime,curr_node,curr_vel[0],curr_vel[1],curr_vel[2]);
+    // Apply velocity based on component
+    switch(veldir) {
+      case 0:
+        // X
+        sol[curr_node][0] = curr_vel[0];
+        break;
+      case 1:
+        // Y
+        sol[curr_node][1] = curr_vel[1];
+        break;
+      case 2:
+        // Z
+        sol[curr_node][2] = curr_vel[2];
+        break;
+      case 3:
+        // XY
+        sol[curr_node][0] = curr_vel[0];
+        sol[curr_node][1] = curr_vel[1];
+        break;
+      case 4:
+        // YZ
+        sol[curr_node][1] = curr_vel[1];
+        sol[curr_node][2] = curr_vel[2];
+        break;
+      case 5:
+        // XZ
+        sol[curr_node][0] = curr_vel[0];
+        sol[curr_node][2] = curr_vel[2];
+        break;
+      case 6:
+        // XYZ
+        sol[curr_node][0] = curr_vel[0];
+        sol[curr_node][1] = curr_vel[1];
+        sol[curr_node][2] = curr_vel[2];
+        break;
+
+      default:
+        // code block
+        throw femException("ERROR: Invalid direction for node velocities.\n");
+    }    
   }
-  // getchar();
 }
 
 void femModel::setDirichletBC(femDoubleMat& sol){
